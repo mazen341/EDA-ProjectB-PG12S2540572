@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -15,7 +16,15 @@ STUDENT_ID_DEFAULT = "PG12S2540572"
 DEFAULT_DATA_PATH = "data/dataset_sample.csv"
 DEFAULT_TIMESTAMP_COL = "timestamp"
 DEFAULT_TARGET_COL = "total_active_power_w"
-OPENROUTER_MODEL = "openai/gpt-oss-20b:free"
+
+# Multiple free models to try as fallbacks when one is rate-limited
+OPENROUTER_MODELS = [
+    "openai/gpt-oss-20b:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "google/gemini-2.0-flash-exp:free",
+    "deepseek/deepseek-chat-v3-0324:free",
+    "qwen/qwen-2.5-72b-instruct:free",
+]
 
 AI_GRADER_PROMPT_TEMPLATE = """# Exact AI Grading Prompt (Hardcode inside app.py)
 
@@ -238,25 +247,132 @@ def parse_grader_response(raw_text):
     return None, "No JSON object found in model response."
 
 
-def call_openrouter_grader(api_key, prompt):
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": OPENROUTER_MODEL,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0,
-        },
-        timeout=60,
+def call_openrouter_grader(
+    api_key,
+    prompt,
+    model,
+    max_retries=4,
+    base_backoff=5,
+    status_callback=None,
+):
+    """
+    Call OpenRouter with retry logic for 429 (rate limit) and 5xx errors.
+
+    - Respects the `Retry-After` header when present.
+    - Uses exponential backoff (5s, 10s, 20s, 40s) otherwise.
+    - Surfaces the upstream error body so the cause is visible.
+    """
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        # OpenRouter recommends these for free-tier identification
+        "HTTP-Referer": "https://streamlit.io",
+        "X-Title": "Mini Project B Grader",
+    }
+    body = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0,
+    }
+
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.post(url, headers=headers, json=body, timeout=90)
+        except requests.RequestException as exc:
+            last_error = f"Network error on attempt {attempt}: {exc}"
+            if status_callback:
+                status_callback(last_error)
+            time.sleep(base_backoff * (2 ** (attempt - 1)))
+            continue
+
+        # Success
+        if response.status_code == 200:
+            payload = response.json()
+            try:
+                return payload["choices"][0]["message"]["content"]
+            except (KeyError, IndexError) as exc:
+                raise RuntimeError(
+                    f"Unexpected response shape from OpenRouter: {payload}"
+                ) from exc
+
+        # Rate limited — honor Retry-After if present, otherwise backoff
+        if response.status_code == 429:
+            retry_after = response.headers.get("Retry-After")
+            try:
+                wait_seconds = float(retry_after) if retry_after else base_backoff * (2 ** (attempt - 1))
+            except ValueError:
+                wait_seconds = base_backoff * (2 ** (attempt - 1))
+            # Cap waits to keep the UI responsive
+            wait_seconds = min(wait_seconds, 60)
+
+            try:
+                err_body = response.json()
+            except Exception:
+                err_body = response.text[:300]
+            last_error = (
+                f"429 Too Many Requests on `{model}` "
+                f"(attempt {attempt}/{max_retries}). "
+                f"Waiting {wait_seconds:.1f}s before retry. Details: {err_body}"
+            )
+            if status_callback:
+                status_callback(last_error)
+
+            if attempt < max_retries:
+                time.sleep(wait_seconds)
+                continue
+            raise RuntimeError(last_error)
+
+        # Transient server errors — backoff and retry
+        if 500 <= response.status_code < 600:
+            wait_seconds = base_backoff * (2 ** (attempt - 1))
+            try:
+                err_body = response.json()
+            except Exception:
+                err_body = response.text[:300]
+            last_error = (
+                f"{response.status_code} server error on `{model}` "
+                f"(attempt {attempt}/{max_retries}). "
+                f"Waiting {wait_seconds:.1f}s. Details: {err_body}"
+            )
+            if status_callback:
+                status_callback(last_error)
+            if attempt < max_retries:
+                time.sleep(wait_seconds)
+                continue
+            raise RuntimeError(last_error)
+
+        # Other client errors are not worth retrying
+        try:
+            err_body = response.json()
+        except Exception:
+            err_body = response.text[:500]
+        raise RuntimeError(
+            f"{response.status_code} error from OpenRouter on `{model}`: {err_body}"
+        )
+
+    raise RuntimeError(last_error or "AI grader call failed after retries.")
+
+
+def call_grader_with_model_fallback(api_key, prompt, models, status_callback=None):
+    """Try each model in order. If one fails after all its retries, move to the next."""
+    errors = []
+    for model in models:
+        if status_callback:
+            status_callback(f"Trying model: `{model}` ...")
+        try:
+            return call_openrouter_grader(
+                api_key, prompt, model, status_callback=status_callback
+            ), model
+        except Exception as exc:
+            errors.append(f"`{model}` → {exc}")
+            if status_callback:
+                status_callback(f"Falling back from `{model}`: {exc}")
+            continue
+    raise RuntimeError(
+        "All models failed. Errors:\n" + "\n".join(errors)
     )
-    response.raise_for_status()
-    payload = response.json()
-    return payload["choices"][0]["message"]["content"]
 
 
 st.title("Mini Project B — Time-Series Forecasting Starter")
@@ -493,7 +609,22 @@ with st.expander("Preview project_card.md", expanded=False):
     st.markdown(project_card)
 
 st.header("9) AI grader /80")
-st.caption(f"Model: {OPENROUTER_MODEL}")
+
+# Model selector with fallback option
+col_m1, col_m2 = st.columns([2, 1])
+with col_m1:
+    selected_model = st.selectbox(
+        "Primary model",
+        options=OPENROUTER_MODELS,
+        index=0,
+        help="Free models share rate limits. If one returns 429, try another.",
+    )
+with col_m2:
+    enable_fallback = st.checkbox(
+        "Auto-fallback to other free models",
+        value=True,
+        help="If the selected model is rate-limited after retries, try the others in the list.",
+    )
 
 api_key = get_openrouter_api_key()
 grader_prompt = AI_GRADER_PROMPT_TEMPLATE.replace(
@@ -504,13 +635,35 @@ grader_prompt = AI_GRADER_PROMPT_TEMPLATE.replace(
 with st.expander("Preview AI grader prompt", expanded=False):
     st.code(grader_prompt)
 
+st.caption(
+    "Note on 429 errors: OpenRouter's `:free` models share a small per-minute and "
+    "per-day quota across all users. If you hit the limit, wait ~60 seconds, switch "
+    "model, or add credits to your OpenRouter account for a paid model."
+)
+
 if st.button("Run AI grader"):
     if not api_key:
         st.error("Provide OPENROUTER_API_KEY using Streamlit Secrets, environment variable, or the password field.")
     else:
+        status_box = st.empty()
+        log_messages = []
+
+        def log_status(msg):
+            log_messages.append(msg)
+            status_box.info("\n\n".join(log_messages[-5:]))
+
+        # Build the model list: primary first, then the rest if fallback is on
+        if enable_fallback:
+            ordered_models = [selected_model] + [m for m in OPENROUTER_MODELS if m != selected_model]
+        else:
+            ordered_models = [selected_model]
+
         try:
-            with st.spinner("Calling AI grader..."):
-                raw_output = call_openrouter_grader(api_key, grader_prompt)
+            with st.spinner("Calling AI grader (with retries and fallbacks)..."):
+                raw_output, used_model = call_grader_with_model_fallback(
+                    api_key, grader_prompt, ordered_models, status_callback=log_status
+                )
+            st.success(f"Got response from `{used_model}`")
             parsed_output, parse_error = parse_grader_response(raw_output)
             if parsed_output is not None:
                 st.success("Parsed grader JSON")
@@ -520,6 +673,13 @@ if st.button("Run AI grader"):
                 st.code(raw_output)
         except Exception as exc:
             st.error(f"AI grader call failed: {exc}")
+            st.info(
+                "Suggestions:\n"
+                "1. Wait 60 seconds and try again — free-tier limits reset quickly.\n"
+                "2. Switch to a different free model in the dropdown above.\n"
+                "3. Add credits at https://openrouter.ai/credits and use a paid model "
+                "(e.g. `openai/gpt-4o-mini`) for reliable access."
+            )
 
 st.divider()
 st.caption("Starter stops before model training and scoring. Students must add forecasting models, metrics, dashboard evidence, and insights under the marked sections.")
