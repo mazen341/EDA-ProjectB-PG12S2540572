@@ -849,7 +849,6 @@ with st.sidebar:
     student_name = st.text_input("Student name", value=STUDENT_NAME_DEFAULT)
     student_id = st.text_input("Student ID", value=STUDENT_ID_DEFAULT)
     deployed_url = st.text_input("Deployed Streamlit app URL", value="")
-    repo_url = st.text_input("GitHub repo URL", value="")
     project_title = st.text_input("Project title", value="HKUST SQ1 PV Power Forecasting")
     project_goal = st.text_area(
         "Project goal",
