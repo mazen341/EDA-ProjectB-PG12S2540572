@@ -3,6 +3,7 @@ import os
 import re
 from pathlib import Path
 
+import streamlit.components.v1 as components
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -69,6 +70,487 @@ st.set_page_config(
     page_icon="📈",
     layout="wide",
 )
+
+
+
+PV_PHOTO_URL = "https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=1800&q=85"
+PV_CONTROL_ROOM_URL = "https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&w=1800&q=80"
+
+
+def inject_design_system():
+    """Premium website-like styling. Kept inside app.py so no extra assets are required."""
+    st.markdown(
+        f"""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        :root {{
+            --navy: #07172D;
+            --navy2: #0B2342;
+            --gold: #D6A84F;
+            --gold2: #F2D48B;
+            --emerald: #10B981;
+            --cyan: #38BDF8;
+            --ink: #DCEBFF;
+            --muted: #A7B7CC;
+            --card: rgba(8, 20, 39, 0.78);
+            --card2: rgba(255, 255, 255, 0.085);
+        }}
+
+        html, body, [data-testid="stAppViewContainer"] {{
+            font-family: 'Inter', sans-serif;
+            color: var(--ink);
+            background:
+                linear-gradient(135deg, rgba(4, 12, 26, 0.96), rgba(3, 22, 35, 0.91) 46%, rgba(6, 34, 28, 0.88)),
+                url('{PV_PHOTO_URL}') center center / cover fixed no-repeat;
+        }}
+
+        [data-testid="stHeader"] {{
+            background: rgba(4, 12, 26, 0.0);
+        }}
+
+        [data-testid="stSidebar"] > div:first-child {{
+            background:
+                linear-gradient(180deg, rgba(5, 16, 32, 0.96), rgba(4, 33, 39, 0.94)),
+                url('{PV_CONTROL_ROOM_URL}') center / cover no-repeat;
+            border-right: 1px solid rgba(214, 168, 79, 0.22);
+        }}
+
+        [data-testid="stSidebar"] * {{
+            color: #ECF5FF !important;
+        }}
+
+        .block-container {{
+            padding-top: 1.15rem;
+            padding-bottom: 3rem;
+            max-width: 1500px;
+        }}
+
+        h1, h2, h3 {{
+            letter-spacing: -0.03em;
+        }}
+
+        h1 {{
+            font-weight: 800;
+            color: #FFFFFF;
+        }}
+
+        h2, h3 {{
+            color: #F8FBFF;
+        }}
+
+        .app-hero {{
+            position: relative;
+            overflow: hidden;
+            border-radius: 30px;
+            padding: 34px 36px;
+            min-height: 310px;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(242, 212, 139, 0.27), transparent 24%),
+                radial-gradient(circle at 86% 28%, rgba(16, 185, 129, 0.22), transparent 26%),
+                linear-gradient(120deg, rgba(5, 15, 31, 0.94), rgba(7, 36, 55, 0.86)),
+                url('{PV_PHOTO_URL}') center / cover no-repeat;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+            margin-bottom: 20px;
+        }}
+
+        .app-hero:after {{
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px);
+            background-size: 44px 44px;
+            mask-image: linear-gradient(90deg, black, transparent 85%);
+            pointer-events: none;
+        }}
+
+        .hero-content {{
+            position: relative;
+            z-index: 1;
+            max-width: 920px;
+        }}
+
+        .eyebrow {{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border: 1px solid rgba(242, 212, 139, 0.35);
+            border-radius: 999px;
+            background: rgba(4, 12, 26, 0.58);
+            color: var(--gold2);
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }}
+
+        .hero-title {{
+            margin: 18px 0 8px 0;
+            font-size: clamp(2.1rem, 4.2vw, 4.6rem);
+            line-height: 0.96;
+            font-weight: 850;
+            color: white;
+            text-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+        }}
+
+        .hero-subtitle {{
+            max-width: 820px;
+            color: #C9D8EA;
+            font-size: 1.06rem;
+            line-height: 1.65;
+        }}
+
+        .hero-strip {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 22px;
+        }}
+
+        .hero-pill {{
+            padding: 10px 13px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.10);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: #F2F7FF;
+            backdrop-filter: blur(14px);
+            font-weight: 650;
+        }}
+
+        .flow-grid {{
+            display: grid;
+            grid-template-columns: repeat(6, minmax(120px, 1fr));
+            gap: 12px;
+            margin: 14px 0 24px;
+        }}
+
+        .flow-card {{
+            border-radius: 20px;
+            padding: 15px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.105), rgba(255,255,255,0.045));
+            border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 20px 45px rgba(0,0,0,0.24);
+        }}
+
+        .flow-num {{
+            font-weight: 850;
+            color: var(--gold2);
+            font-size: 0.9rem;
+        }}
+
+        .flow-title {{
+            font-weight: 800;
+            color: #FFFFFF;
+            margin-top: 5px;
+        }}
+
+        .flow-text {{
+            color: var(--muted);
+            font-size: 0.80rem;
+            line-height: 1.35;
+            margin-top: 4px;
+        }}
+
+        .glass-card {{
+            border-radius: 24px;
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(5, 16, 32, 0.76), rgba(5, 21, 35, 0.61));
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
+            margin-bottom: 14px;
+        }}
+
+        .metric-grid {{
+            display: grid;
+            grid-template-columns: repeat(4, minmax(160px, 1fr));
+            gap: 14px;
+            margin: 12px 0 22px;
+        }}
+
+        .vip-metric {{
+            border-radius: 22px;
+            padding: 16px 18px;
+            background: linear-gradient(145deg, rgba(255,255,255,0.11), rgba(255,255,255,0.045));
+            border: 1px solid rgba(255,255,255,0.16);
+        }}
+
+        .metric-label {{
+            color: #AEBFD3;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }}
+
+        .metric-value {{
+            color: #FFFFFF;
+            font-size: 1.65rem;
+            font-weight: 850;
+            margin-top: 5px;
+        }}
+
+        .metric-note {{
+            color: var(--gold2);
+            font-size: 0.82rem;
+            margin-top: 3px;
+            font-weight: 650;
+        }}
+
+        .status-live {{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 12px;
+            border-radius: 999px;
+            background: rgba(16, 185, 129, 0.14);
+            border: 1px solid rgba(16, 185, 129, 0.34);
+            color: #B8FFE3;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }}
+
+        .pulse-dot {{
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #34D399;
+            box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.85);
+            animation: pulse 1.6s infinite;
+        }}
+
+        @keyframes pulse {{
+            0% {{ box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.85); }}
+            70% {{ box-shadow: 0 0 0 12px rgba(52, 211, 153, 0); }}
+            100% {{ box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }}
+        }}
+
+        div[data-testid="stMetric"] {{
+            background: rgba(6, 18, 35, 0.62);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 18px;
+            padding: 12px 14px;
+            box-shadow: 0 14px 30px rgba(0,0,0,0.18);
+        }}
+
+        div[data-testid="stDataFrame"], div[data-testid="stTable"] {{
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.10);
+        }}
+
+        .stTabs [data-baseweb="tab-list"] {{
+            gap: 10px;
+            background: rgba(3, 12, 24, 0.40);
+            border-radius: 18px;
+            padding: 8px;
+        }}
+
+        .stTabs [data-baseweb="tab"] {{
+            border-radius: 14px;
+            color: #DDEAFF;
+            background: rgba(255, 255, 255, 0.06);
+            padding: 10px 16px;
+            font-weight: 750;
+        }}
+
+        .stTabs [aria-selected="true"] {{
+            background: linear-gradient(135deg, rgba(214, 168, 79, 0.28), rgba(16, 185, 129, 0.20));
+            border: 1px solid rgba(242, 212, 139, 0.28);
+        }}
+
+        @media (max-width: 1100px) {{
+            .flow-grid, .metric-grid {{ grid-template-columns: repeat(2, minmax(160px, 1fr)); }}
+        }}
+
+        @media (max-width: 700px) {{
+            .app-hero {{ padding: 24px; }}
+            .flow-grid, .metric-grid {{ grid-template-columns: 1fr; }}
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_hero(student_name, project_title):
+    st.markdown(
+        f"""
+        <div class="app-hero">
+          <div class="hero-content">
+            <div class="eyebrow">⚡ PV Forecasting Command Center · Mini Project B</div>
+            <div class="hero-title">{project_title}</div>
+            <div class="hero-subtitle">
+              A premium interactive web dashboard for cleaned time-series data, PV power forecasting,
+              model comparison, residual diagnostics, live plant simulation, export files, and AI grading evidence.
+            </div>
+            <div class="hero-strip">
+              <div class="hero-pill">👤 {student_name}</div>
+              <div class="hero-pill">☀️ Solar PV digital workflow</div>
+              <div class="hero-pill">🧠 ML forecasting lab</div>
+              <div class="hero-pill">📡 Live simulation active</div>
+              <div class="hero-pill">📦 Submission exports ready</div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_flow_steps():
+    steps = [
+        ("01", "Load", "Dataset path, preview, audit"),
+        ("02", "Clean", "Timestamp, target, quality checks"),
+        ("03", "Engineer", "Lag, rolling, time, weather features"),
+        ("04", "Forecast", "Chronological split and models"),
+        ("05", "Diagnose", "Residuals, error patterns, live KPIs"),
+        ("06", "Export", "JSON, project card, AI grading"),
+    ]
+    html = '<div class="flow-grid">'
+    for num, title, text in steps:
+        html += f'<div class="flow-card"><div class="flow-num">{num}</div><div class="flow-title">{title}</div><div class="flow-text">{text}</div></div>'
+    html += '</div>'
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def metric_card(label, value, note=""):
+    return f"""
+    <div class="vip-metric">
+      <div class="metric-label">{label}</div>
+      <div class="metric-value">{value}</div>
+      <div class="metric-note">{note}</div>
+    </div>
+    """
+
+
+def render_metric_grid(cards):
+    st.markdown('<div class="metric-grid">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
+
+
+def render_live_pv_simulation():
+    """Browser-side animated PV plant simulator. It stays alive without retraining models or rerunning Python."""
+    components.html(
+        f"""
+        <div class="sim-wrap">
+          <style>
+            .sim-wrap {{
+              font-family: Inter, Arial, sans-serif;
+              color: #EAF4FF;
+              background:
+                linear-gradient(135deg, rgba(4, 13, 29, .94), rgba(5, 36, 39, .88)),
+                url('{PV_PHOTO_URL}') center / cover no-repeat;
+              border: 1px solid rgba(255,255,255,.18);
+              border-radius: 26px;
+              padding: 22px;
+              box-shadow: 0 24px 60px rgba(0,0,0,.38);
+              overflow: hidden;
+            }}
+            .sim-top {{ display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }}
+            .sim-title {{ font-size:24px; font-weight:850; letter-spacing:-.03em; }}
+            .sim-sub {{ color:#B8C8DC; margin-top:4px; font-size:13px; }}
+            .live-badge {{ display:flex; align-items:center; gap:8px; background:rgba(16,185,129,.16); border:1px solid rgba(16,185,129,.45); border-radius:999px; padding:9px 13px; font-weight:800; color:#B8FFE3; }}
+            .dot {{ width:9px; height:9px; border-radius:50%; background:#34D399; animation:pulse 1.5s infinite; }}
+            @keyframes pulse {{ 0%{{box-shadow:0 0 0 0 rgba(52,211,153,.8)}} 70%{{box-shadow:0 0 0 12px rgba(52,211,153,0)}} 100%{{box-shadow:0 0 0 0 rgba(52,211,153,0)}} }}
+            .sim-grid {{ display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-top:18px; }}
+            .sim-card {{ background:rgba(255,255,255,.095); border:1px solid rgba(255,255,255,.16); border-radius:20px; padding:15px; backdrop-filter:blur(12px); }}
+            .sim-lab {{ color:#AFC0D4; font-size:12px; font-weight:750; text-transform:uppercase; letter-spacing:.08em; }}
+            .sim-val {{ font-size:28px; line-height:1.1; font-weight:900; color:#fff; margin-top:6px; }}
+            .sim-note {{ color:#F6D98B; font-size:12px; font-weight:700; margin-top:5px; }}
+            .plant {{ display:grid; grid-template-columns: 1.1fr 1fr; gap:16px; margin-top:16px; align-items:stretch; }}
+            .diagram {{ min-height:210px; border-radius:22px; background:rgba(2,10,22,.52); border:1px solid rgba(255,255,255,.13); padding:18px; position:relative; overflow:hidden; }}
+            .bus {{ height:10px; border-radius:99px; background:linear-gradient(90deg,#F2D48B,#22C55E,#38BDF8); margin:28px 8px; box-shadow:0 0 22px rgba(56,189,248,.35); }}
+            .nodes {{ display:flex; justify-content:space-between; gap:8px; position:relative; z-index:1; }}
+            .node {{ width:22%; min-height:86px; border-radius:18px; background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.05)); border:1px solid rgba(255,255,255,.18); display:flex; flex-direction:column; justify-content:center; text-align:center; font-weight:850; }}
+            .node span {{ font-size:12px; color:#B9CCE2; font-weight:700; margin-top:6px; }}
+            canvas {{ width:100%; height:210px; border-radius:22px; background:rgba(2,10,22,.52); border:1px solid rgba(255,255,255,.13); }}
+            @media(max-width:850px){{ .sim-grid{{grid-template-columns:repeat(2,1fr)}} .plant{{grid-template-columns:1fr}} }}
+          </style>
+          <div class="sim-top">
+            <div>
+              <div class="sim-title">Live PV Digital Twin Simulation</div>
+              <div class="sim-sub">Animated browser-side simulation: irradiance → inverter → grid export → residual risk. No rerun required.</div>
+            </div>
+            <div class="live-badge"><span class="dot"></span><span id="simStatus">LIVE RUNNING</span></div>
+          </div>
+          <div class="sim-grid">
+            <div class="sim-card"><div class="sim-lab">Irradiance</div><div class="sim-val"><span id="irr">--</span> W/m²</div><div class="sim-note">synthetic daylight signal</div></div>
+            <div class="sim-card"><div class="sim-lab">PV Output</div><div class="sim-val"><span id="pv">--</span> kW</div><div class="sim-note">array DC-side estimate</div></div>
+            <div class="sim-card"><div class="sim-lab">Grid Export</div><div class="sim-val"><span id="grid">--</span> kW</div><div class="sim-note">after inverter losses</div></div>
+            <div class="sim-card"><div class="sim-lab">Forecast Risk</div><div class="sim-val"><span id="risk">--</span>%</div><div class="sim-note">cloud/transient risk</div></div>
+          </div>
+          <div class="plant">
+            <div class="diagram">
+              <div class="nodes">
+                <div class="node">☀️<span>PV Field</span></div>
+                <div class="node">🔁<span>Inverter</span></div>
+                <div class="node">⚡<span>11 kV TX</span></div>
+                <div class="node">🏭<span>Grid PCC</span></div>
+              </div>
+              <div class="bus"></div>
+              <div style="color:#B9CCE2;font-size:13px;line-height:1.55;">
+                Live flow: weather signal drives PV production; inverter conversion feeds the grid; cloud noise raises residual risk.
+                This section remains animated while the rest of the app keeps full interactivity.
+              </div>
+            </div>
+            <canvas id="curve" width="700" height="260"></canvas>
+          </div>
+          <script>
+            const c = document.getElementById('curve');
+            const ctx = c.getContext('2d');
+            let t = 0;
+            const history = [];
+            function update() {{
+              t += 1;
+              const solar = Math.max(0, Math.sin((t % 120) / 120 * Math.PI));
+              const cloud = 0.82 + 0.16 * Math.sin(t / 7) + 0.07 * Math.sin(t / 2.7);
+              const irr = Math.max(0, Math.min(1060, 1020 * solar * cloud));
+              const pv = irr * 0.505 + 18 * Math.sin(t / 5);
+              const grid = Math.max(0, pv * 0.972);
+              const risk = Math.min(98, Math.max(4, Math.abs(1 - cloud) * 190 + 8 * Math.abs(Math.sin(t/4))));
+              document.getElementById('irr').textContent = irr.toFixed(0);
+              document.getElementById('pv').textContent = pv.toFixed(0);
+              document.getElementById('grid').textContent = grid.toFixed(0);
+              document.getElementById('risk').textContent = risk.toFixed(0);
+              history.push(grid);
+              if (history.length > 90) history.shift();
+              ctx.clearRect(0,0,c.width,c.height);
+              const grad = ctx.createLinearGradient(0,0,c.width,0);
+              grad.addColorStop(0,'#F2D48B'); grad.addColorStop(.55,'#22C55E'); grad.addColorStop(1,'#38BDF8');
+              ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1;
+              for(let y=35; y<c.height; y+=45){{ ctx.beginPath(); ctx.moveTo(30,y); ctx.lineTo(c.width-22,y); ctx.stroke(); }}
+              ctx.strokeStyle = grad; ctx.lineWidth = 4; ctx.beginPath();
+              history.forEach((v,i)=>{{
+                const x = 30 + i * ((c.width-60) / 89);
+                const y = c.height - 26 - (v / 540) * (c.height-60);
+                if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+              }});
+              ctx.stroke();
+              ctx.fillStyle = '#DCEBFF'; ctx.font = '700 14px Inter, Arial';
+              ctx.fillText('Live grid export trend (kW)', 30, 24);
+            }}
+            update();
+            setInterval(update, 900);
+          </script>
+        </div>
+        """,
+        height=520,
+    )
+
+
+def section_banner(title, subtitle, icon="⚡"):
+    st.markdown(
+        f"""
+        <div class="glass-card">
+          <div class="status-live"><span class="pulse-dot"></span>{icon} {title}</div>
+          <div style="color:#B8C8DC; line-height:1.55;">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def safe_json_dumps(obj):
@@ -359,11 +841,11 @@ def call_openrouter_grader(api_key, prompt):
     return payload["choices"][0]["message"]["content"]
 
 
-st.title("Mini Project B — Time-Series Forecasting Starter")
-st.caption("This starter prepares the dataset, baseline feature table, exports, and AI grader. Students add forecasting models and dashboard improvements.")
+inject_design_system()
 
 with st.sidebar:
     st.header("1) Student information")
+    st.caption("Premium PV forecasting website dashboard")
     student_name = st.text_input("Student name", value=STUDENT_NAME_DEFAULT)
     student_id = st.text_input("Student ID", value=STUDENT_ID_DEFAULT)
     deployed_url = st.text_input("Deployed Streamlit app URL", value="")
@@ -374,6 +856,12 @@ with st.sidebar:
         value="Forecast inverter total active AC power from a cleaned time-series dataset using time-aware baseline features.",
         height=100,
     )
+    st.markdown("---")
+    st.caption("Website flow: Load → Clean → Engineer → Forecast → Diagnose → Export")
+
+render_hero(student_name, project_title)
+render_flow_steps()
+render_live_pv_simulation()
 
 st.header("2) Load local dataset")
 data_path = st.text_input("Dataset path", value=DEFAULT_DATA_PATH)
@@ -384,7 +872,14 @@ except Exception as exc:
     st.error(f"Could not load dataset from {data_path}: {exc}")
     st.stop()
 
+section_banner("Dataset Gateway", "Load the local project dataset, inspect the structure, and keep the full pipeline transparent before modeling.", "📂")
 st.success(f"Loaded dataset with {len(df):,} rows and {len(df.columns):,} columns.")
+render_metric_grid([
+    metric_card("Rows loaded", f"{len(df):,}", "raw records"),
+    metric_card("Columns", f"{len(df.columns):,}", "available signals"),
+    metric_card("Default timestamp", DEFAULT_TIMESTAMP_COL, "auto-detected if present"),
+    metric_card("Default target", DEFAULT_TARGET_COL, "forecast variable"),
+])
 st.subheader("First 10 rows")
 st.dataframe(df.head(10), width="stretch")
 
@@ -418,6 +913,15 @@ coverage = infer_time_coverage(cleaned_df, timestamp_col)
 
 st.subheader("Cleaned time-series summary")
 st.json({**cleaning_report, **coverage})
+quality_denominator = max(1, int(cleaning_report["rows_before_cleaning"]))
+removed_rows = int(cleaning_report["rows_before_cleaning"] - cleaning_report["rows_after_cleaning"])
+data_quality_score = max(0.0, 100.0 * (1.0 - removed_rows / quality_denominator))
+render_metric_grid([
+    metric_card("Clean rows", f"{len(cleaned_df):,}", "after timestamp/target validation"),
+    metric_card("Rows removed", f"{removed_rows:,}", "invalid or missing"),
+    metric_card("Data quality", f"{data_quality_score:.1f}%", "retained usable rows"),
+    metric_card("Coverage start", str(coverage.get("start", "n/a"))[:10], "first timestamp"),
+])
 
 if cleaned_df.empty:
     st.error("No valid rows remain after parsing the timestamp and target columns.")
@@ -444,6 +948,7 @@ st.write("Prepared time-series coverage")
 st.json(prepared_coverage)
 
 st.header("5) Feature engineering — interactive")
+section_banner("Feature Engineering Lab", "Toggle domain features, weather lags, rolling statistics, and calendar encoding while preserving no-leakage forecasting logic.", "🧪")
 
 # Step-regularity audit (addresses grader: 'no resampling, irregularities not addressed')
 ts_series = pd.to_datetime(prepared_df[timestamp_col]).sort_values()
@@ -514,12 +1019,17 @@ st.json({g: cols for g, cols in feature_groups.items() if all(c in feature_cols 
 
 st.dataframe(feature_table.head(15), width="stretch")
 
+if len(feature_table) < 40:
+    st.error("Not enough rows remain after feature engineering for a reliable train/test split. Reduce horizon, change resampling, or choose a denser dataset.")
+    st.stop()
+
 st.line_chart(
     prepared_df.set_index(timestamp_col)[target_col].head(1000),
     height=260,
 )
 
 st.header("6) STUDENT ADDITIONS — MODELING")
+section_banner("Forecasting Control Room", "Choose the model family, control the test window, tune Random Forest, and compare every model on the same chronological hold-out set.", "🤖")
 st.markdown(
     "**Student work:** time-based split (no leakage), with interactive controls for test-set size, "
     "model selection, and Random Forest hyperparameters. Models compared head-to-head: "
@@ -550,6 +1060,10 @@ with col_m3:
 split_idx = int(len(feature_table) * (1 - test_size_pct / 100))
 train_df = feature_table.iloc[:split_idx].copy()
 test_df = feature_table.iloc[split_idx:].copy()
+
+if train_df.empty or test_df.empty:
+    st.error("The train/test split produced an empty set. Lower the test percentage or provide more rows.")
+    st.stop()
 
 X_train = train_df[feature_cols]
 y_train = train_df["y_target"]
@@ -592,6 +1106,7 @@ def compute_metrics(name, y_true, y_pred):
 
 # ---- Run only the selected models ----
 predictions = {}
+trained_models = {}
 rf_model = None
 metric_rows = []
 
@@ -606,6 +1121,7 @@ if "Seasonal-naive (lag-24)" in selected_models:
 if "Ridge regression" in selected_models:
     ridge_model = Ridge(alpha=1.0, random_state=42)
     ridge_model.fit(X_train, y_train)
+    trained_models["Ridge regression"] = ridge_model
     predictions["Ridge regression"] = ridge_model.predict(X_test)
     metric_rows.append(compute_metrics("Ridge regression", y_test, predictions["Ridge regression"]))
 
@@ -619,6 +1135,7 @@ if "Random Forest" in selected_models:
             random_state=42,
         )
         rf_model.fit(X_train, y_train)
+        trained_models["Random Forest"] = rf_model
         predictions["Random Forest"] = rf_model.predict(X_test)
     metric_rows.append(compute_metrics("Random Forest", y_test, predictions["Random Forest"]))
 
@@ -630,6 +1147,7 @@ if "Gradient Boosting" in selected_models:
             subsample=0.7, random_state=42,
         )
         gbr_model.fit(X_train, y_train)
+        trained_models["Gradient Boosting"] = gbr_model
         predictions["Gradient Boosting"] = gbr_model.predict(X_test)
     metric_rows.append(compute_metrics("Gradient Boosting", y_test, predictions["Gradient Boosting"]))
 
@@ -642,6 +1160,14 @@ results_df = pd.DataFrame(metric_rows)
 
 st.subheader("Metrics on hold-out test set")
 st.dataframe(results_df, width="stretch")
+
+model_count = len(results_df)
+render_metric_grid([
+    metric_card("Models compared", f"{model_count}", "selected active models"),
+    metric_card("Train rows", f"{len(train_df):,}", "chronological training"),
+    metric_card("Test rows", f"{len(test_df):,}", "latest hold-out"),
+    metric_card("Features", f"{len(feature_cols)}", "active predictors"),
+])
 
 best_row = results_df.loc[results_df["RMSE"].idxmin()]
 best_name = str(best_row["model"])
@@ -690,6 +1216,7 @@ else:
     importances_df = pd.DataFrame(columns=["feature", "importance"])
 
 st.header("7) STUDENT ADDITIONS — DASHBOARD")
+section_banner("Diagnostic Mission Dashboard", "Inspect model behavior like a PV control-room website: KPIs, actual-vs-predicted, residuals, hourly/daily patterns, top-error events, and what-if simulation.", "📊")
 st.markdown(
     "Interactive diagnostic dashboard. Choose which model to inspect, "
     "then drill into actual-vs-predicted, residuals, daily and hourly error patterns, "
@@ -781,6 +1308,44 @@ residual_stats = {
     "p95_abs_error_W": round(float(pred_frame["abs_err"].quantile(0.95)), 3),
 }
 st.json(residual_stats)
+
+st.subheader("Advanced diagnostic controls")
+diag_tab1, diag_tab2, diag_tab3 = st.tabs(["🚨 Top error events", "🧭 What-if PV scenario", "🧬 Feature correlation"])
+with diag_tab1:
+    top_error_n = st.slider("Number of highest-error events to inspect", 5, 30, 10, step=5)
+    top_errors = pred_frame.sort_values("abs_err", ascending=False).head(top_error_n)[
+        [timestamp_col, "actual", "pred_dash", "residual", "abs_err"]
+    ].copy()
+    st.dataframe(top_errors.round(3), width="stretch")
+    st.caption("These events are useful for explaining cloud transients, inverter behavior, or sudden ramps.")
+with diag_tab2:
+    c_s1, c_s2, c_s3, c_s4 = st.columns(4)
+    with c_s1:
+        scenario_irr = st.slider("Irradiance W/m²", 0, 1100, 850, step=25)
+    with c_s2:
+        scenario_cloud = st.slider("Cloud loss %", 0, 90, 20, step=5)
+    with c_s3:
+        scenario_temp = st.slider("Module temperature °C", 15, 80, 45, step=1)
+    with c_s4:
+        scenario_soiling = st.slider("Soiling loss %", 0, 40, 8, step=1)
+    temp_loss = max(0.0, (scenario_temp - 25) * 0.004)
+    scenario_kw = 500 * (scenario_irr / 1000) * (1 - scenario_cloud / 100) * (1 - scenario_soiling / 100) * (1 - temp_loss)
+    scenario_kw = max(0.0, scenario_kw)
+    render_metric_grid([
+        metric_card("Scenario AC power", f"{scenario_kw:.1f} kW", "physics-style estimate"),
+        metric_card("Cloud derate", f"{scenario_cloud}%", "operator input"),
+        metric_card("Soiling derate", f"{scenario_soiling}%", "cleaning sensitivity"),
+        metric_card("Temperature derate", f"{temp_loss*100:.1f}%", "approx. PV thermal effect"),
+    ])
+    st.caption("This what-if simulator supports presentation flow; it does not replace the trained ML model.")
+with diag_tab3:
+    corr_cols = [c for c in feature_cols if c in feature_table.columns][:25]
+    if corr_cols:
+        corr_view = feature_table[corr_cols + ["y_target"]].corr(numeric_only=True)[["y_target"]].drop("y_target").sort_values("y_target", ascending=False)
+        st.dataframe(corr_view.rename(columns={"y_target": "correlation_with_target"}).round(4), width="stretch")
+        st.caption("Fast feature-signal screen: high absolute values indicate stronger linear association with the forecast target.")
+    else:
+        st.info("No numeric feature columns available for correlation view.")
 
 # ---- Plot 4: Scatter actual vs predicted ----
 st.subheader("Actual vs predicted scatter")
@@ -966,6 +1531,9 @@ submission = {
             "Weather column multiselect (Section 5)",
             "Dashboard model selector (Section 7)",
             "Test-set plot window slider (Section 7)",
+            "Live browser-side PV digital twin simulation",
+            "What-if PV scenario sliders for irradiance, cloud loss, temperature, and soiling",
+            "Top-error event inspector and feature-correlation tab",
         ],
         "no_leakage_evidence": (
             "All lag/rolling/weather features are computed with .shift() before any rolling window. "
@@ -995,6 +1563,8 @@ submission = {
             "Mean absolute error by hour-of-day bar chart",
             "Random Forest feature importance bar chart (top-15)",
             "Quantified-improvement-vs-naive table (% reduction in RMSE and MAE per model)",
+            "Live animated PV digital twin with irradiance, PV output, grid export, and forecast risk",
+            "Advanced diagnostic tabs: top-error events, what-if scenario, feature-correlation view",
         ],
         "insights": [
             "Quantified improvement: every non-naive model is compared to the lag-1 baseline by "
@@ -1126,5 +1696,4 @@ if st.button("Run AI grader"):
             st.error(f"AI grader call failed: {exc}")
 
 st.divider()
-st.caption("Completed Mini Project B — includes chronological split, four-model comparison, "
-           "diagnostic dashboard, written insights, and submission exports.")
+st.caption("Completed Mini Project B — premium interactive PV forecasting command center with chronological split, multi-model comparison, live simulation, diagnostic dashboard, written insights, and submission exports.")
