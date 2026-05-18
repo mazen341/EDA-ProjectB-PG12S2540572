@@ -386,19 +386,19 @@ except Exception as exc:
 
 st.success(f"Loaded dataset with {len(df):,} rows and {len(df.columns):,} columns.")
 st.subheader("First 10 rows")
-st.dataframe(df.head(10), use_container_width=True)
+st.dataframe(df.head(10), width="stretch")
 
 st.subheader("Dataset audit")
 audit = dataframe_audit(df)
-st.dataframe(audit, use_container_width=True)
+st.dataframe(audit, width="stretch")
 
 col_a, col_b = st.columns(2)
 with col_a:
     st.write("Likely timestamp columns")
-    st.dataframe(likely_datetime_columns(df).head(3), use_container_width=True)
+    st.dataframe(likely_datetime_columns(df).head(3), width="stretch")
 with col_b:
     st.write("Likely numeric target columns")
-    st.dataframe(numeric_target_candidates(df).head(3), use_container_width=True)
+    st.dataframe(numeric_target_candidates(df).head(3), width="stretch")
 
 st.header("3) Select timestamp and target")
 default_ts_index = df.columns.get_loc(DEFAULT_TIMESTAMP_COL) if DEFAULT_TIMESTAMP_COL in df.columns else 0
@@ -426,7 +426,7 @@ if cleaned_df.empty:
 st.header("4) Optional resampling and forecast horizon")
 resample_rule = st.selectbox(
     "Resampling rule",
-    options=["No resampling", "5min", "15min", "30min", "1H", "1D"],
+    options=["No resampling", "5min", "15min", "30min", "1h", "1D"],
     index=0,
 )
 horizon = st.number_input(
@@ -512,7 +512,7 @@ st.write(f"Feature table rows: **{len(feature_table):,}**  |  Total features: **
 st.write("Feature groups in use:")
 st.json({g: cols for g, cols in feature_groups.items() if all(c in feature_cols for c in cols)})
 
-st.dataframe(feature_table.head(15), use_container_width=True)
+st.dataframe(feature_table.head(15), width="stretch")
 
 st.line_chart(
     prepared_df.set_index(timestamp_col)[target_col].head(1000),
@@ -641,7 +641,7 @@ if not metric_rows:
 results_df = pd.DataFrame(metric_rows)
 
 st.subheader("Metrics on hold-out test set")
-st.dataframe(results_df, use_container_width=True)
+st.dataframe(results_df, width="stretch")
 
 best_row = results_df.loc[results_df["RMSE"].idxmin()]
 best_name = str(best_row["model"])
@@ -672,7 +672,7 @@ if "Naive (lag-1)" in results_df["model"].values:
             "MAE_delta_W": round(naive_mae - float(row["MAE"]), 2),
         })
     improvements_df = pd.DataFrame(improvements)
-    st.dataframe(improvements_df, use_container_width=True)
+    st.dataframe(improvements_df, width="stretch")
     st.caption("Positive values = reduction in error vs Naive (lag-1) baseline. Higher is better.")
 else:
     improvements_df = pd.DataFrame()
@@ -685,7 +685,7 @@ if rf_model is not None:
         "importance": rf_model.feature_importances_,
     }).sort_values("importance", ascending=False).reset_index(drop=True)
     with st.expander("Random Forest feature importances", expanded=False):
-        st.dataframe(importances_df, use_container_width=True)
+        st.dataframe(importances_df, width="stretch")
 else:
     importances_df = pd.DataFrame(columns=["feature", "importance"])
 
@@ -725,11 +725,20 @@ k4.metric(f"{dash_model} R²",       f"{float(dash_metrics_row['R2']):.3f}")
 # ---- Plot 1: Actual vs predicted over time (configurable window for interactivity) ----
 st.subheader(f"Actual vs predicted — {dash_model}")
 plot_n_max = min(2000, len(pred_frame))
-plot_n = st.slider(
-    "Test-set window to plot (first N rows)",
-    min_value=100, max_value=plot_n_max,
-    value=min(600, plot_n_max), step=100,
-)
+if plot_n_max <= 1:
+    plot_n = plot_n_max
+elif plot_n_max < 100:
+    plot_n = st.slider(
+        "Test-set window to plot (first N rows)",
+        min_value=1, max_value=plot_n_max,
+        value=plot_n_max, step=1,
+    )
+else:
+    plot_n = st.slider(
+        "Test-set window to plot (first N rows)",
+        min_value=100, max_value=plot_n_max,
+        value=min(600, plot_n_max), step=100,
+    )
 fig1, ax1 = plt.subplots(figsize=(11, 4))
 ax1.plot(pred_frame[timestamp_col].iloc[:plot_n], pred_frame["actual"].iloc[:plot_n],
          label="Actual", linewidth=1.2, color="#1f77b4")
@@ -765,10 +774,11 @@ ax3.grid(alpha=0.3)
 st.pyplot(fig3)
 
 residual_stats = {
-    "mean_residual_W": round(float(pred_frame["residual_rf"].mean()), 3),
-    "std_residual_W": round(float(pred_frame["residual_rf"].std()), 3),
-    "median_residual_W": round(float(pred_frame["residual_rf"].median()), 3),
-    "p95_abs_error_W": round(float(pred_frame["abs_err_rf"].quantile(0.95)), 3),
+    "model": dash_model,
+    "mean_residual_W": round(float(pred_frame["residual"].mean()), 3),
+    "std_residual_W": round(float(pred_frame["residual"].std()), 3),
+    "median_residual_W": round(float(pred_frame["residual"].median()), 3),
+    "p95_abs_error_W": round(float(pred_frame["abs_err"].quantile(0.95)), 3),
 }
 st.json(residual_stats)
 
@@ -795,7 +805,7 @@ daily_err = (
     .reset_index()
     .round(3)
 )
-st.dataframe(daily_err, use_container_width=True)
+st.dataframe(daily_err, width="stretch")
 
 fig5, ax5 = plt.subplots(figsize=(11, 3.2))
 ax5.bar(daily_err["date"].astype(str), daily_err["MAE"], color="#17becf")
