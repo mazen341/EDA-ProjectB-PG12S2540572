@@ -864,7 +864,7 @@ with tab_data:
     with col_r1:
         resample_rule = st.selectbox(
             "Resampling rule",
-            options=["No resampling", "5min", "15min", "30min", "1H", "1D"],
+            options=["No resampling", "5min", "15min", "30min", "1h", "1d"],
             index=0,
             help="Aggregate to a fixed grid before modeling.",
         )
@@ -1263,6 +1263,10 @@ with tab_dash:
         pred_frame["pred"] = dash_pred
         pred_frame["residual"] = pred_frame["actual"] - pred_frame["pred"]
         pred_frame["abs_err"] = pred_frame["residual"].abs()
+        # Backward-compatible aliases for older dashboard code snippets.
+        # These prevent KeyError if a previous block still refers to residual_rf / abs_err_rf.
+        pred_frame["residual_rf"] = pred_frame["residual"]
+        pred_frame["abs_err_rf"] = pred_frame["abs_err"]
         pred_frame["date"] = pd.to_datetime(pred_frame[timestamp_col]).dt.date
         pred_frame["hour"] = pd.to_datetime(pred_frame[timestamp_col]).dt.hour
 
