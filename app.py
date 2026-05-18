@@ -1466,7 +1466,6 @@ submission = {
         "title": project_title,
         "goal": project_goal,
         "streamlit_url": deployed_url,
-        "github_repo_url": repo_url,
     },
     "data": {
         "data_path": data_path,
