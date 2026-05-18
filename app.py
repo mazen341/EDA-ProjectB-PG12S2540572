@@ -811,18 +811,18 @@ tab_data, tab_features, tab_model, tab_dash, tab_export, tab_grader = st.tabs([
 # ─────────────────────────────────────────────
 with tab_data:
     section_header("📋", "Dataset Preview")
-    st.dataframe(df.head(10), use_container_width=True)
+    st.dataframe(df.head(10), width="stretch")
 
     section_header("🔍", "Data Audit")
     col_a, col_b = st.columns([3, 2])
     with col_a:
         st.markdown("**Column-level audit**")
-        st.dataframe(dataframe_audit(df), use_container_width=True, height=320)
+        st.dataframe(dataframe_audit(df), width="stretch", height=320)
     with col_b:
         st.markdown("**Likely timestamp columns**")
-        st.dataframe(likely_datetime_columns(df).head(3), use_container_width=True)
+        st.dataframe(likely_datetime_columns(df).head(3), width="stretch")
         st.markdown("**Likely numeric target columns**")
-        st.dataframe(numeric_target_candidates(df).head(3), use_container_width=True)
+        st.dataframe(numeric_target_candidates(df).head(3), width="stretch")
 
     section_header("⚙️", "Select Timestamp & Target")
     col_t1, col_t2 = st.columns(2)
@@ -896,7 +896,7 @@ with tab_data:
             hovertemplate="<b>%{x}</b><br>Power: %{y:.0f} W<extra></extra>",
         ))
         fig_prev.update_layout(title=f"📊 {target_col} — first {preview_n:,} rows")
-        st.plotly_chart(style_plotly(fig_prev, height=360), use_container_width=True)
+        st.plotly_chart(style_plotly(fig_prev, height=360), width="stretch")
     else:
         st.line_chart(prepared_df.set_index(timestamp_col)[target_col].head(preview_n))
 
@@ -1003,7 +1003,7 @@ with tab_features:
         st.json({g: cols for g, cols in feature_groups.items() if all(c in feature_cols for c in cols)})
 
     st.markdown("**First 15 rows of the feature table**")
-    st.dataframe(feature_table.head(15), use_container_width=True)
+    st.dataframe(feature_table.head(15), width="stretch")
 
     # Persist
     st.session_state["feature_table"] = feature_table
@@ -1155,7 +1155,7 @@ with tab_model:
         st.markdown("**Full metrics table**")
         st.dataframe(results_df.style.format({
             "MAE": "{:.1f}", "RMSE": "{:.1f}", "R2": "{:.4f}", "MAPE_%": "{:.2f}"
-        }), use_container_width=True)
+        }), width="stretch")
 
         # Plotly bar chart for visual comparison
         if HAS_PLOTLY:
@@ -1170,7 +1170,7 @@ with tab_model:
             ))
             fig_bar.update_layout(title="📊 RMSE Comparison (Lower is Better)",
                                   yaxis_title="RMSE (W)", xaxis_title="")
-            st.plotly_chart(style_plotly(fig_bar, height=380), use_container_width=True)
+            st.plotly_chart(style_plotly(fig_bar, height=380), width="stretch")
 
         # Quantified improvement
         section_header("📐", "Quantified Improvement vs Naive Baseline")
@@ -1193,7 +1193,7 @@ with tab_model:
             st.dataframe(improvements_df.style.format({
                 "RMSE_vs_naive_pct": "{:+.2f}%", "MAE_vs_naive_pct": "{:+.2f}%",
                 "RMSE_delta_W": "{:+.1f}", "MAE_delta_W": "{:+.1f}"
-            }), use_container_width=True)
+            }), width="stretch")
             st.caption("✨ Positive values = error reduction vs Naive (lag-1) baseline. Higher is better.")
         else:
             improvements_df = pd.DataFrame()
@@ -1240,14 +1240,20 @@ with tab_dash:
 
         col_d1, col_d2 = st.columns([2, 1])
         with col_d1:
+            model_options = list(predictions.keys())
+            default_index = model_options.index(best_name) if best_name in model_options else 0
             dash_model = st.selectbox(
-                "Choose model to inspect", options=list(predictions.keys()),
-                index=list(predictions.keys()).index(best_name),
+                "Choose model to inspect", options=model_options,
+                index=default_index,
             )
         with col_d2:
             plot_n_max = min(2000, len(test_df))
-            plot_n = st.slider("Plot window (test rows)", 100, plot_n_max,
-                                min(600, plot_n_max), step=100)
+            if plot_n_max < 100:
+                plot_n = plot_n_max
+                st.info(f"Small test set: showing all {plot_n_max} rows.")
+            else:
+                plot_n = st.slider("Plot window (test rows)", 100, plot_n_max,
+                                    min(600, plot_n_max), step=100)
 
         dash_pred = predictions[dash_model]
         dash_metrics_row = results_df[results_df["model"] == dash_model].iloc[0]
@@ -1282,7 +1288,7 @@ with tab_dash:
                 name=dash_model, line=dict(color=PLOTLY_COLORS["rf"], width=1.3, dash="solid"),
                 hovertemplate="<b>%{x}</b><br>Pred: %{y:.0f} W<extra></extra>",
             ))
-            st.plotly_chart(style_plotly(fig_ap, height=400), use_container_width=True)
+            st.plotly_chart(style_plotly(fig_ap, height=400), width="stretch")
         else:
             chart_df = pred_frame.set_index(timestamp_col)[["actual", "pred"]].iloc[:plot_n]
             st.line_chart(chart_df)
@@ -1301,7 +1307,7 @@ with tab_dash:
                     hovertemplate="<b>%{x}</b><br>Residual: %{y:.0f} W<extra></extra>",
                 ))
                 fig_res.add_hline(y=0, line_color="rgba(255,255,255,0.3)", line_width=1)
-                st.plotly_chart(style_plotly(fig_res, height=320), use_container_width=True)
+                st.plotly_chart(style_plotly(fig_res, height=320), width="stretch")
 
         with col_r2:
             st.markdown("**Residual distribution**")
@@ -1314,7 +1320,7 @@ with tab_dash:
                     hovertemplate="Bin: %{x}<br>Count: %{y}<extra></extra>",
                 ))
                 fig_hist.add_vline(x=0, line_color="rgba(255,255,255,0.5)", line_width=1)
-                st.plotly_chart(style_plotly(fig_hist, height=320), use_container_width=True)
+                st.plotly_chart(style_plotly(fig_hist, height=320), width="stretch")
 
         # Plot 3: Scatter actual vs predicted
         col_s1, col_s2 = st.columns(2)
@@ -1338,7 +1344,7 @@ with tab_dash:
                     name="y = x", showlegend=False,
                 ))
                 fig_sc.update_layout(xaxis_title="Actual (W)", yaxis_title="Predicted (W)")
-                st.plotly_chart(style_plotly(fig_sc, height=380), use_container_width=True)
+                st.plotly_chart(style_plotly(fig_sc, height=380), width="stretch")
 
         with col_s2:
             st.markdown("**Mean absolute error by hour of day**")
@@ -1353,7 +1359,7 @@ with tab_dash:
                 ))
                 fig_h.update_layout(xaxis_title="Hour of day", yaxis_title="MAE (W)",
                                     xaxis=dict(tickmode="linear", dtick=2))
-                st.plotly_chart(style_plotly(fig_h, height=380), use_container_width=True)
+                st.plotly_chart(style_plotly(fig_h, height=380), width="stretch")
 
         # Daily error summary
         section_header("📅", "Daily Error Summary")
@@ -1374,9 +1380,9 @@ with tab_dash:
             fig_d.update_layout(title="Daily MAE on test set",
                                 xaxis_title="Date", yaxis_title="Daily MAE (W)",
                                 xaxis=dict(tickangle=-45))
-            st.plotly_chart(style_plotly(fig_d, height=350), use_container_width=True)
+            st.plotly_chart(style_plotly(fig_d, height=350), width="stretch")
         with st.expander("📋 Daily error table", expanded=False):
-            st.dataframe(daily_err, use_container_width=True)
+            st.dataframe(daily_err, width="stretch")
 
         # Feature importance
         if not importances_df.empty:
@@ -1393,7 +1399,7 @@ with tab_dash:
                 ))
                 fig_fi.update_layout(title="Top 15 features by Random Forest importance",
                                      xaxis_title="Importance", yaxis_title="")
-                st.plotly_chart(style_plotly(fig_fi, height=420), use_container_width=True)
+                st.plotly_chart(style_plotly(fig_fi, height=420), width="stretch")
 
         # Insights
         section_header("💡", "Insights & Limitations")
@@ -1617,7 +1623,7 @@ with tab_export:
             data=submission_json,
             file_name="submission.json",
             mime="application/json",
-            use_container_width=True,
+            width="stretch",
         )
     with col_e2:
         st.markdown(kpi_card("📝 project_card.md", f"{len(project_card):,} chars", "ready to download", "warm"), unsafe_allow_html=True)
@@ -1626,7 +1632,7 @@ with tab_export:
             data=project_card,
             file_name="project_card.md",
             mime="text/markdown",
-            use_container_width=True,
+            width="stretch",
         )
 
     st.markdown("---")
@@ -1651,7 +1657,7 @@ with tab_grader:
     with st.expander("📜 Preview AI grader prompt", expanded=False):
         st.code(grader_prompt)
 
-    if st.button("🚀 Run AI Grader", use_container_width=True):
+    if st.button("🚀 Run AI Grader", width="stretch"):
         if not api_key:
             st.error("Provide OPENROUTER_API_KEY via Streamlit Secrets, env var, or the password field above.")
         else:
