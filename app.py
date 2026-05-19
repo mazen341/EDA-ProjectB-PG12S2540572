@@ -1674,7 +1674,6 @@ grader_prompt = AI_GRADER_PROMPT_TEMPLATE.replace(
     "<insert submission.json contents here>",
     submission_json,
 )
-
 with st.expander("Preview AI grader prompt", expanded=False):
     st.code(grader_prompt)
 
