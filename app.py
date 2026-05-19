@@ -720,9 +720,18 @@ if isinstance(predictions_df, pd.DataFrame) and not predictions_df.empty:
     st.line_chart(residual_plot_df, height=260)
 
     st.markdown("### Monthly validation error summary")
+    monthly_base_df = predictions_df.copy()
+    monthly_base_df[timestamp_col] = pd.to_datetime(monthly_base_df[timestamp_col], errors="coerce")
+    monthly_base_df = monthly_base_df.dropna(subset=[timestamp_col]).set_index(timestamp_col)
+
+    # Robust monthly grouping without deprecated pandas aliases such as "M".
+    # This works across newer Streamlit Cloud pandas versions.
+    monthly_group_df = monthly_base_df.copy()
+    monthly_group_df["month"] = monthly_group_df.index.to_period("M").astype(str)
+
     monthly_error_summary = (
-        predictions_df.set_index(timestamp_col)
-        .resample("M")
+        monthly_group_df
+        .groupby("month", as_index=False)
         .agg(
             actual_mean=("y_target", "mean"),
             prediction_mean=("prediction", "mean"),
@@ -731,8 +740,8 @@ if isinstance(predictions_df, pd.DataFrame) and not predictions_df.empty:
             n=("absolute_error", "count"),
         )
         .dropna()
-        .reset_index()
     )
+
     st.dataframe(monthly_error_summary, use_container_width=True)
 
     student_dashboard_insights.extend(
