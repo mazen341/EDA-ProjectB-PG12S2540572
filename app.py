@@ -3358,6 +3358,406 @@ def maybe_autorefresh(seconds: int, key: str) -> int:
     return st.session_state.get(f"_tick_{key}", 0)
 
 
+def render_live_control_surface(
+    readings: dict[str, float],
+    deltas: dict[str, float],
+    history: pd.DataFrame,
+    *,
+    dashboard_mode: str,
+    theme: str,
+    timestamp_col: str,
+    target_col: str,
+    horizon: int,
+    best_model: str,
+    site_name: str,
+    source_label: str,
+    live_interval: int,
+    live_tick: int,
+    live_mode: bool,
+) -> None:
+    """Self-contained HTML/JS component that animates between Streamlit reruns.
+
+    The Python side passes a JSON payload with the latest readings and a short
+    history. The embedded JS:
+      • runs a wall-clock that ticks every second locally,
+      • smoothly tweens displayed numbers toward the target on each refresh
+        (so values visibly count up/down between reruns instead of jumping),
+      • draws live sparklines that grow with each new sample,
+      • animates the radial power-gauge needle.
+    """
+
+    # Build a compact JSON payload. Only send what the JS needs.
+    history_tail = history.tail(40) if not history.empty else history
+    hist_payload = {
+        "power_kw":        history_tail["power_kw"].round(3).tolist()        if not history_tail.empty else [],
+        "temperature_c":   history_tail["temperature_c"].round(2).tolist()   if not history_tail.empty else [],
+        "irradiance":      history_tail["irradiance"].round(1).tolist()      if not history_tail.empty else [],
+        "voltage_v":       history_tail["voltage_v"].round(2).tolist()       if not history_tail.empty else [],
+        "frequency_hz":    history_tail["frequency_hz"].round(4).tolist()    if not history_tail.empty else [],
+        "battery_soc_pct": history_tail["battery_soc_pct"].round(2).tolist() if not history_tail.empty else [],
+        "efficiency_pct": history_tail["efficiency_pct"].round(2).tolist()  if "efficiency_pct" in history_tail.columns else [],
+    }
+    payload = {
+        "readings": readings,
+        "deltas":   deltas,
+        "history":  hist_payload,
+        "settings": {
+            "dashboard_mode": dashboard_mode,
+            "theme":          theme,
+            "timestamp_col":  timestamp_col,
+            "target_col":     target_col,
+            "horizon":        int(horizon),
+            "best_model":     str(best_model),
+            "site_name":      site_name,
+            "source_label":   source_label,
+            "interval":       int(live_interval),
+            "tick":           int(live_tick),
+            "live_mode":      bool(live_mode),
+        },
+    }
+    payload_json = json.dumps(payload, default=safe_json_default)
+
+    html = """
+<!DOCTYPE html><html><head><meta charset='utf-8'>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color:#F8FBFF; background:transparent; }
+  .wrap {
+    border:1px solid rgba(34,211,238,.28);
+    border-radius:24px;
+    padding:16px 18px 14px;
+    background:
+      radial-gradient(circle at 88% 8%, rgba(34,211,238,.18), transparent 32%),
+      radial-gradient(circle at 8% 92%, rgba(251,191,36,.16), transparent 30%),
+      linear-gradient(145deg, rgba(15,23,42,.94), rgba(2,6,23,.72));
+    box-shadow:0 18px 54px rgba(0,0,0,.30);
+    position:relative;
+    overflow:hidden;
+  }
+  .wrap::before {
+    content:"";
+    position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(90deg, rgba(34,211,238,.05) 1px, transparent 1px),
+      linear-gradient(rgba(34,211,238,.05) 1px, transparent 1px);
+    background-size:26px 26px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.5), transparent 90%);
+  }
+  .head {
+    display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+    margin-bottom:10px; position:relative;
+  }
+  .titlewrap .title { color:#fbbf24; font-weight:1000; font-size:18px; letter-spacing:-.01em; }
+  .titlewrap .sub   { color:#cbd5e1; font-size:12px; margin-top:2px; }
+  .badges { display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; }
+  .badge {
+    display:inline-flex; align-items:center; gap:6px;
+    border:1px solid rgba(34,211,238,.32); border-radius:999px;
+    padding:5px 10px; background:rgba(2,6,23,.55);
+    color:#F8FBFF; font-weight:900; font-size:11px; white-space:nowrap;
+  }
+  .badge.green { border-color:rgba(16,185,129,.4); color:#bbf7d0; background:rgba(16,185,129,.10); }
+  .badge.gold  { border-color:rgba(251,191,36,.4); color:#fde68a; background:rgba(251,191,36,.10); }
+  .dot {
+    width:8px; height:8px; border-radius:50%; background:#10b981;
+    box-shadow:0 0 10px rgba(16,185,129,.85); animation: blip 1.2s ease-in-out infinite;
+  }
+  @keyframes blip { 0%,100% {opacity:.4; transform:scale(.85)} 50% {opacity:1; transform:scale(1.15)} }
+
+  .grid {
+    display:grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap:8px;
+    position:relative;
+  }
+  .chip {
+    border:1px solid rgba(148,163,184,.20);
+    border-radius:14px;
+    padding:8px 10px 6px;
+    background:linear-gradient(145deg, rgba(8,18,32,.78), rgba(2,6,23,.72));
+    position:relative; overflow:hidden;
+    min-height: 88px;
+  }
+  .chip-label {
+    color:#cbd5e1; font-size:10px; font-weight:900;
+    text-transform:uppercase; letter-spacing:.05em;
+  }
+  .chip-value {
+    color:#F8FBFF; font-size:18px; font-weight:1000; margin-top:2px; line-height:1.05;
+    font-variant-numeric: tabular-nums;
+  }
+  .chip-delta { font-size:10.5px; font-weight:900; margin-top:1px; min-height:14px; }
+  .chip-delta.up   { color:#22c55e; }
+  .chip-delta.down { color:#f87171; }
+  .chip-delta.flat { color:#94a3b8; }
+  .chip-spark { display:block; width:100%; height:22px; margin-top:2px; }
+  .chip.gold  .chip-value { color:#fbbf24; }
+  .chip.red   .chip-value { color:#f87171; }
+  .chip.cyan  .chip-value { color:#38bdf8; }
+  .chip.blue  .chip-value { color:#a78bfa; }
+  .chip.green .chip-value { color:#10b981; }
+
+  .meter {
+    position:relative; height:4px; background:rgba(255,255,255,.06);
+    border-radius:99px; overflow:hidden; margin-top:4px;
+  }
+  .meter > i {
+    position:absolute; inset:0;
+    background: linear-gradient(90deg, transparent, var(--mc, #fbbf24), transparent);
+    width:55%;
+    animation: slide 2.6s linear infinite;
+  }
+  @keyframes slide { 0% {transform: translateX(-100%)} 100% {transform: translateX(180%)} }
+
+  .footrow {
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap:8px;
+    margin-top:10px;
+  }
+  .setbox {
+    border:1px dashed rgba(148,163,184,.25); border-radius:12px;
+    padding:6px 9px;
+    background:rgba(2,6,23,.45);
+  }
+  .setbox .k { color:#94a3b8; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.05em; }
+  .setbox .v { color:#F8FBFF; font-weight:1000; font-size:13px; margin-top:1px; word-break:break-word; }
+
+  .clockline {
+    display:flex; align-items:center; gap:10px;
+    margin-top:8px; color:#cbd5e1; font-size:12px;
+  }
+  .clock {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color:#fde68a; font-weight:1000; font-size:14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pulsebar {
+    flex:1; height:5px; border-radius:99px; overflow:hidden;
+    background:rgba(255,255,255,.06); position:relative;
+  }
+  .pulsebar i {
+    position:absolute; left:0; top:0; bottom:0; width:30%;
+    background: linear-gradient(90deg, transparent, #22d3ee, transparent);
+    animation: slide 1.8s linear infinite;
+  }
+
+  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .footrow { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px)  { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .footrow { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div class="titlewrap">
+      <div class="title">⚡ Live Website Control Surface</div>
+      <div class="sub">All dashboard parameters and live plant signals update continuously. Values tween smoothly between data refreshes.</div>
+    </div>
+    <div class="badges">
+      <span class="badge green" id="liveStatus"><span class="dot"></span>Live</span>
+      <span class="badge"     id="badgeSite">site</span>
+      <span class="badge gold" id="badgeTick">tick</span>
+      <span class="badge"     id="badgeRefresh">refresh</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- 6 live chips -->
+    <div class="chip gold"  data-key="power_kw"        data-unit=" kW"   data-color="#fbbf24" style="--mc:#fbbf24">
+      <div class="chip-label">⚡ Active Power</div>
+      <div class="chip-value">--</div>
+      <div class="chip-delta flat">—</div>
+      <svg class="chip-spark" viewBox="0 0 120 22" preserveAspectRatio="none"><polyline fill="rgba(251,191,36,.18)" stroke="#fbbf24" stroke-width="1.4" points=""/></svg>
+      <div class="meter"><i></i></div>
+    </div>
+    <div class="chip red"   data-key="temperature_c"   data-unit=" °C"  data-color="#f87171" style="--mc:#f87171">
+      <div class="chip-label">🌡️ Module Temp</div>
+      <div class="chip-value">--</div>
+      <div class="chip-delta flat">—</div>
+      <svg class="chip-spark" viewBox="0 0 120 22" preserveAspectRatio="none"><polyline fill="rgba(248,113,113,.18)" stroke="#f87171" stroke-width="1.4" points=""/></svg>
+      <div class="meter"><i></i></div>
+    </div>
+    <div class="chip gold"  data-key="irradiance"      data-unit=" W/m²" data-color="#fbbf24" style="--mc:#fbbf24">
+      <div class="chip-label">☀️ Irradiance</div>
+      <div class="chip-value">--</div>
+      <div class="chip-delta flat">—</div>
+      <svg class="chip-spark" viewBox="0 0 120 22" preserveAspectRatio="none"><polyline fill="rgba(251,191,36,.18)" stroke="#fbbf24" stroke-width="1.4" points=""/></svg>
+      <div class="meter"><i></i></div>
+    </div>
+    <div class="chip cyan"  data-key="voltage_v"       data-unit=" V"   data-color="#38bdf8" style="--mc:#38bdf8">
+      <div class="chip-label">🔌 DC Voltage</div>
+      <div class="chip-value">--</div>
+      <div class="chip-delta flat">—</div>
+      <svg class="chip-spark" viewBox="0 0 120 22" preserveAspectRatio="none"><polyline fill="rgba(56,189,248,.18)" stroke="#38bdf8" stroke-width="1.4" points=""/></svg>
+      <div class="meter"><i></i></div>
+    </div>
+    <div class="chip blue"  data-key="frequency_hz"    data-unit=" Hz"  data-color="#a78bfa" style="--mc:#a78bfa">
+      <div class="chip-label">📡 Grid Frequency</div>
+      <div class="chip-value">--</div>
+      <div class="chip-delta flat">—</div>
+      <svg class="chip-spark" viewBox="0 0 120 22" preserveAspectRatio="none"><polyline fill="rgba(167,139,250,.18)" stroke="#a78bfa" stroke-width="1.4" points=""/></svg>
+      <div class="meter"><i></i></div>
+    </div>
+    <div class="chip green" data-key="battery_soc_pct" data-unit="%"    data-color="#10b981" style="--mc:#10b981">
+      <div class="chip-label">🔋 Battery SOC</div>
+      <div class="chip-value">--</div>
+      <div class="chip-delta flat">—</div>
+      <svg class="chip-spark" viewBox="0 0 120 22" preserveAspectRatio="none"><polyline fill="rgba(16,185,129,.18)" stroke="#10b981" stroke-width="1.4" points=""/></svg>
+      <div class="meter"><i></i></div>
+    </div>
+  </div>
+
+  <div class="footrow">
+    <div class="setbox"><div class="k">Timestamp Col</div><div class="v" id="setTs">--</div></div>
+    <div class="setbox"><div class="k">Target Col</div><div class="v" id="setTarget">--</div></div>
+    <div class="setbox"><div class="k">Mode</div><div class="v" id="setMode">--</div></div>
+    <div class="setbox"><div class="k">Theme</div><div class="v" id="setTheme">--</div></div>
+    <div class="setbox"><div class="k">Horizon</div><div class="v" id="setHorizon">--</div></div>
+    <div class="setbox"><div class="k">Best Model</div><div class="v" id="setBest">--</div></div>
+    <div class="setbox"><div class="k">Inverter Temp</div><div class="v"><span id="invT">--</span> °C</div></div>
+    <div class="setbox"><div class="k">Efficiency</div><div class="v"><span id="effV">--</span>%</div></div>
+  </div>
+
+  <div class="clockline">
+    <span>System Clock</span>
+    <span class="clock" id="clock">--:--:--</span>
+    <span class="pulsebar"><i></i></span>
+    <span id="upTick">elapsed --</span>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  const PAYLOAD = __PAYLOAD__;
+  const READINGS = PAYLOAD.readings || {};
+  const DELTAS   = PAYLOAD.deltas   || {};
+  const HIST     = PAYLOAD.history  || {};
+  const SET      = PAYLOAD.settings || {};
+
+  // ---------- Settings text ----------
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setText("setTs",      SET.timestamp_col || "--");
+  setText("setTarget",  SET.target_col || "--");
+  setText("setMode",    SET.dashboard_mode || "--");
+  setText("setTheme",   SET.theme || "--");
+  setText("setHorizon", (SET.horizon ?? "--") + " rows");
+  setText("setBest",    SET.best_model || "N/A");
+  setText("badgeSite",  (SET.site_name || "Site") + " · " + (SET.source_label || ""));
+  setText("badgeRefresh", "every " + (SET.interval ?? "?") + "s");
+  setText("badgeTick",    "tick #" + (SET.tick ?? 0));
+  if (SET.live_mode === false) {
+    const ls = document.getElementById("liveStatus");
+    if (ls) { ls.className = "badge gold"; ls.innerHTML = '<span class="dot" style="background:#fbbf24;box-shadow:0 0 10px rgba(251,191,36,.85)"></span>Paused'; }
+  }
+  document.getElementById("invT").textContent = (READINGS.inverter_temp_c ?? 0).toFixed(1);
+  document.getElementById("effV").textContent = (READINGS.efficiency_pct ?? 0).toFixed(1);
+
+  // ---------- Format per signal ----------
+  const FMT = {
+    power_kw:        v => v.toFixed(2),
+    temperature_c:   v => v.toFixed(1),
+    irradiance:      v => v.toFixed(0),
+    voltage_v:       v => v.toFixed(1),
+    frequency_hz:    v => v.toFixed(3),
+    battery_soc_pct: v => v.toFixed(1),
+  };
+
+  // ---------- Sparkline drawing ----------
+  function drawSpark(svgEl, data, color) {
+    if (!data || data.length < 2) return;
+    const poly = svgEl.querySelector("polyline");
+    if (!poly) return;
+    const W = 120, H = 22;
+    const lo = Math.min.apply(null, data);
+    const hi = Math.max.apply(null, data);
+    const span = (hi - lo) || 1;
+    const stepX = W / (data.length - 1);
+    const pts = data.map((v, i) => {
+      const x = (i * stepX).toFixed(2);
+      const y = (H - 2 - ((v - lo) / span) * (H - 4)).toFixed(2);
+      return x + "," + y;
+    });
+    poly.setAttribute("points", pts.join(" "));
+  }
+
+  // ---------- Smooth tween between Streamlit reruns ----------
+  // Current displayed value tweens toward `target` over ~700ms with easeOutCubic.
+  const chips = Array.from(document.querySelectorAll(".chip"));
+  const state = chips.map(chip => {
+    const key = chip.dataset.key;
+    const targetVal = READINGS[key];
+    const delta = DELTAS[key] || 0;
+    const valEl = chip.querySelector(".chip-value");
+    const dEl   = chip.querySelector(".chip-delta");
+    const svg   = chip.querySelector(".chip-spark");
+    const unit  = chip.dataset.unit || "";
+    const color = chip.dataset.color || "#fbbf24";
+
+    // Initial display
+    valEl.textContent = (targetVal !== undefined && targetVal !== null)
+      ? (FMT[key] ? FMT[key](targetVal) : Number(targetVal).toFixed(2)) + unit
+      : "--";
+    if (Math.abs(delta) < 1e-6) {
+      dEl.className = "chip-delta flat"; dEl.textContent = "● steady";
+    } else if (delta > 0) {
+      dEl.className = "chip-delta up";   dEl.textContent = "▲ +" + delta.toFixed(2);
+    } else {
+      dEl.className = "chip-delta down"; dEl.textContent = "▼ " + delta.toFixed(2);
+    }
+    drawSpark(svg, HIST[key] || [], color);
+
+    // For smooth tween we need to know our "last shown" value.
+    // Read it from sessionStorage so it survives Streamlit's iframe reload.
+    const stKey = "lcs_" + key;
+    let prev = parseFloat(sessionStorage.getItem(stKey));
+    if (isNaN(prev)) prev = targetVal;
+    return { key, chip, valEl, unit, target: Number(targetVal) || 0, from: Number(prev) || 0, t0: performance.now(), dur: 700, color };
+  });
+
+  function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
+
+  function tick() {
+    const now = performance.now();
+    state.forEach(s => {
+      const k = Math.min(1, (now - s.t0) / s.dur);
+      const v = s.from + (s.target - s.from) * easeOutCubic(k);
+      const fmt = FMT[s.key] || (x => Number(x).toFixed(2));
+      s.valEl.textContent = fmt(v) + s.unit;
+      if (k >= 1) sessionStorage.setItem("lcs_" + s.key, String(s.target));
+    });
+    if (state.some(s => (now - s.t0) < s.dur)) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // ---------- Local wall clock + elapsed counter (independent of Streamlit reruns) ----------
+  const clockEl = document.getElementById("clock");
+  const tickEl  = document.getElementById("upTick");
+  const startMs = Date.now();
+  function fmtElapsed(ms) {
+    const s = Math.floor(ms / 1000);
+    const hh = String(Math.floor(s / 3600)).padStart(2, "0");
+    const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+    const ss = String(s % 60).padStart(2, "0");
+    return hh + ":" + mm + ":" + ss;
+  }
+  function clockTick() {
+    const d = new Date();
+    clockEl.textContent = d.toTimeString().slice(0, 8);
+    tickEl.textContent  = "elapsed " + fmtElapsed(Date.now() - startMs);
+  }
+  clockTick();
+  setInterval(clockTick, 1000);
+})();
+</script>
+</body></html>
+"""
+    # Inject the payload safely (no .format on the giant template — direct replace).
+    html = html.replace("__PAYLOAD__", payload_json)
+    components.html(html, height=340, scrolling=False)
+
+
 def local_grader(submission: dict[str, Any]) -> dict[str, Any]:
     data = submission.get("data_integrity", {})
     features = submission.get("feature_engineering", {})
@@ -3639,6 +4039,26 @@ filtered_df = prepared_df[
 if filtered_df.empty:
     filtered_df = prepared_df.copy()
 
+# -----------------------------------------------------------------------------
+# Live telemetry — auto-refresh + readings + history buffer
+# Computed EARLY so the Live Website Control Surface and every later block can
+# read live values on each refresh tick.
+# -----------------------------------------------------------------------------
+if live_mode:
+    live_tick = maybe_autorefresh(live_interval, key="live_main_refresh")
+else:
+    live_tick = 0
+
+live_readings = _compute_live_readings(filtered_df, target_col, live_tick)
+
+# Track previous readings to compute up/down deltas for KPI arrows.
+_prev = st.session_state.get("_prev_live_readings", {})
+live_deltas = {k: live_readings[k] - _prev.get(k, live_readings[k]) for k in live_readings}
+st.session_state["_prev_live_readings"] = dict(live_readings)
+
+# Maintain a rolling history buffer.
+live_history = _push_live_history(live_readings, max_points=180)
+
 model_df, feature_cols, weather_features = build_features(prepared_df, timestamp_col, target_col, horizon)
 model_df = model_df.tail(model_rows).copy()
 
@@ -3725,33 +4145,37 @@ mode_copy = {
     "Simple Friendly View": "A simplified student-friendly representation with clear sections and fewer distractions.",
 }.get(dashboard_mode, "")
 
-st.markdown(
-    f"""
-    <div class="hero-grid">
-        <div class="hero-card">
-            <div class="hero-content">
-                <span class="pill"><span class="live-dot"></span>{site_name} • {source_label}</span>
-                <div class="hero-title">{dashboard_mode}</div>
-                <div class="hero-copy">{mode_copy}<br><br>
-                Everything is organized into clear areas: Home, Forecasting, Visual System, Data Pipeline, Models, Advanced Analytics, Simulator and Export — with extra comparison blocks, practical tips, flowcharts, and strategy guidance.</div>
-            </div>
-        </div>
-        <div class="mode-card">
-            <div class="section-title">Live Website Control Surface</div>
-            <div class="muted">All dashboard parameters are controlled by the user from the sidebar and reflected in charts, models, evidence and exports.</div>
-            <div class="control-grid" style="grid-template-columns:repeat(2,minmax(120px,1fr));">
-                <div class="control-chip"><div class="control-label">Timestamp</div><div class="control-value">{timestamp_col}</div></div>
-                <div class="control-chip"><div class="control-label">Target</div><div class="control-value">{target_col}</div></div>
-                <div class="control-chip"><div class="control-label">Mode</div><div class="control-value">{dashboard_mode}</div></div>
-                <div class="control-chip"><div class="control-label">Theme</div><div class="control-value">{theme}</div></div>
-                <div class="control-chip"><div class="control-label">Horizon</div><div class="control-value">{horizon} rows</div></div>
-                <div class="control-chip"><div class="control-label">Best Model</div><div class="control-value">{best_model}</div></div>
-            </div>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+_hero_col, _ctrl_col = st.columns([1.05, 0.95])
+with _hero_col:
+    st.markdown(
+        f"""
+<div class="hero-card" style="margin-bottom:0">
+<div class="hero-content">
+<span class="pill"><span class="live-dot"></span>{site_name} • {source_label}</span>
+<div class="hero-title">{dashboard_mode}</div>
+<div class="hero-copy">{mode_copy}<br><br>Everything is organized into clear areas: Home, Forecasting, Visual System, Data Pipeline, Models, Advanced Analytics, Simulator and Export — with extra comparison blocks, practical tips, flowcharts, and strategy guidance.</div>
+</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+with _ctrl_col:
+    render_live_control_surface(
+        live_readings,
+        live_deltas,
+        live_history,
+        dashboard_mode=dashboard_mode,
+        theme=theme,
+        timestamp_col=timestamp_col,
+        target_col=target_col,
+        horizon=horizon,
+        best_model=best_model,
+        site_name=site_name,
+        source_label=source_label,
+        live_interval=live_interval,
+        live_tick=live_tick,
+        live_mode=live_mode,
+    )
 
 # KPI deck
 kpi_cols = st.columns(6)
@@ -3819,25 +4243,8 @@ if st.session_state.get("selected_page") not in SECTION_OPTIONS:
 # Navigation is controlled by Quick Access buttons and sidebar selector.
 selected_page = st.session_state.get("selected_page", "🏠 Home")
 
-# -----------------------------------------------------------------------------
-# Live telemetry — auto-refresh + readings + history buffer
-# -----------------------------------------------------------------------------
-if live_mode:
-    live_tick = maybe_autorefresh(live_interval, key="live_main_refresh")
-else:
-    live_tick = 0
-
-live_readings = _compute_live_readings(filtered_df, target_col, live_tick)
-
-# Track previous readings to compute up/down deltas for KPI arrows.
-_prev = st.session_state.get("_prev_live_readings", {})
-live_deltas = {k: live_readings[k] - _prev.get(k, live_readings[k]) for k in live_readings}
-st.session_state["_prev_live_readings"] = dict(live_readings)
-
-# Maintain a rolling history buffer.
-live_history = _push_live_history(live_readings, max_points=180)
-
 # Show a continuously-scrolling status ticker just under the top title.
+# (Live readings were already computed earlier — right after filtered_df.)
 render_live_ticker(live_readings)
 
 
