@@ -1,4 +1,3 @@
-
 """
 app.py — Fully Alive Professional Solar PV Forecasting Website
 
@@ -1015,33 +1014,187 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         /* Quick Access button grid on the main page — force every button */
         /* to identical width AND height regardless of label length.      */
         /* -------------------------------------------------------------- */
+        /* Main-page buttons (action buttons, downloads, etc.).            */
+        /* Quick Access cards have their own override below via :has().    */
+        /* -------------------------------------------------------------- */
         .main .stButton > button {{
-            min-height:64px !important;
-            height:64px !important;
+            min-height:46px !important;
             border-radius:14px !important;
-            font-weight:900 !important;
-            font-size:.98rem !important;
+            font-weight:800 !important;
+            font-size:.95rem !important;
             white-space:normal !important;
-            line-height:1.15 !important;
-            padding:.45rem .65rem !important;
-            display:flex !important;
-            align-items:center !important;
-            justify-content:center !important;
-            text-align:center !important;
+            line-height:1.2 !important;
+            padding:.55rem 1rem !important;
             border:1px solid rgba(14,165,233,.28) !important;
             background:linear-gradient(135deg, rgba(15,46,84,.86), rgba(8,22,47,.82)) !important;
             color:#F8FBFF !important;
             transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease !important;
         }}
         .main .stButton > button:hover {{
-            transform:translateY(-2px);
+            transform:translateY(-1px);
             border-color:rgba(56,189,248,.6) !important;
-            box-shadow:0 16px 38px rgba(14,165,233,.28) !important;
+            box-shadow:0 10px 24px rgba(14,165,233,.24) !important;
         }}
         .main .stButton > button[kind="primary"] {{
             background:linear-gradient(135deg, #0EA5E9, #10B981) !important;
             color:#031424 !important;
             border:none !important;
+        }}
+
+        /* ============================================================== */
+        /* QUICK ACCESS — uniform image-card grid (5×2 on desktop).        */
+        /* Each cell contains:                                             */
+        /*   .qa-cell                                                      */
+        /*     .qa-card    (image + gradient + label, visual only)         */
+        /*     [streamlit button]  (real click target underneath)          */
+        /* All cards are exactly the same size via aspect-ratio + flex.    */
+        /* ============================================================== */
+        .qa-cell {{
+            display:flex;
+            flex-direction:column;
+            gap:0;
+            margin:0 0 .35rem 0;
+        }}
+        .qa-card {{
+            position:relative;
+            width:100%;
+            aspect-ratio: 16 / 9;
+            min-height:140px;
+            border-radius:16px 16px 0 0;
+            background-size:cover;
+            background-position:center;
+            background-repeat:no-repeat;
+            border:1px solid rgba(14,165,233,.32);
+            border-bottom:none;
+            overflow:hidden;
+            box-shadow:0 14px 36px rgba(2,6,23,.32);
+            transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+        }}
+        .qa-cell:hover .qa-card {{
+            transform:translateY(-3px);
+            border-color:rgba(56,189,248,.7);
+            box-shadow:0 24px 52px rgba(14,165,233,.32);
+        }}
+        .qa-card::before {{
+            content:"";
+            position:absolute;
+            inset:0;
+            background:linear-gradient(180deg, rgba(2,6,23,.10) 0%, rgba(2,6,23,.55) 60%, rgba(2,6,23,.85) 100%);
+            transition:background .22s ease;
+        }}
+        .qa-cell:hover .qa-card::before {{
+            background:linear-gradient(180deg, rgba(2,6,23,.05) 0%, rgba(14,165,233,.35) 60%, rgba(2,6,23,.85) 100%);
+        }}
+        .qa-card .qa-kicker {{
+            position:absolute;
+            top:.6rem;
+            left:.65rem;
+            padding:.18rem .55rem;
+            border-radius:999px;
+            background:rgba(14,165,233,.85);
+            color:#031424;
+            font-size:.66rem;
+            font-weight:1000;
+            letter-spacing:.06em;
+            text-transform:uppercase;
+            backdrop-filter:blur(4px);
+            box-shadow:0 4px 12px rgba(14,165,233,.45);
+        }}
+        .qa-card .qa-icon {{
+            position:absolute;
+            top:.45rem;
+            right:.6rem;
+            font-size:1.4rem;
+            filter:drop-shadow(0 2px 6px rgba(0,0,0,.55));
+        }}
+        .qa-card .qa-label {{
+            position:absolute;
+            left:.85rem;
+            right:.85rem;
+            bottom:.65rem;
+            color:#F8FBFF;
+            font-weight:1000;
+            font-size:1.04rem;
+            line-height:1.15;
+            letter-spacing:.2px;
+            text-shadow:0 2px 12px rgba(0,0,0,.85);
+        }}
+        .qa-card .qa-sub {{
+            display:block;
+            color:#DBEAFE;
+            font-size:.72rem;
+            font-weight:700;
+            margin-top:.2rem;
+            text-shadow:0 1px 4px rgba(0,0,0,.7);
+        }}
+        .qa-card.qa-active {{
+            border-color:#FBBF24 !important;
+            box-shadow:0 0 0 2px #FBBF24, 0 24px 52px rgba(251,191,36,.28) !important;
+        }}
+        .qa-card.qa-active::after {{
+            content:"✓ ACTIVE";
+            position:absolute;
+            top:.6rem;
+            right:.6rem;
+            padding:.2rem .55rem;
+            border-radius:999px;
+            background:#FBBF24;
+            color:#1F1300;
+            font-size:.62rem;
+            font-weight:1000;
+            letter-spacing:.06em;
+            box-shadow:0 4px 12px rgba(251,191,36,.6);
+        }}
+        .qa-card.qa-active .qa-icon {{ display:none; }}
+
+        /* The Streamlit button beneath each card becomes the "Open" footer. */
+        /* The button div is a SIBLING of .qa-cell (both are children of the */
+        /* Streamlit column), so we target the column that contains a       */
+        /* .qa-cell, then style the button inside it. :has() is supported    */
+        /* in all current browsers.                                          */
+        [data-testid="column"]:has(.qa-cell) .stButton > button {{
+            height:44px !important;
+            min-height:44px !important;
+            border-radius:0 0 16px 16px !important;
+            border:1px solid rgba(14,165,233,.32) !important;
+            border-top:none !important;
+            background:linear-gradient(135deg, rgba(8,22,47,.92), rgba(15,46,84,.86)) !important;
+            color:#F8FBFF !important;
+            font-weight:900 !important;
+            font-size:.84rem !important;
+            letter-spacing:.4px;
+            margin-top:0 !important;
+            transition:background .18s ease, color .18s ease !important;
+            box-shadow:none !important;
+        }}
+        [data-testid="column"]:has(.qa-cell) .stButton > button:hover {{
+            background:linear-gradient(135deg, #0EA5E9, #10B981) !important;
+            color:#031424 !important;
+            transform:none !important;
+            box-shadow:0 6px 16px rgba(14,165,233,.35) !important;
+        }}
+        [data-testid="column"]:has(.qa-cell .qa-active) .stButton > button {{
+            background:linear-gradient(135deg, #FBBF24, #F59E0B) !important;
+            color:#1F1300 !important;
+            border-color:#FBBF24 !important;
+        }}
+        /* Remove the Streamlit gap between the markdown card and the button */
+        /* so they look like one continuous tile.                            */
+        [data-testid="column"]:has(.qa-cell) [data-testid="stMarkdownContainer"] {{
+            margin-bottom:0 !important;
+        }}
+        [data-testid="column"]:has(.qa-cell) [data-testid="stVerticalBlock"] {{
+            gap:0 !important;
+        }}
+
+        @media (max-width: 1200px) {{
+            .qa-card {{ min-height:120px; }}
+            .qa-card .qa-label {{ font-size:.95rem; }}
+        }}
+        @media (max-width: 800px) {{
+            .qa-card {{ min-height:108px; }}
+            .qa-card .qa-label {{ font-size:.88rem; }}
+            .qa-card .qa-icon {{ font-size:1.1rem; }}
         }}
 
         .sticky-title, .hero-card, .mode-card, .kpi-card, .panel, .visual-card, .flow-card, .workflow-card, .tab-hero, .loading-card {{
@@ -2856,48 +3009,99 @@ def render_technical_feature_cards():
 
 
 def render_section_navigation():
-    """Fast, compact navigation.
+    """Quick Access — a 5×2 grid of equal-sized image cards.
 
-    A 5x2 grid of equal-size buttons. The Quick Access grid and the sidebar
-    Navigation dropdown share one source of truth (st.session_state["selected_page"]).
-    Box sizes are kept uniform by CSS (`.main .stButton > button` rules) so
-    every label has the same height regardless of emoji/text width.
+    Each card shows a relevant solar/energy/data image (already defined as
+    IMG_* constants) with the section name overlaid. A real Streamlit
+    button sits directly below each card as the "Open" footer, which is
+    the actual click target. CSS makes the card + button render as a
+    single seamless tile, all identical in size via `aspect-ratio: 16/9`.
+
+    The Quick Access grid and the sidebar Navigation dropdown share one
+    source of truth: st.session_state["selected_page"].
     """
     if "selected_page" not in st.session_state:
         st.session_state["selected_page"] = "🏠 Home"
 
     current = st.session_state.get("selected_page", "🏠 Home")
+
+    # Section metadata: image, short subtitle, kicker tag. Order MUST match
+    # SECTION_OPTIONS so iteration aligns 1:1.
+    section_meta = {
+        "🏠 Home":               {"img": IMG_HOME,      "sub": "Live overview & KPIs",        "kicker": "Overview"},
+        "🔴 Live Telemetry":     {"img": IMG_CONTROL,   "sub": "Real-time readings",          "kicker": "Live"},
+        "📊 Forecasting":        {"img": IMG_FORECAST,  "sub": "Actual vs predicted",         "kicker": "Forecast"},
+        "🧩 Images + 3D":        {"img": IMG_3D,        "sub": "Visuals & digital twin",      "kicker": "Visuals"},
+        "🧹 Data Pipeline":      {"img": IMG_PIPELINE,  "sub": "Clean, resample, features",   "kicker": "Pipeline"},
+        "🤖 Models":             {"img": IMG_MODEL,     "sub": "Train & compare models",      "kicker": "Models"},
+        "🧬 Advanced":           {"img": IMG_ADVANCED,  "sub": "Diagnostics & uncertainty",   "kicker": "Advanced"},
+        "🛠️ Technical Diagrams": {"img": IMG_DIAGRAMS,  "sub": "Architecture & workflow",     "kicker": "Diagrams"},
+        "🕹️ Simulator":          {"img": IMG_SIMULATOR, "sub": "What-if scenario tool",       "kicker": "Simulator"},
+        "🔬 Comparison Lab":     {"img": IMG_COMPARE,   "sub": "Leaderboard & analysis",      "kicker": "Compare"},
+        "📤 Export":             {"img": IMG_EXPORT,    "sub": "Submission JSON & grader",    "kicker": "Export"},
+    }
+
     st.markdown(
         f"""
-        <div class="panel" style="margin:.45rem 0 .7rem 0;">
+        <div class="panel" style="margin:.45rem 0 .9rem 0;">
             <div class="section-title">⚡ Quick Access</div>
             <div class="nav-help-box">
-                Tap any section to open it. Currently viewing: <b>{current}</b>.
+                Tap any card to open that section. Currently viewing:
+                <b style="color:#FBBF24">{current}</b>.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # 5 columns × 2 rows = 10 equal cells. CSS forces every button to the
-    # same height and rounded card style.
-    rows = [SECTION_OPTIONS[:5], SECTION_OPTIONS[5:]]
-    for row_i, row in enumerate(rows):
-        cols = st.columns(len(row), gap="small")
-        for col, page in zip(cols, row):
-            with col:
-                active = page == current
-                label = f"✅  {page}" if active else page
-                btn_type = "primary" if active else "secondary"
+    # 4 columns × 3 rows = 12 cells. SECTION_OPTIONS has 11 items; the last
+    # cell stays empty so every row is aligned. 4 wide reads better than 5
+    # because each card has more room for its image and label.
+    GRID_COLS = 4
+    n = len(SECTION_OPTIONS)
+    n_rows = (n + GRID_COLS - 1) // GRID_COLS  # ceil-divide
+
+    for row_i in range(n_rows):
+        cols = st.columns(GRID_COLS, gap="small")
+        for col_i in range(GRID_COLS):
+            idx = row_i * GRID_COLS + col_i
+            if idx >= n:
+                # Empty placeholder cell — keeps the grid aligned.
+                with cols[col_i]:
+                    st.markdown("<div style='height:1px'></div>", unsafe_allow_html=True)
+                continue
+            page = SECTION_OPTIONS[idx]
+            meta = section_meta.get(page, {"img": IMG_HOME, "sub": "", "kicker": "Section"})
+            active = (page == current)
+            parts = page.split(" ", 1)
+            icon = parts[0] if len(parts) == 2 else ""
+            label = parts[1] if len(parts) == 2 else page
+            active_class = " qa-active" if active else ""
+
+            with cols[col_i]:
+                st.markdown(
+                    f"""
+                    <div class="qa-cell">
+                        <div class="qa-card{active_class}" style="background-image:url('{meta["img"]}')">
+                            <div class="qa-kicker">{meta["kicker"]}</div>
+                            <div class="qa-icon">{icon}</div>
+                            <div class="qa-label">
+                                {label}
+                                <span class="qa-sub">{meta["sub"]}</span>
+                            </div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                btn_label = "✓ OPEN" if active else "OPEN ›"
                 if st.button(
-                    label,
-                    key=f"quick_nav_{row_i}_{page}",
+                    btn_label,
+                    key=f"quick_nav_{row_i}_{col_i}_{page}",
                     use_container_width=True,
-                    type=btn_type,
+                    type=("primary" if active else "secondary"),
                 ):
                     st.session_state["selected_page"] = page
-                    # Rerun so the sidebar dropdown and the rest of the page
-                    # immediately reflect the new section.
                     try:
                         st.rerun()
                     except Exception:
@@ -4097,15 +4301,49 @@ def robust_json(text: str):
     return None
 
 
+def _ascii_safe_header(value: str, fallback: str = "Solar PV Forecasting Dashboard") -> str:
+    """HTTP headers must be Latin-1 encodable. The default PROJECT_NAME
+    contains an em-dash ('—', U+2014) which crashes requests with:
+        'latin-1' codec can't encode character '\\u2014' in position 15.
+    We replace common smart punctuation with ASCII equivalents and then
+    strip anything still outside Latin-1.
+    """
+    if not value:
+        return fallback
+    # Replace common Unicode punctuation with ASCII look-alikes.
+    replacements = {
+        "\u2014": "-",   # em dash
+        "\u2013": "-",   # en dash
+        "\u2018": "'",   # left single quote
+        "\u2019": "'",   # right single quote
+        "\u201C": '"',   # left double quote
+        "\u201D": '"',   # right double quote
+        "\u2026": "...", # ellipsis
+        "\u00A0": " ",   # non-breaking space
+        "\u2022": "*",   # bullet
+        "\u00B7": "*",   # middle dot
+    }
+    out = value
+    for bad, good in replacements.items():
+        out = out.replace(bad, good)
+    # Last line of defense: drop anything still outside ASCII.
+    out = out.encode("ascii", "ignore").decode("ascii").strip()
+    return out or fallback
+
+
 def call_openrouter(api_key: str, submission_json: str) -> str:
     prompt = AI_GRADER_PROMPT_TEMPLATE.replace("<insert submission.json contents here>", submission_json)
+    # Sanitize header values to be Latin-1 / ASCII safe. The X-Title header
+    # is purely cosmetic on OpenRouter's dashboard; the request itself goes
+    # through unchanged.
+    safe_title = _ascii_safe_header(PROJECT_NAME)
     response = requests.post(
         "https://openrouter.ai/api/v1/chat/completions",
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://streamlit.io",
-            "X-Title": PROJECT_NAME,
+            "X-Title": safe_title,
         },
         json={"model": OPENROUTER_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": 0},
         timeout=90,
