@@ -1055,7 +1055,7 @@ def show_chart(fig, df: pd.DataFrame, timestamp_col: str, columns: list[str], wi
     if fig is not None:
         st.plotly_chart(fig, use_container_width=True, key=chart_key)
     elif not df.empty:
-        st.line_chart(df.set_index(timestamp_col)[columns].tail(window, use_container_width=True, key=next_chart_key("line")), use_container_width=True, key=chart_key)
+        st.line_chart(df.set_index(timestamp_col)[columns].tail(window), use_container_width=True, key=chart_key)
     else:
         st.info("No data available for this chart.")
 
@@ -1633,7 +1633,7 @@ with tabs[5]:
             fig.update_layout(template="plotly_dark", height=360, margin=dict(l=10, r=10, t=25, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
         elif not hourly.empty:
-            st.line_chart(hourly.set_index("hour", use_container_width=True, key=next_chart_key("line"))[["mean", "max"]])
+            st.line_chart(hourly.set_index("hour")[["mean", "max"]], use_container_width=True, key=next_chart_key("line"))
     with right:
         st.markdown("### Anomaly Scan")
         target_series = filtered_df[target_col].dropna().astype(float)
@@ -1664,7 +1664,7 @@ with tabs[5]:
     st.markdown("### Residual Stream")
     if not predictions_df.empty:
         residual_view = predictions_df[[timestamp_col, "residual", "absolute_error", "interval_covered"]].tail(chart_window)
-        st.line_chart(residual_view.set_index(timestamp_col, use_container_width=True, key=next_chart_key("line"))[["residual", "absolute_error"]])
+        st.line_chart(residual_view.set_index(timestamp_col)[["residual", "absolute_error"]], use_container_width=True, key=next_chart_key("line"))
         st.dataframe(residual_view.tail(30), use_container_width=True)
     else:
         st.info("Residual stream appears after prediction rows are available.")
@@ -1694,7 +1694,7 @@ with tabs[6]:
             fig.update_layout(template="plotly_dark", height=420, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
         else:
-            st.line_chart(simulated.set_index(timestamp_col, use_container_width=True, key=next_chart_key("line"))[[target_col, "scenario_power"]])
+            st.line_chart(simulated.set_index(timestamp_col)[[target_col, "scenario_power"]], use_container_width=True, key=next_chart_key("line"))
     else:
         st.info("No data available for simulator.")
 
