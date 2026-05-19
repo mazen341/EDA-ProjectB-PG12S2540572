@@ -267,7 +267,7 @@ with st.sidebar:
     student_name = st.text_input("Student name", value=STUDENT_NAME_DEFAULT)
     student_id = st.text_input("Student ID", value=STUDENT_ID_DEFAULT)
     deployed_url = st.text_input("Deployed Streamlit app URL", value="")
-    repo_url = st.text_input("GitHub repo URL", value="")
+    openrouter_api_key = get_openrouter_api_key()
     project_title = st.text_input("Project title", value="HKUST SQ1 PV Power Forecasting")
     project_goal = st.text_area(
         "Project goal",
@@ -402,7 +402,6 @@ submission = {
         "title": project_title,
         "goal": project_goal,
         "streamlit_url": deployed_url,
-        "github_repo_url": repo_url,
     },
     "data": {
         "data_path": data_path,
@@ -467,7 +466,6 @@ project_card = f"""# {project_title}
 
 ## Links
 - Streamlit app: {deployed_url}
-- GitHub repo: {repo_url}
 """
 
 col1, col2 = st.columns(2)
@@ -495,7 +493,7 @@ with st.expander("Preview project_card.md", expanded=False):
 st.header("9) AI grader /80")
 st.caption(f"Model: {OPENROUTER_MODEL}")
 
-api_key = get_openrouter_api_key()
+api_key = openrouter_api_key
 grader_prompt = AI_GRADER_PROMPT_TEMPLATE.replace(
     "<insert submission.json contents here>",
     submission_json,
