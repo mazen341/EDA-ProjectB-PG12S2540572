@@ -1386,6 +1386,134 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         .workflow-card {{
             margin-bottom:.75rem;
         }}
+
+        /* Reliable Animated PV Energy Flow */
+        @keyframes pvPulseMove {{
+            0% {{ left: 0%; opacity: 0; transform: translate(-50%, -50%) scale(.7); }}
+            12% {{ opacity: 1; }}
+            50% {{ opacity: 1; transform: translate(-50%, -50%) scale(1.05); }}
+            100% {{ left: 100%; opacity: 0; transform: translate(-50%, -50%) scale(.7); }}
+        }}
+        @keyframes pvPulseMoveReverse {{
+            0% {{ left: 100%; opacity: 0; transform: translate(-50%, -50%) scale(.7); }}
+            12% {{ opacity: 1; }}
+            50% {{ opacity: 1; transform: translate(-50%, -50%) scale(1.05); }}
+            100% {{ left: 0%; opacity: 0; transform: translate(-50%, -50%) scale(.7); }}
+        }}
+        @keyframes pvNodeGlow {{
+            0%,100% {{ box-shadow:0 0 0 rgba(34,211,238,0), inset 0 0 18px rgba(34,211,238,.10); }}
+            50% {{ box-shadow:0 0 22px rgba(34,211,238,.35), inset 0 0 22px rgba(251,191,36,.10); }}
+        }}
+        .pv-flow-card {{
+            border:1px solid rgba(34,211,238,.26);
+            border-radius:22px;
+            background:
+                radial-gradient(circle at 8% 12%, rgba(251,191,36,.14), transparent 24%),
+                radial-gradient(circle at 90% 8%, rgba(34,211,238,.16), transparent 28%),
+                linear-gradient(145deg, rgba(5,18,38,.84), rgba(8,28,52,.70));
+            padding:1rem;
+            overflow:hidden;
+            position:relative;
+            backdrop-filter:blur(14px);
+            box-shadow:0 18px 54px rgba(0,0,0,.24);
+            margin-bottom:.85rem;
+        }}
+        .pv-flow-stage {{
+            display:grid;
+            grid-template-columns: 1fr minmax(55px,.45fr) 1fr minmax(55px,.45fr) 1fr minmax(55px,.45fr) 1fr;
+            gap:.45rem;
+            align-items:center;
+            margin-top:.85rem;
+        }}
+        .pv-flow-stage-secondary {{
+            margin-top:.65rem;
+            opacity:.98;
+        }}
+        .pv-node {{
+            min-height:92px;
+            border:1px solid rgba(148,203,255,.18);
+            border-radius:18px;
+            background:linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.035));
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            padding:.55rem;
+            animation:pvNodeGlow 2.8s ease-in-out infinite;
+        }}
+        .pv-node.small {{
+            min-height:78px;
+        }}
+        .pv-node-icon {{
+            font-size:1.9rem;
+            line-height:1;
+            filter:drop-shadow(0 0 10px rgba(251,191,36,.28));
+        }}
+        .pv-node-title {{
+            color:#f8fbff;
+            font-weight:1000;
+            font-size:.88rem;
+            margin-top:.25rem;
+        }}
+        .pv-node-sub {{
+            color:#dbeafe;
+            font-size:.68rem;
+            margin-top:.1rem;
+        }}
+        .pv-track {{
+            height:8px;
+            border-radius:999px;
+            position:relative;
+            overflow:hidden;
+            background:linear-gradient(90deg, rgba(34,211,238,.16), rgba(251,191,36,.26), rgba(16,185,129,.16));
+            box-shadow:inset 0 0 14px rgba(34,211,238,.18);
+        }}
+        .pv-track::before {{
+            content:"";
+            position:absolute;
+            inset:0;
+            background:linear-gradient(90deg, transparent, rgba(255,255,255,.36), transparent);
+            animation:energyFlow 2.4s ease-in-out infinite;
+        }}
+        .pv-track span {{
+            position:absolute;
+            top:50%;
+            left:0%;
+            width:12px;
+            height:12px;
+            border-radius:50%;
+            background:#fbbf24;
+            box-shadow:0 0 18px rgba(251,191,36,.85), 0 0 28px rgba(34,211,238,.35);
+            animation:pvPulseMove 2.2s linear infinite;
+        }}
+        .pv-track span:nth-child(2) {{ animation-delay:.62s; background:#38bdf8; }}
+        .pv-track span:nth-child(3) {{ animation-delay:1.22s; background:#10b981; }}
+        .pv-track.reverse span {{
+            animation-name:pvPulseMoveReverse;
+        }}
+        .pv-flow-status {{
+            display:inline-flex;
+            align-items:center;
+            gap:.45rem;
+            margin-top:.9rem;
+            border:1px solid rgba(16,185,129,.28);
+            border-radius:999px;
+            background:rgba(16,185,129,.10);
+            padding:.45rem .75rem;
+            color:#ecfeff;
+            font-weight:900;
+            font-size:.82rem;
+        }}
+        @media (max-width: 900px) {{
+            .pv-flow-stage {{
+                grid-template-columns:1fr;
+            }}
+            .pv-track {{
+                width:100%;
+                min-height:8px;
+            }}
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -2434,30 +2562,76 @@ def render_hourglass_loader(message: str, pct: int):
 
 
 def energy_flow_panel():
-    st.markdown('<div class="flow-card"><div class="section-title">Animated PV Energy Flow</div>', unsafe_allow_html=True)
+    """Reliable animated PV energy flow panel.
+
+    Uses visible tracks and moving pulse dots instead of fragile arrow pseudo-elements.
+    """
     st.markdown(
         """
-        <div class="flow-row">
-            <div class="node"><div class="node-icon">🔷</div><div class="node-label">PV Array</div><div class="node-sub">DC generation</div></div>
-            <div class="arrow">→</div>
-            <div class="node"><div class="node-icon">🔌</div><div class="node-label">Inverter</div><div class="node-sub">DC → AC</div></div>
-            <div class="arrow">→</div>
-            <div class="node"><div class="node-icon">⚡</div><div class="node-label">Transformer</div><div class="node-sub">Voltage step-up</div></div>
-            <div class="arrow">→</div>
-            <div class="node"><div class="node-icon">🗼</div><div class="node-label">Grid</div><div class="node-sub">Export</div></div>
+        <div class="pv-flow-card">
+            <div class="section-title">Animated PV Energy Flow</div>
+            <div class="muted">Live-style movement from generation to conversion, storage, load, and grid export.</div>
+
+            <div class="pv-flow-stage">
+                <div class="pv-node">
+                    <div class="pv-node-icon">☀️</div>
+                    <div class="pv-node-title">Sun</div>
+                    <div class="pv-node-sub">irradiance</div>
+                </div>
+                <div class="pv-track"><span></span><span></span><span></span></div>
+                <div class="pv-node">
+                    <div class="pv-node-icon">🔷</div>
+                    <div class="pv-node-title">PV Array</div>
+                    <div class="pv-node-sub">DC power</div>
+                </div>
+                <div class="pv-track"><span></span><span></span><span></span></div>
+                <div class="pv-node">
+                    <div class="pv-node-icon">🔌</div>
+                    <div class="pv-node-title">Inverter</div>
+                    <div class="pv-node-sub">DC → AC</div>
+                </div>
+                <div class="pv-track"><span></span><span></span><span></span></div>
+                <div class="pv-node">
+                    <div class="pv-node-icon">🗼</div>
+                    <div class="pv-node-title">Grid</div>
+                    <div class="pv-node-sub">export</div>
+                </div>
+            </div>
+
+            <div class="pv-flow-stage pv-flow-stage-secondary">
+                <div class="pv-node small">
+                    <div class="pv-node-icon">🌤️</div>
+                    <div class="pv-node-title">Weather</div>
+                    <div class="pv-node-sub">forecast drivers</div>
+                </div>
+                <div class="pv-track reverse"><span></span><span></span><span></span></div>
+                <div class="pv-node small">
+                    <div class="pv-node-icon">🤖</div>
+                    <div class="pv-node-title">Model</div>
+                    <div class="pv-node-sub">prediction</div>
+                </div>
+                <div class="pv-track"><span></span><span></span><span></span></div>
+                <div class="pv-node small">
+                    <div class="pv-node-icon">🔋</div>
+                    <div class="pv-node-title">Battery</div>
+                    <div class="pv-node-sub">charge / discharge</div>
+                </div>
+                <div class="pv-track"><span></span><span></span><span></span></div>
+                <div class="pv-node small">
+                    <div class="pv-node-icon">🏠</div>
+                    <div class="pv-node-title">Load</div>
+                    <div class="pv-node-sub">demand</div>
+                </div>
+            </div>
+
+            <div class="pv-flow-status">
+                <span class="live-dot"></span>
+                Energy moving • telemetry online • forecast active
+            </div>
         </div>
-        <div class="flow-row">
-            <div class="node"><div class="node-icon">🌤️</div><div class="node-label">Weather</div><div class="node-sub">forecast drivers</div></div>
-            <div class="arrow">↔</div>
-            <div class="node"><div class="node-icon">🔋</div><div class="node-label">Battery</div><div class="node-sub">storage</div></div>
-            <div class="arrow">↔</div>
-            <div class="node"><div class="node-icon">🏠</div><div class="node-label">Local Load</div><div class="node-sub">demand</div></div>
-        </div>
-        <div style="margin-top:1rem"><span class="pill"><span class="live-dot"></span>Telemetry online • energy moving • forecast active</span></div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def visual_twin_panel():
