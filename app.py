@@ -125,10 +125,10 @@ st.set_page_config(
 # -----------------------------------------------------------------------------
 THEMES = {
     "Pearl PV Light": {
-        "bg0": "#A7D7F5", "bg1": "#DDF3F8", "bg2": "#F7FBFE",
-        "card": "rgba(10, 25, 48, .84)", "card2": "rgba(17, 35, 63, .68)",
-        "text": "#F8FAFC", "muted": "#D7E4F3",
-        "blue": "#2563EB", "cyan": "#38BDF8", "green": "#10B981", "gold": "#FBBF24", "red": "#EF4444",
+        "bg0": "#EAF7FF", "bg1": "#F4FBFF", "bg2": "#FFFDF5",
+        "card": "rgba(5, 18, 38, .88)", "card2": "rgba(11, 30, 58, .74)",
+        "text": "#F8FBFF", "muted": "#D6E6F7",
+        "blue": "#2563EB", "cyan": "#0EA5E9", "green": "#10B981", "gold": "#F59E0B", "red": "#EF4444",
     },
     "Midnight Energy": {
         "bg0": "#020617", "bg1": "#07111F", "bg2": "#0B2440",
@@ -718,6 +718,83 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             overflow:hidden;
         }}
 
+
+        .sidebar-hero {
+            border:1px solid rgba(56,189,248,.28);
+            border-radius:26px;
+            padding:1rem 1rem .95rem 1rem;
+            margin:.2rem 0 1rem 0;
+            background:
+                radial-gradient(circle at top right, rgba(245,158,11,.16), transparent 26%),
+                radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 28%),
+                linear-gradient(145deg, rgba(8,24,44,.96), rgba(11,35,63,.92));
+            box-shadow:0 22px 58px rgba(0,0,0,.28);
+            overflow:hidden;
+            position:relative;
+        }
+        .sidebar-hero::after {
+            content:"";
+            position:absolute;
+            right:-24px;
+            top:-24px;
+            width:96px;
+            height:96px;
+            border-radius:50%;
+            background:radial-gradient(circle, rgba(251,191,36,.95) 0%, rgba(251,191,36,.30) 55%, transparent 72%);
+            box-shadow:0 0 30px rgba(251,191,36,.24);
+        }
+        .sidebar-hero-title {
+            font-size:1.1rem;
+            font-weight:1000;
+            color:#FFFFFF;
+            margin-bottom:.22rem;
+            position:relative;
+            z-index:2;
+        }
+        .sidebar-hero-copy {
+            color:#DDEBFB;
+            font-size:.84rem;
+            line-height:1.55;
+            position:relative;
+            z-index:2;
+        }
+        .sidebar-mini-grid {
+            display:grid;
+            grid-template-columns:repeat(2,minmax(90px,1fr));
+            gap:.55rem;
+            margin-top:.75rem;
+            position:relative;
+            z-index:2;
+        }
+        .sidebar-mini-card {
+            border:1px solid rgba(148,163,184,.18);
+            border-radius:16px;
+            padding:.55rem .6rem;
+            background:rgba(255,255,255,.06);
+        }
+        .sidebar-mini-card .t1 {
+            color:#A5C9F3;
+            font-size:.68rem;
+            font-weight:900;
+            text-transform:uppercase;
+            letter-spacing:.04em;
+        }
+        .sidebar-mini-card .t2 {
+            color:#FFFFFF;
+            font-size:.82rem;
+            font-weight:1000;
+            margin-top:.1rem;
+        }
+        .sidebar-section {
+            margin:.75rem 0 .35rem 0;
+            padding:.48rem .75rem;
+            border-radius:14px;
+            background:linear-gradient(90deg, rgba(56,189,248,.16), rgba(16,185,129,.10));
+            border:1px solid rgba(56,189,248,.18);
+            color:#F8FBFF;
+            font-size:1rem;
+            font-weight:1000;
+        }
         @media (max-width: 1250px) {{
             .hero-grid {{ grid-template-columns:1fr; }}
             .control-grid {{ grid-template-columns:repeat(2,minmax(120px,1fr)); }}
@@ -1280,8 +1357,24 @@ def call_openrouter(api_key: str, submission_json: str) -> str:
 # Sidebar
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("## ☀️ Website Controls")
-    st.caption("Everything here changes the website representation.")
+    st.markdown(
+        """
+        <div class="sidebar-hero">
+            <div class="sidebar-hero-title">☀️ Website Controls</div>
+            <div class="sidebar-hero-copy">
+                Control the full website experience from here: style, size, motion, data, forecasting, and analysis.
+                Everything is organized to be easy to find and visually clear.
+            </div>
+            <div class="sidebar-mini-grid">
+                <div class="sidebar-mini-card"><div class="t1">Experience</div><div class="t2">Interactive</div></div>
+                <div class="sidebar-mini-card"><div class="t1">Theme</div><div class="t2">PV Premium</div></div>
+                <div class="sidebar-mini-card"><div class="t1">Motion</div><div class="t2">Alive UI</div></div>
+                <div class="sidebar-mini-card"><div class="t1">Layout</div><div class="t2">Big & Clear</div></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     dashboard_mode = st.selectbox(
         "Choose dashboard style",
@@ -1301,18 +1394,18 @@ with st.sidebar:
     first_view = st.selectbox("First screen priority", ["Balanced", "Charts first", "3D visuals first", "Evidence first"], index=0)
 
     st.markdown("---")
-    st.markdown("## 👤 Project Details")
+    st.markdown('<div class="sidebar-section">👤 Project Details</div>', unsafe_allow_html=True)
     student_name = st.text_input("Student name", STUDENT_NAME_DEFAULT)
     student_id = st.text_input("Student ID", STUDENT_ID_DEFAULT)
     project_title = st.text_input("Top project name", PROJECT_NAME)
 
     st.markdown("---")
-    st.markdown("## 📁 Data")
+    st.markdown('<div class="sidebar-section">📁 Data Source</div>', unsafe_allow_html=True)
     data_path = st.text_input("Dataset path", DEFAULT_DATA_PATH)
     uploaded_file = st.file_uploader("Upload data", type=["csv", "xlsx", "xls", "json"])
 
     st.markdown("---")
-    st.markdown("## ⚙️ Forecast Parameters")
+    st.markdown('<div class="sidebar-section">⚙️ Forecast Parameters</div>', unsafe_allow_html=True)
     site_name = st.selectbox("Site", ["Solar Farm Alpha", "Rooftop PV Lab", "Campus PV Plant"], index=0)
     resample_rule = st.selectbox("Resampling rule", ["None", "15min", "30min", "1h", "1D"], index=1)
     horizon = int(st.number_input("Forecast horizon rows", min_value=1, max_value=96, value=1, step=1))
