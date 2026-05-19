@@ -324,6 +324,141 @@ def call_openrouter_grader(api_key, evidence_json):
     payload = response.json()
     return payload["choices"][0]["message"]["content"]
 
+def local_rubric_grader(submission):
+    """Create a deterministic local /80 rubric estimate when the external AI grader is unavailable."""
+    data = submission.get("data_integrity", {}) or {}
+    feats = submission.get("feature_engineering", {}) or {}
+    model = submission.get("modeling_and_evaluation", {}) or {}
+    dash = submission.get("dashboard", {}) or {}
+    rigor = submission.get("presentation_and_rigor", {}) or {}
+
+    scores = {
+        "Data & integrity": 0,
+        "Feature engineering": 0,
+        "Modeling & evaluation": 0,
+        "Dashboard quality": 0,
+        "Presentation & rigor": 0,
+    }
+    strengths = []
+    weaknesses = []
+    improvements = []
+
+    # Data & integrity: max 20
+    if data.get("rows_loaded", 0) and data.get("columns_loaded", 0):
+        scores["Data & integrity"] += 3
+    if data.get("timestamp_column") and data.get("target_column"):
+        scores["Data & integrity"] += 3
+    if data.get("timestamp_coverage_start") and data.get("timestamp_coverage_end"):
+        scores["Data & integrity"] += 3
+    if data.get("cleaning_report"):
+        scores["Data & integrity"] += 4
+    if data.get("missing_table_top10"):
+        scores["Data & integrity"] += 2
+    if data.get("outliers_discussed") and data.get("outlier_summary"):
+        scores["Data & integrity"] += 3
+    if data.get("resampling_discussed") and data.get("resampling_note"):
+        scores["Data & integrity"] += 2
+    scores["Data & integrity"] = min(scores["Data & integrity"], 20)
+
+    # Feature engineering: max 15
+    if feats.get("baseline_features"):
+        scores["Feature engineering"] += 5
+    added_features = feats.get("student_added_features") or []
+    if len(added_features) >= 4:
+        scores["Feature engineering"] += 5
+    if len(added_features) >= 8:
+        scores["Feature engineering"] += 2
+    if feats.get("horizon_rows"):
+        scores["Feature engineering"] += 1
+    if feats.get("feature_table_rows", 0) > 0:
+        scores["Feature engineering"] += 2
+    scores["Feature engineering"] = min(scores["Feature engineering"], 15)
+
+    # Modeling & evaluation: max 25
+    if model.get("has_time_based_split"):
+        scores["Modeling & evaluation"] += 5
+    if model.get("has_metrics_table") and model.get("results_table"):
+        scores["Modeling & evaluation"] += 5
+    if model.get("model_comparison_table"):
+        scores["Modeling & evaluation"] += 5
+    if model.get("best_model_details"):
+        scores["Modeling & evaluation"] += 3
+    if model.get("feature_importance_table"):
+        scores["Modeling & evaluation"] += 3
+    if model.get("uncertainty_summary") and model.get("prediction_interval_columns_present"):
+        scores["Modeling & evaluation"] += 4
+    scores["Modeling & evaluation"] = min(scores["Modeling & evaluation"], 25)
+
+    # Dashboard quality: max 10
+    if dash.get("has_baseline_plot"):
+        scores["Dashboard quality"] += 2
+    if dash.get("has_student_added_dashboard"):
+        scores["Dashboard quality"] += 3
+    if len(dash.get("insights") or []) >= 3:
+        scores["Dashboard quality"] += 3
+    if model.get("prediction_interval_columns_present"):
+        scores["Dashboard quality"] += 2
+    scores["Dashboard quality"] = min(scores["Dashboard quality"], 10)
+
+    # Presentation & rigor: max 10
+    if len(rigor.get("limitations") or []) >= 2:
+        scores["Presentation & rigor"] += 4
+    if len(rigor.get("reproducibility_notes") or []) >= 2:
+        scores["Presentation & rigor"] += 4
+    if model.get("student_notes"):
+        scores["Presentation & rigor"] += 2
+    scores["Presentation & rigor"] = min(scores["Presentation & rigor"], 10)
+
+    # Strict caps from the prompt.
+    if not model.get("has_time_based_split"):
+        scores["Modeling & evaluation"] = min(scores["Modeling & evaluation"], 12)
+    if not (data.get("outliers_discussed") and data.get("resampling_discussed")):
+        scores["Data & integrity"] = min(scores["Data & integrity"], 10)
+    if not model.get("has_metrics_table"):
+        scores["Modeling & evaluation"] = min(scores["Modeling & evaluation"], 10)
+    if not dash.get("insights"):
+        scores["Presentation & rigor"] = min(scores["Presentation & rigor"], 5)
+
+    total = int(sum(scores.values()))
+
+    if scores["Data & integrity"] >= 16:
+        strengths.append("Strong data integrity evidence including timestamp checks, missingness, cleaning, resampling, and outlier handling.")
+    if scores["Feature engineering"] >= 12:
+        strengths.append("Feature engineering goes beyond the baseline with temporal, cyclical, interaction, and optional weather variables.")
+    if scores["Modeling & evaluation"] >= 20:
+        strengths.append("Modeling evidence includes a time-based split, metrics, model comparison, tuning, interpretability, and uncertainty estimates.")
+    if scores["Dashboard quality"] >= 8:
+        strengths.append("Dashboard evidence includes KPIs, trend views, diagnostics, insights, and interval-based forecast communication.")
+    if scores["Presentation & rigor"] >= 8:
+        strengths.append("Limitations and reproducibility notes are explicit and well aligned with the project evidence.")
+
+    if not model.get("has_metrics_table"):
+        weaknesses.append("No completed metrics table is available because modeling has not run successfully.")
+        improvements.append("Run the modeling section before grading so validation metrics and comparison rows are exported.")
+    if not model.get("model_comparison_table"):
+        weaknesses.append("Model comparison evidence is missing or empty.")
+        improvements.append("Keep modeling enabled and compare at least a baseline, a linear model, and one tree/boosting model.")
+    if not model.get("feature_importance_table"):
+        weaknesses.append("Feature importance evidence is missing.")
+        improvements.append("Show permutation importance or another interpretability table for the selected model.")
+    if not model.get("prediction_interval_columns_present"):
+        weaknesses.append("Prediction interval columns are missing from the exported evidence.")
+        improvements.append("Run the uncertainty interval step and show lower/upper forecast bounds in the dashboard.")
+    if not weaknesses:
+        weaknesses.append("External AI grading was unavailable, so this is a deterministic local estimate rather than the official AI grader response.")
+        improvements.append("When the API limit resets, rerun the OpenRouter grader and compare its result with this local estimate.")
+
+    return {
+        "scores": {k: int(v) for k, v in scores.items()},
+        "total_80": int(total),
+        "strengths": strengths,
+        "weaknesses": weaknesses,
+        "actionable_improvements": improvements,
+        "grader_source": "local_fallback_estimate",
+        "note": "This estimate uses the same rubric categories and caps, but it is not a replacement for the external AI grader if your instructor requires that output.",
+    }
+
+
 
 def render_hero(student_name, student_id, app_title):
     st.markdown(
@@ -1115,10 +1250,25 @@ Uncertainty summary:
     with st.expander("Show fixed AI grader prompt"):
         st.code(AI_GRADER_PROMPT_TEMPLATE, language="text")
 
+    local_estimate = local_rubric_grader(submission)
+    st.download_button(
+        "Download local grader estimate",
+        data=json.dumps(local_estimate, indent=2, default=safe_json_default),
+        file_name="local_grader_estimate.json",
+        mime="application/json",
+    )
+
+    use_local_fallback = st.checkbox(
+        "Use local fallback if OpenRouter is unavailable or rate-limited",
+        value=True,
+        help="Useful when OpenRouter returns 429 Too Many Requests. The fallback is a rubric-style estimate based only on the exported submission evidence.",
+    )
+
     api_key = get_openrouter_key()
     if st.button("Run AI grader"):
         if not api_key:
-            st.error("Please provide OPENROUTER_API_KEY through secrets, environment, or the password field.")
+            st.warning("No OpenRouter API key was provided. Showing the local rubric-style estimate instead.")
+            st.json(local_estimate)
         else:
             with st.spinner("Calling AI grader..."):
                 try:
@@ -1130,5 +1280,27 @@ Uncertainty summary:
                     else:
                         st.warning("Could not parse grader output as JSON. Raw output below.")
                         st.text(raw_output)
+                        if use_local_fallback:
+                            st.info("Local rubric-style estimate shown below for backup.")
+                            st.json(local_estimate)
+                except requests.exceptions.HTTPError as exc:
+                    status_code = exc.response.status_code if exc.response is not None else None
+                    if status_code == 429:
+                        st.warning(
+                            "OpenRouter returned 429 Too Many Requests. This means the API is currently rate-limited, not that the project failed."
+                        )
+                    else:
+                        st.error(f"AI grader request failed with HTTP status {status_code}: {exc}")
+                    if use_local_fallback:
+                        st.info("Showing local rubric-style estimate based on the exported submission evidence.")
+                        st.json(local_estimate)
+                except requests.exceptions.RequestException as exc:
+                    st.error(f"AI grader network request failed: {exc}")
+                    if use_local_fallback:
+                        st.info("Showing local rubric-style estimate based on the exported submission evidence.")
+                        st.json(local_estimate)
                 except Exception as exc:
                     st.error(f"AI grader request failed: {exc}")
+                    if use_local_fallback:
+                        st.info("Showing local rubric-style estimate based on the exported submission evidence.")
+                        st.json(local_estimate)
