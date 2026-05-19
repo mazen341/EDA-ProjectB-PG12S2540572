@@ -73,6 +73,15 @@ IMG_CONTROL = "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto
 IMG_GRID = "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=1100&q=80"
 IMG_WEATHER = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1100&q=80"
 IMG_BATTERY = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1100&q=80"
+IMG_HOME = "https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=1100&q=80"
+IMG_FORECAST = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1100&q=80"
+IMG_3D = "https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?auto=format&fit=crop&w=1100&q=80"
+IMG_PIPELINE = "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1100&q=80"
+IMG_MODEL = "https://images.unsplash.com/photo-1555949963-aa79dcee981c?auto=format&fit=crop&w=1100&q=80"
+IMG_ADVANCED = "https://images.unsplash.com/photo-1518186285589-2f7649de83e0?auto=format&fit=crop&w=1100&q=80"
+IMG_SIMULATOR = "https://images.unsplash.com/photo-1518779578993-ec3579fee39f?auto=format&fit=crop&w=1100&q=80"
+IMG_COMPARE = "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1100&q=80"
+IMG_EXPORT = "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1100&q=80"
 
 AI_GRADER_PROMPT_TEMPLATE = """SYSTEM:
 You are a strict academic grader. Return ONLY valid JSON.
@@ -1271,6 +1280,25 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         .section-nav-card {{
             pointer-events: none !important;
         }}
+
+        /* Real page selector styling */
+        div[role="radiogroup"] {{
+            background: rgba(5,18,38,.86);
+            border: 1px solid rgba(14,165,233,.22);
+            border-radius: 16px;
+            padding: .55rem;
+            margin-bottom: .75rem;
+        }}
+        div[role="radiogroup"] label {{
+            color: #f8fbff !important;
+            font-weight: 900 !important;
+        }}
+        [data-testid="stImage"] img {{
+            border-radius: 14px;
+            max-height: 105px;
+            object-fit: cover;
+            border: 1px solid rgba(14,165,233,.20);
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -1947,30 +1975,32 @@ def kpi(title: str, value: str, icon: str, detail: str):
 
 
 def render_section_navigation():
-    """Accessible main navigation with real Streamlit buttons."""
+    """Real accessible main navigation.
+
+    These buttons change the visible section directly. No hidden tab-clicking is required.
+    """
     sections = [
-        ("🏠 Home", "Main status", IMG_SOLAR_1, "Home"),
-        ("📊 Forecasting", "Forecast charts", IMG_WEATHER, "Forecasting"),
-        ("🧩 Images + 3D", "Visual system", IMG_SOLAR_2, "Images + 3D"),
-        ("🧹 Data Pipeline", "Cleaning flow", IMG_CONTROL, "Data Pipeline"),
-        ("🤖 Models", "Model evidence", IMG_BATTERY, "Models"),
-        ("🧬 Advanced", "Diagnostics", IMG_GRID, "Advanced"),
-        ("🕹️ Simulator", "What-if tools", IMG_SOLAR_1, "Simulator"),
-        ("🔬 Comparison Lab", "All tools", IMG_BATTERY, "Comparison Lab"),
-        ("📤 Export", "Downloads", IMG_CONTROL, "Export"),
+        ("🏠 Home", "Main status", IMG_HOME, "🏠 Home"),
+        ("📊 Forecasting", "Forecast charts", IMG_FORECAST, "📊 Forecasting"),
+        ("🧩 Images + 3D", "Visual system", IMG_3D, "🧩 Images + 3D"),
+        ("🧹 Data Pipeline", "Cleaning flow", IMG_PIPELINE, "🧹 Data Pipeline"),
+        ("🤖 Models", "Model evidence", IMG_MODEL, "🤖 Models"),
+        ("🧬 Advanced", "Diagnostics", IMG_ADVANCED, "🧬 Advanced"),
+        ("🕹️ Simulator", "What-if tools", IMG_SIMULATOR, "🕹️ Simulator"),
+        ("🔬 Comparison Lab", "All comparison tools", IMG_COMPARE, "🔬 Comparison Lab"),
+        ("📤 Export", "Downloads", IMG_EXPORT, "📤 Export"),
     ]
 
-    if "main_nav_selected" not in st.session_state:
-        st.session_state["main_nav_selected"] = "Home"
+    if "selected_page" not in st.session_state:
+        st.session_state["selected_page"] = "🏠 Home"
 
     st.markdown(
         """
         <div class="panel" style="margin:.5rem 0 1rem 0;">
             <div class="section-title">🧭 Main Navigation</div>
             <div class="nav-help-box">
-                Use the real buttons below to choose a section. The selected section is highlighted and the matching tab name is shown.
-                All sidebar controls remain available: data upload, theme, animation, forecasting parameters, model comparison,
-                training button, clear results, simulator, and export tools.
+                Choose a section using the buttons below. The page opens immediately below this menu.
+                Every option stays available: sidebar controls, model training, simulator, comparison lab, and exports.
             </div>
         </div>
         """,
@@ -1978,25 +2008,25 @@ def render_section_navigation():
     )
 
     cols = st.columns(3)
-    for i, (title, subtitle, img, short_name) in enumerate(sections):
+    for i, (title, subtitle, img, page_value) in enumerate(sections):
         with cols[i % 3]:
             st.image(img, use_container_width=True)
-            button_label = f"{title}\n{subtitle}"
-            if st.button(button_label, key=f"main_nav_btn_{short_name}", use_container_width=True):
-                st.session_state["main_nav_selected"] = short_name
+            label = f"{title}\n{subtitle}"
+            if st.button(label, key=f"main_nav_btn_{i}", use_container_width=True):
+                st.session_state["selected_page"] = page_value
 
-    selected = st.session_state.get("main_nav_selected", "Home")
-    st.success(f"Selected section: {selected}. Open the matching tab below to view that section.")
-
+    selected = st.session_state.get("selected_page", "🏠 Home")
     cards = ""
-    for title, subtitle, img, short_name in sections:
-        active_style = "border-color:rgba(251,191,36,.85); box-shadow:0 0 0 2px rgba(251,191,36,.25);" if selected == short_name else ""
+    for title, subtitle, img, page_value in sections:
+        active_style = "border-color:rgba(251,191,36,.9); box-shadow:0 0 0 2px rgba(251,191,36,.28);" if selected == page_value else ""
         cards += f"""
         <div class="section-nav-card" style="background-image:url('{img}'); {active_style}">
             <div class="nav-label">{title}<span class="nav-sub">{subtitle}</span></div>
         </div>
         """
     st.markdown(f'<div class="section-nav">{cards}</div>', unsafe_allow_html=True)
+    st.success(f"Current open section: {selected}")
+    return selected
 
 
 def render_hourglass_loader(message: str, pct: int):
@@ -2455,7 +2485,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-render_section_navigation()
+selected_page = render_section_navigation()
 
 # First screen priority
 if first_view == "Charts first":
@@ -2483,9 +2513,9 @@ elif first_view == "Evidence first":
 
 
 # Tabs
-st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Open Sections</div><div class="muted">Use the tabs below after reviewing the Main Navigation cards above. The sidebar stays available for all controls and buttons while each tab provides its own interactive charts, tables, simulator, comparison lab, and exports.</div></div>', unsafe_allow_html=True)
+st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Open Sections</div><div class="muted">Use the selector below after choosing from Main Navigation above. The sidebar stays available for all controls and buttons while each tab provides its own interactive charts, tables, simulator, comparison lab, and exports.</div></div>', unsafe_allow_html=True)
 
-tabs = st.tabs([
+section_options = [
     "🏠 Home",
     "📊 Forecasting",
     "🧩 Images + 3D",
@@ -2495,10 +2525,20 @@ tabs = st.tabs([
     "🕹️ Simulator",
     "🔬 Comparison Lab",
     "📤 Export",
-])
+]
+if st.session_state.get("selected_page") not in section_options:
+    st.session_state["selected_page"] = "🏠 Home"
 
-with tabs[0]:
-    tab_hero("🏠 Home", "The main command center of the website with quick status, live production trend, core visuals, and the most important plant signals in one big easy-to-find place.", IMG_SOLAR_1, "☀️", "Home dashboard")
+selected_page = st.radio(
+    "Open section",
+    section_options,
+    key="selected_page",
+    horizontal=True,
+)
+
+
+if selected_page == "🏠 Home":
+    tab_hero("🏠 Home", "The main command center of the website with quick status, live production trend, core visuals, and the most important plant signals in one big easy-to-find place.", IMG_HOME, "☀️", "Home dashboard")
     c1, c2, c3 = st.columns([1.1, 1.1, 1.25])
     with c1:
         st.markdown(
@@ -2532,8 +2572,8 @@ with tabs[0]:
             "uncertainty": uncertainty_summary,
         })
 
-with tabs[1]:
-    tab_hero("📊 Forecasting", "This section focuses on forecasting performance, actual-versus-predicted trends, weather context, and validation signals. Everything here is designed to feel large, clear, and interactive.", IMG_WEATHER, "📈", "Forecast intelligence")
+if selected_page == "📊 Forecasting":
+    tab_hero("📊 Forecasting", "This section focuses on forecasting performance, actual-versus-predicted trends, weather context, and validation signals. Everything here is designed to feel large, clear, and interactive.", IMG_FORECAST, "📈", "Forecast intelligence")
     f1, f2 = st.columns(2)
     with f1:
         st.markdown('<div class="panel"><div class="section-title">Forecast Signal with User-Controlled Band</div>', unsafe_allow_html=True)
@@ -2580,8 +2620,8 @@ with tabs[1]:
             st.info("Not enough prediction rows.")
         st.markdown("</div>", unsafe_allow_html=True)
 
-with tabs[2]:
-    tab_hero("🧩 Images + 3D", "A visual-first gallery with larger system images, animated PV energy flow, and 3D-style floating digital twin components that make the website feel alive.", IMG_SOLAR_2, "🧩", "Visual experience")
+if selected_page == "🧩 Images + 3D":
+    tab_hero("🧩 Images + 3D", "A visual-first gallery with larger system images, animated PV energy flow, and 3D-style floating digital twin components that make the website feel alive.", IMG_3D, "🧩", "Visual experience")
     st.markdown("## Visual System — Images, Diagram and 3D")
     gallery = [
         ("PV Field", IMG_SOLAR_1),
@@ -2627,8 +2667,8 @@ with tabs[2]:
         """
     )
 
-with tabs[3]:
-    tab_hero("🧹 Data Pipeline", "This section explains how the data moves through loading, cleaning, resampling, outlier handling, and feature engineering so everything is transparent and easy to understand.", IMG_CONTROL, "🧹", "Data workflow")
+if selected_page == "🧹 Data Pipeline":
+    tab_hero("🧹 Data Pipeline", "This section explains how the data moves through loading, cleaning, resampling, outlier handling, and feature engineering so everything is transparent and easy to understand.", IMG_PIPELINE, "🧹", "Data workflow")
     st.markdown("## Data Pipeline")
     steps = [
         ("1. Load", f"{len(raw_df):,} rows", source_label),
@@ -2673,8 +2713,8 @@ with tabs[3]:
     else:
         st.warning("No feature rows available.")
 
-with tabs[4]:
-    tab_hero("🤖 Models", "Model comparison, metrics, feature importance, and uncertainty are displayed here in a bigger and more professional representation for easier interpretation.", IMG_BATTERY, "🤖", "Model evidence")
+if selected_page == "🤖 Models":
+    tab_hero("🤖 Models", "Model comparison, metrics, feature importance, and uncertainty are displayed here in a bigger and more professional representation for easier interpretation.", IMG_MODEL, "🤖", "Model evidence")
     st.markdown("## Models and Interpretability")
     if comparison_df.empty:
         st.warning(modeling_note)
@@ -2697,8 +2737,8 @@ with tabs[4]:
         render_comparison_panel(comparison_df, uncertainty_summary)
         render_tips_panel()
 
-with tabs[5]:
-    tab_hero("🧬 Advanced", "Advanced analytics includes anomaly detection, correlations, daily production patterns, and residual behavior to help the user explore the system deeply.", IMG_GRID, "🧬", "Advanced analytics")
+if selected_page == "🧬 Advanced":
+    tab_hero("🧬 Advanced", "Advanced analytics includes anomaly detection, correlations, daily production patterns, and residual behavior to help the user explore the system deeply.", IMG_ADVANCED, "🧬", "Advanced analytics")
     st.markdown("## Advanced Analytics")
     a1, a2, a3, a4 = st.columns(4)
     a1.metric("Features", f"{len(feature_cols):,}")
@@ -2756,8 +2796,8 @@ with tabs[5]:
     else:
         st.info("Residual stream appears after prediction rows are available.")
 
-with tabs[6]:
-    tab_hero("🕹️ Simulator", "The simulator lets the user change irradiance, temperature, curtailment, and battery support to see how energy output changes under different what-if scenarios.", IMG_SOLAR_1, "🕹️", "Interactive simulator")
+if selected_page == "🕹️ Simulator":
+    tab_hero("🕹️ Simulator", "The simulator lets the user change irradiance, temperature, curtailment, and battery support to see how energy output changes under different what-if scenarios.", IMG_SIMULATOR, "🕹️", "Interactive simulator")
     st.markdown("## What-If Simulator")
     st.write("Change the scenario parameters and see an estimated production impact.")
     s1, s2, s3, s4 = st.columns(4)
@@ -2787,8 +2827,8 @@ with tabs[6]:
         st.info("No data available for simulator.")
 
 
-with tabs[7]:
-    tab_hero("🔬 All-in-One Comparison Lab", "Everything needed for model and graph comparison is in one place: leaderboard, metric bars, radar view, actual-vs-predicted scatter, residual distribution, time-based error analysis, feature correlation, and expert recommendations.", IMG_BATTERY, "🔬", "All tools in one")
+if selected_page == "🔬 Comparison Lab":
+    tab_hero("🔬 All-in-One Comparison Lab", "Everything needed for model and graph comparison is in one place: leaderboard, metric bars, radar view, actual-vs-predicted scatter, residual distribution, time-based error analysis, feature correlation, and expert recommendations.", IMG_COMPARE, "🔬", "All tools in one")
     st.markdown("## All-in-One Model, Graph and Diagnostic Comparison")
 
     lab_mode = st.selectbox(
@@ -2844,8 +2884,8 @@ with tabs[7]:
         render_all_in_one_recommendations(comparison_df, predictions_df)
 
 
-with tabs[8]:
-    tab_hero("📤 Export", "All final outputs are organized here: exports, JSON evidence, predictions, metrics, and AI grading fallback. This makes the project easy to review and submit.", IMG_CONTROL, "📤", "Export and grading")
+if selected_page == "📤 Export":
+    tab_hero("📤 Export", "All final outputs are organized here: exports, JSON evidence, predictions, metrics, and AI grading fallback. This makes the project easy to review and submit.", IMG_EXPORT, "📤", "Export and grading")
     st.markdown("## Export and AI Grader")
     dashboard_insights = [
         "The website has user-selectable representations and a clear top project title.",
