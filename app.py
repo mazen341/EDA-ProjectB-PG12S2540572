@@ -1093,7 +1093,10 @@ def metrics_row(name: str, y_true: np.ndarray, y_pred: np.ndarray, train_rows: i
     }
 
 
-def run_models(model_df: pd.DataFrame, features: list[str], timestamp_col: str, target_col: str):
+def run_models(model_df: pd.DataFrame, features: list[str], timestamp_col: str, target_col: str, model_group: str = "Fast comparison", rank_metric: str = "MAPE_pct"):
+    if model_group == "Do not train yet":
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), {}, "Model training has not been started. Choose a comparison group and press Run selected comparison."
+
     if len(model_df) < 120:
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), {}, "Not enough rows for reliable modeling."
 
@@ -1120,25 +1123,62 @@ def run_models(model_df: pd.DataFrame, features: list[str], timestamp_col: str, 
 
     fitted = {}
     if SKLEARN_AVAILABLE:
-        models = [
-            ("RidgeCV scaled", make_pipeline(StandardScaler(), RidgeCV(alphas=[.1, 1, 10, 100]))),
-            ("LassoCV sparse linear", make_pipeline(StandardScaler(), LassoCV(alphas=[.001, .01, .1, 1.0], cv=3, max_iter=5000, random_state=42))),
-            ("ElasticNetCV regularized", make_pipeline(StandardScaler(), ElasticNetCV(l1_ratio=[.15, .5, .85], alphas=[.001, .01, .1, 1.0], cv=3, max_iter=5000, random_state=42))),
-            ("KNN local pattern", make_pipeline(StandardScaler(), KNeighborsRegressor(n_neighbors=12, weights="distance"))),
-            ("SVR RBF sample", make_pipeline(StandardScaler(), SVR(C=10.0, gamma="scale", epsilon=.1))),
-            ("RandomForest compact", RandomForestRegressor(n_estimators=80, max_depth=14, min_samples_leaf=3, random_state=42, n_jobs=-1)),
-            ("ExtraTrees robust ensemble", ExtraTreesRegressor(n_estimators=90, max_depth=16, min_samples_leaf=3, random_state=42, n_jobs=-1)),
-            ("GradientBoosting classic", GradientBoostingRegressor(n_estimators=180, learning_rate=.05, max_depth=3, random_state=42)),
-            ("HistGradientBoosting tuned", HistGradientBoostingRegressor(max_iter=260, learning_rate=.05, max_leaf_nodes=31, l2_regularization=.05, random_state=42)),
-        ]
+        model_catalog = {
+            "linear": [
+                ("RidgeCV scaled", make_pipeline(StandardScaler(), RidgeCV(alphas=[.1, 1, 10, 100]))),
+                ("LassoCV sparse linear", make_pipeline(StandardScaler(), LassoCV(alphas=[.001, .01, .1, 1.0], cv=3, max_iter=5000, random_state=42))),
+                ("ElasticNetCV regularized", make_pipeline(StandardScaler(), ElasticNetCV(l1_ratio=[.15, .5, .85], alphas=[.001, .01, .1, 1.0], cv=3, max_iter=5000, random_state=42))),
+            ],
+            "tree": [
+                ("RandomForest compact", RandomForestRegressor(n_estimators=80, max_depth=14, min_samples_leaf=3, random_state=42, n_jobs=-1)),
+                ("ExtraTrees robust ensemble", ExtraTreesRegressor(n_estimators=90, max_depth=16, min_samples_leaf=3, random_state=42, n_jobs=-1)),
+                ("GradientBoosting classic", GradientBoostingRegressor(n_estimators=180, learning_rate=.05, max_depth=3, random_state=42)),
+                ("HistGradientBoosting tuned", HistGradientBoostingRegressor(max_iter=260, learning_rate=.05, max_leaf_nodes=31, l2_regularization=.05, random_state=42)),
+            ],
+            "distance": [
+                ("KNN local pattern", make_pipeline(StandardScaler(), KNeighborsRegressor(n_neighbors=12, weights="distance"))),
+                ("SVR RBF sample", make_pipeline(StandardScaler(), SVR(C=10.0, gamma="scale", epsilon=.1))),
+            ],
+        }
+
+        if model_group == "Baseline only":
+            models = []
+        elif model_group == "Fast comparison":
+            models = [
+                model_catalog["linear"][0],
+                model_catalog["tree"][-1],
+            ]
+        elif model_group == "Linear models":
+            models = model_catalog["linear"]
+        elif model_group == "Tree ensemble models":
+            models = model_catalog["tree"]
+        elif model_group == "All available models":
+            models = model_catalog["linear"] + model_catalog["tree"] + model_catalog["distance"]
+        else:
+            models = []
+
+        # Keep expensive distance models safe on Streamlit Cloud by sampling train rows.
+        max_distance_rows = 5000
         for name, model in models:
-            model.fit(X_train, y_train)
+            fit_X = X_train
+            fit_y = y_train
+            if name in ["KNN local pattern", "SVR RBF sample"] and len(X_train) > max_distance_rows:
+                fit_X = X_train.tail(max_distance_rows)
+                fit_y = y_train.tail(max_distance_rows)
+            model.fit(fit_X, fit_y)
             fitted[name] = model
             pred = np.clip(model.predict(X_valid), lower, upper)
-            rows.append(metrics_row(name, y_valid, pred, len(train), len(valid), "Candidate model in comparison table."))
+            rows.append(metrics_row(name, y_valid, pred, len(train), len(valid), f"Candidate model from selected group: {model_group}."))
             preds[name] = pred
 
-    comparison = pd.DataFrame(rows).sort_values(["MAPE_pct", "RMSE"], ascending=True).reset_index(drop=True)
+    comparison = pd.DataFrame(rows)
+    if comparison.empty:
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), {}, "No models were selected for comparison."
+    if rank_metric == "R2":
+        comparison = comparison.sort_values(["R2", "RMSE"], ascending=[False, True]).reset_index(drop=True)
+    else:
+        rank_metric = rank_metric if rank_metric in comparison.columns else "MAPE_pct"
+        comparison = comparison.sort_values([rank_metric, "RMSE"], ascending=True).reset_index(drop=True)
     best = str(comparison.iloc[0]["model"])
     best_pred = preds[best]
 
@@ -1737,6 +1777,29 @@ with st.sidebar:
     refresh_seconds = int(st.slider("Visible refresh timing", 5, 120, 30, 5))
     show_correlation = st.toggle("Show correlation diagnostics", value=True)
 
+    st.markdown("---")
+    st.markdown('<div class="sidebar-section">🔬 Model Comparison Control</div>', unsafe_allow_html=True)
+    comparison_group = st.selectbox(
+        "What do you want to compare?",
+        [
+            "Do not train yet",
+            "Baseline only",
+            "Fast comparison",
+            "Linear models",
+            "Tree ensemble models",
+            "All available models",
+        ],
+        index=0,
+        help="Training starts only after you press the button below."
+    )
+    comparison_metric = st.selectbox(
+        "Rank models by",
+        ["MAPE_pct", "RMSE", "MAE", "R2"],
+        index=0,
+    )
+    run_comparison_clicked = st.button("⌛ Run selected comparison", type="primary", use_container_width=True)
+    clear_comparison_clicked = st.button("Clear saved model results", use_container_width=True)
+
 
 inject_css(theme, alive_motion, big_dashboard)
 
@@ -1828,17 +1891,51 @@ if filtered_df.empty:
 model_df, feature_cols, weather_features = build_features(prepared_df, timestamp_col, target_col, horizon)
 model_df = model_df.tail(model_rows).copy()
 
-if detailed_loading:
-    for pct, msg in [(84, "Training comparison models and uncertainty bands")]:
-        load_slot.empty()
-        with load_slot.container():
-            render_hourglass_loader(msg, pct)
-        prog.progress(pct, text=msg)
-        time.sleep(.04)
+# Heavy model training is controlled by the user.
+if clear_comparison_clicked:
+    st.session_state.pop("saved_model_results", None)
+    st.session_state.pop("saved_model_signature", None)
 
-comparison_df, predictions_df, importance_df, uncertainty_summary, modeling_note = run_models(
-    model_df, feature_cols, timestamp_col, target_col
-)
+comparison_signature = {
+    "group": comparison_group,
+    "rank_metric": comparison_metric,
+    "timestamp_col": timestamp_col,
+    "target_col": target_col,
+    "resample_rule": resample_rule,
+    "horizon": int(horizon),
+    "model_rows": int(model_rows),
+    "feature_count": int(len(feature_cols)),
+    "rows": int(len(model_df)),
+}
+
+if run_comparison_clicked and comparison_group != "Do not train yet":
+    if detailed_loading:
+        for pct, msg in [(84, f"Training selected comparison: {comparison_group}"), (90, "Building uncertainty bands and model leaderboard")]:
+            load_slot.empty()
+            with load_slot.container():
+                render_hourglass_loader(msg, pct)
+            prog.progress(pct, text=msg)
+            time.sleep(.04)
+
+    comparison_df, predictions_df, importance_df, uncertainty_summary, modeling_note = run_models(
+        model_df, feature_cols, timestamp_col, target_col, comparison_group, comparison_metric
+    )
+    st.session_state["saved_model_results"] = (
+        comparison_df,
+        predictions_df,
+        importance_df,
+        uncertainty_summary,
+        modeling_note,
+    )
+    st.session_state["saved_model_signature"] = comparison_signature
+elif "saved_model_results" in st.session_state:
+    comparison_df, predictions_df, importance_df, uncertainty_summary, modeling_note = st.session_state["saved_model_results"]
+else:
+    comparison_df = pd.DataFrame()
+    predictions_df = pd.DataFrame()
+    importance_df = pd.DataFrame()
+    uncertainty_summary = {}
+    modeling_note = "Model training has not been run yet. Choose a comparison group in the sidebar and click 'Run selected comparison'."
 
 if detailed_loading:
     for pct, msg in [(94, "Creating images, diagrams, 3D digital twin and analytics panels"), (100, "Website ready")]:
@@ -1912,6 +2009,20 @@ for col, args in zip(
 ):
     with col:
         kpi(*args)
+
+st.markdown(
+    f"""
+    <div class="panel">
+        <div class="section-title">⌛ Model Comparison Control</div>
+        <div class="muted">
+            Model training is now user-controlled. Selected comparison: <b>{comparison_group}</b>.
+            Ranking metric: <b>{comparison_metric}</b>.
+            Last status: <b>{modeling_note}</b>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # First screen priority
 if first_view == "Charts first":
@@ -2343,6 +2454,8 @@ with tabs[8]:
             "has_what_if_simulator": True,
             "has_all_in_one_comparison_lab": True,
             "model_count": int(len(comparison_df)),
+            "selected_comparison_group": comparison_group,
+            "selected_rank_metric": comparison_metric,
             "graph_types": ["line", "bar", "radar", "scatter", "histogram", "heatmap", "table", "flowchart"],
             "user_selectable_dashboard_representation": dashboard_mode,
             "theme_palette": theme,
