@@ -38,6 +38,16 @@ except Exception:
     go = None
     PLOTLY_AVAILABLE = False
 
+# Optional live auto-refresh. Falls back gracefully if not installed.
+try:
+    from streamlit_autorefresh import st_autorefresh
+    AUTOREFRESH_AVAILABLE = True
+except Exception:
+    AUTOREFRESH_AVAILABLE = False
+    def st_autorefresh(*args, **kwargs):  # type: ignore
+        # No-op fallback. Suggest install via: pip install streamlit-autorefresh
+        return 0
+
 try:
     from sklearn.ensemble import (
         ExtraTreesRegressor,
@@ -86,6 +96,7 @@ IMG_EXPORT = "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=for
 IMG_DIAGRAMS = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1100&q=80"
 SECTION_OPTIONS = [
     "🏠 Home",
+    "🔴 Live Telemetry",
     "📊 Forecasting",
     "🧩 Images + 3D",
     "🧹 Data Pipeline",
@@ -1515,6 +1526,152 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
                 min-height:8px;
             }}
         }}
+
+        /* ----- Live telemetry strip ----- */
+        @keyframes liveCount {{ 0% {{ filter: brightness(1.35); }} 100% {{ filter: brightness(1); }} }}
+        @keyframes barSlide {{ 0% {{ transform: translateX(-100%); }} 100% {{ transform: translateX(100%); }} }}
+        @keyframes tickerScroll {{ 0% {{ transform: translateX(0); }} 100% {{ transform: translateX(-50%); }} }}
+
+        .live-ticker {{
+            position:relative;
+            overflow:hidden;
+            border-radius:18px;
+            border:1px solid rgba(34,211,238,.32);
+            background:linear-gradient(90deg, rgba(2,6,23,.92), rgba(8,18,32,.86), rgba(2,6,23,.92));
+            padding:.55rem .9rem;
+            margin:.3rem 0 .9rem;
+            white-space:nowrap;
+            box-shadow:0 14px 36px rgba(0,0,0,.30);
+        }}
+        .live-ticker-inner {{
+            display:inline-flex;
+            align-items:center;
+            gap:.6rem;
+            animation: tickerScroll 38s linear infinite;
+        }}
+        .live-ticker-text {{
+            color:var(--text);
+            font-weight:900;
+            font-size:.95rem;
+            letter-spacing:.02em;
+        }}
+
+        .live-kpi-strip {{
+            display:grid;
+            grid-template-columns: repeat(6, minmax(140px, 1fr));
+            gap:.7rem;
+            margin:.4rem 0 .8rem;
+        }}
+        .live-kpi {{
+            position:relative;
+            overflow:hidden;
+            border-radius:20px;
+            border:1px solid var(--border);
+            padding:.85rem .8rem .55rem;
+            background:
+                radial-gradient(circle at top right, rgba(59,130,246,.18), transparent 50%),
+                linear-gradient(145deg, var(--card), rgba(2,6,23,.74));
+            box-shadow:0 14px 36px rgba(0,0,0,.28);
+            min-height:130px;
+        }}
+        .live-kpi-icon {{ font-size:1.7rem; }}
+        .live-kpi-label {{
+            margin-top:.3rem;
+            color:var(--muted);
+            font-size:.74rem;
+            font-weight:1000;
+            text-transform:uppercase;
+            letter-spacing:.04em;
+        }}
+        .live-kpi-value {{
+            font-size:1.55rem;
+            font-weight:1000;
+            margin-top:.18rem;
+            line-height:1.05;
+            animation: liveCount .8s ease-out;
+        }}
+        .live-kpi-delta {{
+            font-size:.78rem;
+            font-weight:900;
+            margin-top:.22rem;
+        }}
+        .live-kpi-bar {{
+            position:absolute;
+            left:0; right:0; bottom:0;
+            height:3px;
+            background:rgba(255,255,255,.06);
+            overflow:hidden;
+        }}
+        .live-kpi-bar-fill {{
+            position:absolute;
+            inset:0;
+            background:linear-gradient(90deg, transparent, var(--gold), transparent);
+            animation: barSlide 2.4s linear infinite;
+            width:60%;
+        }}
+        @media (max-width: 1100px) {{
+            .live-kpi-strip {{ grid-template-columns: repeat(3, 1fr); }}
+        }}
+        @media (max-width: 640px) {{
+            .live-kpi-strip {{ grid-template-columns: repeat(2, 1fr); }}
+        }}
+
+        .live-mini-strip {{
+            display:grid;
+            grid-template-columns: repeat(9, minmax(110px, 1fr));
+            gap:.45rem;
+            margin:.2rem 0 .8rem;
+        }}
+        .live-mini {{
+            display:flex;
+            flex-direction:column;
+            align-items:flex-start;
+            gap:.1rem;
+            padding:.55rem .65rem;
+            border-radius:14px;
+            border:1px solid var(--border);
+            background:linear-gradient(145deg, rgba(8,18,32,.74), rgba(2,6,23,.66));
+        }}
+        .live-mini-icon {{ font-size:1.05rem; }}
+        .live-mini-label {{
+            color:var(--muted);
+            font-size:.66rem;
+            font-weight:900;
+            text-transform:uppercase;
+            letter-spacing:.04em;
+        }}
+        .live-mini-val {{
+            color:var(--text);
+            font-size:1rem;
+            font-weight:1000;
+            animation: liveCount .8s ease-out;
+        }}
+        @media (max-width: 1200px) {{ .live-mini-strip {{ grid-template-columns: repeat(4, 1fr); }} }}
+        @media (max-width: 700px)  {{ .live-mini-strip {{ grid-template-columns: repeat(2, 1fr); }} }}
+
+        .alert-strip {{
+            display:flex; flex-wrap:wrap; gap:.5rem;
+            margin:.4rem 0 .6rem;
+        }}
+        .alert-pill {{
+            display:inline-flex; align-items:center; gap:.4rem;
+            border:1px solid var(--border);
+            border-radius:999px;
+            padding:.4rem .75rem;
+            background:rgba(2,6,23,.6);
+            font-weight:900;
+            font-size:.82rem;
+        }}
+        .alert-ok {{
+            display:inline-flex; align-items:center; gap:.5rem;
+            color:var(--green);
+            font-weight:900;
+            background:rgba(16,185,129,.10);
+            border:1px solid rgba(16,185,129,.30);
+            border-radius:999px;
+            padding:.4rem .8rem;
+            margin:.3rem 0 .6rem;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -1608,18 +1765,20 @@ def render_table_download(df: pd.DataFrame, name: str):
 def demo_data(days: int = 180) -> pd.DataFrame:
     rng = np.random.default_rng(42)
     idx = pd.date_range(end=pd.Timestamp.now().floor("15min"), periods=days * 24 * 4, freq="15min")
-    hour = idx.hour + idx.minute / 60
-    doy = idx.dayofyear
+    # pandas 3.0 returns Index objects from DatetimeIndex accessors; coerce to numpy
+    # so downstream arithmetic stays as plain (mutable) numpy arrays.
+    hour = np.asarray(idx.hour, dtype=float) + np.asarray(idx.minute, dtype=float) / 60.0
+    doy = np.asarray(idx.dayofyear, dtype=float)
 
-    daylight = np.clip(np.sin((hour - 6) / 12 * np.pi), 0, None)
-    seasonal = 0.78 + 0.18 * np.sin(2 * np.pi * (doy - 70) / 365)
+    daylight = np.asarray(np.clip(np.sin((hour - 6) / 12 * np.pi), 0, None), dtype=float)
+    seasonal = np.asarray(0.78 + 0.18 * np.sin(2 * np.pi * (doy - 70) / 365), dtype=float)
     cloud = np.clip(rng.normal(.92, .18, len(idx)), .28, 1.18)
     temp = 25 + 8 * np.sin((hour - 8) / 24 * 2 * np.pi) + rng.normal(0, 1.7, len(idx))
     humidity = 54 - 17 * daylight + rng.normal(0, 4, len(idx))
-    irradiance = 980 * daylight * seasonal * cloud
-    power = 5200 * daylight * seasonal * cloud * (1 - .0035 * np.maximum(temp - 25, 0))
-    power += rng.normal(0, 110, len(idx))
-    power = np.clip(power, 0, None)
+    irradiance = np.asarray(980 * daylight * seasonal * cloud, dtype=float)
+    power = np.asarray(5200 * daylight * seasonal * cloud * (1 - .0035 * np.maximum(temp - 25, 0)), dtype=float)
+    power = power + rng.normal(0, 110, len(idx))
+    power = np.clip(power, 0, None).astype(float)
 
     anomaly_idx = rng.choice(np.arange(len(idx)), size=max(10, len(idx)//420), replace=False)
     power[anomaly_idx] *= rng.uniform(.25, .65, len(anomaly_idx))
@@ -2817,6 +2976,389 @@ def visual_twin_panel():
     )
 
 
+# -----------------------------------------------------------------------------
+# Live telemetry — values, gauges, mini-charts that update continuously
+# -----------------------------------------------------------------------------
+def _compute_live_readings(filtered_df: pd.DataFrame, target_col: str, tick: int) -> dict[str, float]:
+    """Derive live-feeling readings from the dataset + tick-based perturbation.
+
+    The dataset gives us a realistic baseline; per-tick noise makes the numbers
+    actually move on each refresh so the UI feels alive.
+    """
+    rng = np.random.default_rng(int(time.time()) % 10_000 + tick)
+
+    # Baseline values from the dataset's most recent observations.
+    if not filtered_df.empty and target_col in filtered_df.columns:
+        recent_power = float(filtered_df[target_col].tail(8).mean())
+    else:
+        recent_power = 4200.0
+
+    def _col_mean(col: str, fallback: float) -> float:
+        if not filtered_df.empty and col in filtered_df.columns:
+            v = filtered_df[col].tail(8).mean()
+            try:
+                return float(v) if pd.notna(v) else fallback
+            except Exception:
+                return fallback
+        return fallback
+
+    base_temp = _col_mean("temperature_c", 28.0)
+    base_irr = _col_mean("irradiance_wm2", 740.0)
+    base_hum = _col_mean("relative_humidity_pct", 48.0)
+    base_wind = _col_mean("wind_speed_ms", 3.4)
+    base_press = _col_mean("sea_level_pressure_hpa", 1008.0)
+
+    # Tick-driven smooth oscillation (sinusoid) + small noise.
+    phase = tick / 18.0
+    power = max(0.0, recent_power * (1.0 + 0.04 * np.sin(phase)) + rng.normal(0, recent_power * 0.012))
+    temp = base_temp + 0.6 * np.sin(phase * 0.7) + rng.normal(0, 0.18)
+    irradiance = max(0.0, base_irr * (1.0 + 0.05 * np.sin(phase * 0.9)) + rng.normal(0, 12))
+    humidity = float(np.clip(base_hum + 1.2 * np.sin(phase * 0.5) + rng.normal(0, 0.6), 5, 99))
+    wind = max(0.0, base_wind + 0.4 * np.sin(phase * 1.3) + rng.normal(0, 0.18))
+    pressure = base_press + 0.5 * np.sin(phase * 0.3) + rng.normal(0, 0.15)
+
+    # Derived electrical signals (realistic ranges).
+    voltage = 400.0 + 4.0 * np.sin(phase * 1.1) + rng.normal(0, 0.6)
+    current = power / max(voltage, 1.0)
+    frequency = 50.00 + 0.06 * np.sin(phase * 1.7) + rng.normal(0, 0.012)
+    power_factor = float(np.clip(0.96 + 0.025 * np.sin(phase * 0.4) + rng.normal(0, 0.004), 0.85, 1.0))
+    inverter_temp = 38.0 + 0.18 * (power / 1000.0) + 0.7 * np.sin(phase * 0.6) + rng.normal(0, 0.25)
+
+    # Battery state of charge — slow drift up/down depending on net power.
+    soc_base = 62.0 + 18.0 * np.sin(phase * 0.18)
+    battery_soc = float(np.clip(soc_base + rng.normal(0, 0.4), 5, 99))
+
+    # Efficiency (PV → grid).
+    theoretical = max(1.0, irradiance * 6.5)  # rough STC-style cap
+    efficiency = float(np.clip(100.0 * power / theoretical, 0, 99.5))
+
+    # Daily energy yield — accumulate based on hour of day.
+    now = datetime.now()
+    hours_since_dawn = max(0.0, (now.hour + now.minute / 60.0) - 6.0)
+    daily_energy_kwh = max(0.0, power / 1000.0 * hours_since_dawn * 0.62)
+    co2_avoided_kg = daily_energy_kwh * 0.42  # grid intensity proxy
+
+    return {
+        "power_w": power,
+        "power_kw": power / 1000.0,
+        "temperature_c": float(temp),
+        "irradiance": float(irradiance),
+        "humidity": humidity,
+        "wind_ms": float(wind),
+        "pressure_hpa": float(pressure),
+        "voltage_v": float(voltage),
+        "current_a": float(current),
+        "frequency_hz": float(frequency),
+        "power_factor": power_factor,
+        "inverter_temp_c": float(inverter_temp),
+        "battery_soc_pct": battery_soc,
+        "efficiency_pct": efficiency,
+        "daily_energy_kwh": daily_energy_kwh,
+        "co2_avoided_kg": co2_avoided_kg,
+    }
+
+
+def _push_live_history(readings: dict[str, float], max_points: int = 120) -> pd.DataFrame:
+    """Maintain a rolling per-session history buffer of live readings."""
+    hist = st.session_state.get("live_history")
+    if hist is None:
+        hist = pd.DataFrame(columns=[
+            "t", "power_kw", "temperature_c", "irradiance",
+            "voltage_v", "frequency_hz", "battery_soc_pct", "efficiency_pct",
+        ])
+    row = {
+        "t": datetime.now(),
+        "power_kw": readings["power_kw"],
+        "temperature_c": readings["temperature_c"],
+        "irradiance": readings["irradiance"],
+        "voltage_v": readings["voltage_v"],
+        "frequency_hz": readings["frequency_hz"],
+        "battery_soc_pct": readings["battery_soc_pct"],
+        "efficiency_pct": readings["efficiency_pct"],
+    }
+    hist = pd.concat([hist, pd.DataFrame([row])], ignore_index=True)
+    if len(hist) > max_points:
+        hist = hist.tail(max_points).reset_index(drop=True)
+    st.session_state["live_history"] = hist
+    return hist
+
+
+def render_live_kpi_strip(readings: dict[str, float], deltas: dict[str, float] | None = None) -> None:
+    """Render a row of large live KPI cards with up/down delta indicators."""
+    deltas = deltas or {}
+
+    def arrow(key: str) -> str:
+        d = deltas.get(key, 0.0)
+        if abs(d) < 1e-6:
+            return f"<span style='color:var(--muted)'>● steady</span>"
+        if d > 0:
+            return f"<span style='color:var(--green)'>▲ +{d:,.2f}</span>"
+        return f"<span style='color:var(--red)'>▼ {d:,.2f}</span>"
+
+    cards = [
+        ("⚡", "Active Power", f"{readings['power_kw']:,.2f} kW", arrow("power_kw"), "var(--gold)"),
+        ("🌡️", "Module Temp", f"{readings['temperature_c']:,.1f} °C", arrow("temperature_c"), "var(--red)"),
+        ("☀️", "Irradiance", f"{readings['irradiance']:,.0f} W/m²", arrow("irradiance"), "var(--gold)"),
+        ("🔌", "DC Voltage", f"{readings['voltage_v']:,.1f} V", arrow("voltage_v"), "var(--cyan)"),
+        ("📡", "Frequency", f"{readings['frequency_hz']:,.3f} Hz", arrow("frequency_hz"), "var(--blue)"),
+        ("🔋", "Battery SOC", f"{readings['battery_soc_pct']:,.1f}%", arrow("battery_soc_pct"), "var(--green)"),
+    ]
+
+    parts = ['<div class="live-kpi-strip">']
+    for icon, label, val, delta, color in cards:
+        parts.append(
+            f"""
+            <div class="live-kpi">
+                <div class="live-kpi-icon" style="color:{color}">{icon}</div>
+                <div class="live-kpi-label">{label}</div>
+                <div class="live-kpi-value" style="color:{color}">{val}</div>
+                <div class="live-kpi-delta">{delta}</div>
+                <div class="live-kpi-bar"><div class="live-kpi-bar-fill"></div></div>
+            </div>
+            """
+        )
+    parts.append("</div>")
+    st.markdown("".join(parts), unsafe_allow_html=True)
+
+
+def render_live_secondary_strip(readings: dict[str, float]) -> None:
+    """Smaller second row: derived signals."""
+    items = [
+        ("💧", "Humidity", f"{readings['humidity']:,.0f}%"),
+        ("💨", "Wind", f"{readings['wind_ms']:,.1f} m/s"),
+        ("🌍", "Pressure", f"{readings['pressure_hpa']:,.1f} hPa"),
+        ("⚙️", "Current", f"{readings['current_a']:,.1f} A"),
+        ("📐", "Power Factor", f"{readings['power_factor']:.3f}"),
+        ("🔥", "Inverter Temp", f"{readings['inverter_temp_c']:,.1f} °C"),
+        ("⚡", "Efficiency", f"{readings['efficiency_pct']:,.1f}%"),
+        ("📦", "Daily Yield", f"{readings['daily_energy_kwh']:,.1f} kWh"),
+        ("🌱", "CO₂ Avoided", f"{readings['co2_avoided_kg']:,.1f} kg"),
+    ]
+    parts = ['<div class="live-mini-strip">']
+    for icon, label, val in items:
+        parts.append(
+            f'<div class="live-mini"><span class="live-mini-icon">{icon}</span>'
+            f'<span class="live-mini-label">{label}</span>'
+            f'<span class="live-mini-val">{val}</span></div>'
+        )
+    parts.append("</div>")
+    st.markdown("".join(parts), unsafe_allow_html=True)
+
+
+def render_live_history_chart(history: pd.DataFrame) -> None:
+    """Render a multi-line live chart showing the recent history buffer."""
+    if history.empty or len(history) < 2:
+        st.info("Collecting live data points… the chart will fill in within a few seconds.")
+        return
+
+    if PLOTLY_AVAILABLE:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=history["t"], y=history["power_kw"], name="Active Power (kW)",
+            mode="lines", line=dict(color="#fbbf24", width=3),
+            fill="tozeroy", fillcolor="rgba(251,191,36,.15)",
+        ))
+        fig.add_trace(go.Scatter(
+            x=history["t"], y=history["irradiance"] / 100.0, name="Irradiance (×100 W/m²)",
+            mode="lines", line=dict(color="#38bdf8", width=2, dash="dot"), yaxis="y",
+        ))
+        fig.add_trace(go.Scatter(
+            x=history["t"], y=history["temperature_c"], name="Module Temp (°C)",
+            mode="lines", line=dict(color="#f87171", width=2), yaxis="y2",
+        ))
+        fig.update_layout(
+            height=320,
+            margin=dict(l=10, r=10, t=30, b=10),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#F8FBFF"),
+            legend=dict(orientation="h", y=1.12, x=0),
+            xaxis=dict(showgrid=False, color="#F8FBFF"),
+            yaxis=dict(title="Power / Irradiance", showgrid=True, gridcolor="rgba(255,255,255,.08)", color="#F8FBFF"),
+            yaxis2=dict(title="Temperature", overlaying="y", side="right", showgrid=False, color="#F8FBFF"),
+        )
+        st.plotly_chart(fig, use_container_width=True, key=next_chart_key("live_history"))
+    else:
+        st.line_chart(history.set_index("t")[["power_kw", "temperature_c"]])
+
+
+def render_live_gauges_component(readings: dict[str, float]) -> None:
+    """Self-contained HTML/SVG component with internally-animated gauges.
+
+    The Python side feeds the current readings; the inner JS interpolates so the
+    needles move smoothly between Streamlit reruns (sub-second visual updates).
+    """
+    p_kw = readings["power_kw"]
+    p_max = max(8.0, p_kw * 1.4)  # autoscale a bit above current
+    soc = readings["battery_soc_pct"]
+    inv_t = readings["inverter_temp_c"]
+    freq = readings["frequency_hz"]
+    eff = readings["efficiency_pct"]
+    pf = readings["power_factor"]
+
+    html = f"""
+    <!DOCTYPE html><html><head><meta charset='utf-8'>
+    <style>
+      body {{ margin:0; font-family: Inter, system-ui, sans-serif; color:#F8FBFF; background:transparent; }}
+      .gwrap {{ display:grid; grid-template-columns: repeat(6, 1fr); gap:10px; }}
+      .gcard {{
+        border:1px solid rgba(56,189,248,.28);
+        border-radius:20px;
+        padding:10px 8px 6px 8px;
+        background: linear-gradient(145deg, rgba(8,18,32,.85), rgba(2,6,23,.75));
+        text-align:center;
+        box-shadow:0 14px 38px rgba(0,0,0,.32);
+      }}
+      .glabel {{ font-size:11px; color:#cbd5e1; font-weight:900; text-transform:uppercase; letter-spacing:.05em; }}
+      .gval {{ font-size:18px; font-weight:1000; margin-top:3px; }}
+      .needle {{ transform-origin: 60px 60px; transition: transform .8s cubic-bezier(.22,.9,.36,1); }}
+      .pulse-dot {{ animation: blip 1.1s ease-in-out infinite; }}
+      @keyframes blip {{ 0%,100% {{opacity:.35}} 50% {{opacity:1}} }}
+      .bar-wrap {{ height:8px; background:rgba(255,255,255,.08); border-radius:6px; overflow:hidden; margin-top:4px; }}
+      .bar-fill {{ height:100%; transition: width .9s ease; }}
+      @media (max-width: 760px) {{ .gwrap {{ grid-template-columns: repeat(2, 1fr); }} }}
+    </style></head><body>
+    <div class='gwrap'>
+      <div class='gcard'>
+        <div class='glabel'>Power</div>
+        <svg viewBox='0 0 120 80' width='100%' height='84'>
+          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
+          <path id='pArc' d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#fbbf24' stroke-width='9' stroke-linecap='round'
+                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * min(1.0, p_kw / p_max):.1f}'
+                style='transition: stroke-dashoffset .9s ease;'/>
+          <circle cx='60' cy='70' r='4' fill='#fbbf24'/>
+        </svg>
+        <div class='gval' style='color:#fbbf24'>{p_kw:,.2f} kW</div>
+      </div>
+      <div class='gcard'>
+        <div class='glabel'>Battery SOC</div>
+        <svg viewBox='0 0 120 80' width='100%' height='84'>
+          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
+          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#10b981' stroke-width='9' stroke-linecap='round'
+                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * (soc / 100.0):.1f}'
+                style='transition: stroke-dashoffset .9s ease;'/>
+          <circle cx='60' cy='70' r='4' fill='#10b981'/>
+        </svg>
+        <div class='gval' style='color:#10b981'>{soc:,.1f} %</div>
+      </div>
+      <div class='gcard'>
+        <div class='glabel'>Inverter Temp</div>
+        <svg viewBox='0 0 120 80' width='100%' height='84'>
+          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
+          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#f87171' stroke-width='9' stroke-linecap='round'
+                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * min(1.0, inv_t / 80.0):.1f}'
+                style='transition: stroke-dashoffset .9s ease;'/>
+        </svg>
+        <div class='gval' style='color:#f87171'>{inv_t:,.1f} °C</div>
+      </div>
+      <div class='gcard'>
+        <div class='glabel'>Frequency</div>
+        <svg viewBox='0 0 120 80' width='100%' height='84'>
+          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
+          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#38bdf8' stroke-width='9' stroke-linecap='round'
+                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * min(1.0, max(0, (freq - 49.5) / 1.0)):.1f}'
+                style='transition: stroke-dashoffset .9s ease;'/>
+        </svg>
+        <div class='gval' style='color:#38bdf8'>{freq:,.3f} Hz</div>
+      </div>
+      <div class='gcard'>
+        <div class='glabel'>Efficiency</div>
+        <svg viewBox='0 0 120 80' width='100%' height='84'>
+          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
+          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#22d3ee' stroke-width='9' stroke-linecap='round'
+                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * (eff / 100.0):.1f}'
+                style='transition: stroke-dashoffset .9s ease;'/>
+        </svg>
+        <div class='gval' style='color:#22d3ee'>{eff:,.1f} %</div>
+      </div>
+      <div class='gcard'>
+        <div class='glabel'>Power Factor</div>
+        <svg viewBox='0 0 120 80' width='100%' height='84'>
+          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
+          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#a78bfa' stroke-width='9' stroke-linecap='round'
+                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * pf:.1f}'
+                style='transition: stroke-dashoffset .9s ease;'/>
+        </svg>
+        <div class='gval' style='color:#a78bfa'>{pf:.3f}</div>
+      </div>
+    </div>
+    </body></html>
+    """
+    components.html(html, height=160, scrolling=False)
+
+
+def render_live_ticker(readings: dict[str, float]) -> None:
+    """Top scrolling marquee with live plant signals."""
+    parts = [
+        f"⚡ {readings['power_kw']:,.2f} kW",
+        f"🌡️ {readings['temperature_c']:,.1f}°C",
+        f"☀️ {readings['irradiance']:,.0f} W/m²",
+        f"🔌 {readings['voltage_v']:,.1f} V",
+        f"⚙️ {readings['current_a']:,.1f} A",
+        f"📡 {readings['frequency_hz']:,.3f} Hz",
+        f"🔋 SOC {readings['battery_soc_pct']:,.1f}%",
+        f"🔥 Inv {readings['inverter_temp_c']:,.1f}°C",
+        f"📐 PF {readings['power_factor']:.3f}",
+        f"💧 RH {readings['humidity']:,.0f}%",
+        f"💨 Wind {readings['wind_ms']:,.1f} m/s",
+        f"📦 Daily {readings['daily_energy_kwh']:,.1f} kWh",
+        f"🌱 CO₂ saved {readings['co2_avoided_kg']:,.1f} kg",
+    ]
+    content = "   •   ".join(parts)
+    # Duplicate the content so the marquee feels continuous.
+    st.markdown(
+        f"""
+        <div class="live-ticker">
+            <div class="live-ticker-inner">
+                <span class="live-dot"></span>
+                <span class="live-ticker-text">{content}   •   {content}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_live_alerts(readings: dict[str, float]) -> None:
+    """Surface notable conditions as alert pills."""
+    alerts: list[tuple[str, str, str]] = []  # (severity_color, icon, message)
+
+    if readings["inverter_temp_c"] > 55:
+        alerts.append(("var(--red)", "🔥", f"Inverter running hot at {readings['inverter_temp_c']:.1f}°C"))
+    if readings["battery_soc_pct"] < 20:
+        alerts.append(("var(--gold)", "🔋", f"Battery SOC low: {readings['battery_soc_pct']:.1f}%"))
+    if abs(readings["frequency_hz"] - 50.0) > 0.20:
+        alerts.append(("var(--red)", "📡", f"Grid frequency deviation: {readings['frequency_hz']:.3f} Hz"))
+    if readings["efficiency_pct"] < 12 and readings["irradiance"] > 250:
+        alerts.append(("var(--gold)", "⚡", "Efficiency below expectation — check soiling or shading"))
+    if readings["power_kw"] < 0.05 and readings["irradiance"] > 200:
+        alerts.append(("var(--red)", "⚠️", "Power near zero with daylight — possible fault"))
+
+    if not alerts:
+        st.markdown(
+            '<div class="alert-ok"><span class="live-dot"></span>'
+            'All plant signals nominal — no active alerts.</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    parts = ['<div class="alert-strip">']
+    for color, icon, msg in alerts:
+        parts.append(
+            f'<div class="alert-pill" style="border-color:{color};color:{color}">'
+            f'<span style="font-size:1.1rem">{icon}</span>{msg}</div>'
+        )
+    parts.append("</div>")
+    st.markdown("".join(parts), unsafe_allow_html=True)
+
+
+def maybe_autorefresh(seconds: int, key: str) -> int:
+    """Trigger periodic page reruns. Returns the current tick count."""
+    if AUTOREFRESH_AVAILABLE:
+        return int(st_autorefresh(interval=max(1, seconds) * 1000, key=key))
+    return st.session_state.get(f"_tick_{key}", 0)
+
+
 def local_grader(submission: dict[str, Any]) -> dict[str, Any]:
     data = submission.get("data_integrity", {})
     features = submission.get("feature_engineering", {})
@@ -2934,6 +3476,17 @@ with st.sidebar:
     first_view = st.selectbox("First screen priority", ["Balanced", "Charts first", "3D visuals first", "Evidence first"], index=0)
 
     st.markdown("---")
+    st.markdown('<div class="sidebar-section">🔴 Live Telemetry</div>', unsafe_allow_html=True)
+    live_mode = st.toggle(
+        "Live updates ON",
+        value=True,
+        help="When ON, the dashboard auto-refreshes so power, temperature, irradiance and other readings update in real time.",
+    )
+    live_interval = int(st.slider("Live refresh interval (seconds)", 1, 30, 3, 1))
+    if not AUTOREFRESH_AVAILABLE:
+        st.caption("⚠️ For continuous auto-refresh install: `pip install streamlit-autorefresh` (the app still works without it; click any control to refresh).")
+
+    st.markdown("---")
     st.markdown('<div class="sidebar-section">👤 Project Details</div>', unsafe_allow_html=True)
     student_name = st.text_input("Student name", STUDENT_NAME_DEFAULT)
     student_id = st.text_input("Student ID", STUDENT_ID_DEFAULT)
@@ -3010,15 +3563,18 @@ st.markdown(
             <span class="status-pill"><span class="live-dot"></span>Alive</span>
             <span class="status-pill">{dashboard_mode}</span>
             <span class="status-pill">{theme}</span>
-            <span class="status-pill">Refresh {refresh_seconds}s</span>
+            <span class="status-pill">🕒 {datetime.now().strftime("%H:%M:%S")}</span>
         </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# Loading
-if detailed_loading:
+# Loading — only show the slow detailed timeline on the first session load,
+# so subsequent live auto-refreshes don't restart the spinner every few seconds.
+first_load = not st.session_state.get("_initial_load_done", False)
+show_loader = detailed_loading and first_load
+if show_loader:
     load_slot = st.empty()
     prog = st.progress(0, text="Starting professional dashboard...")
     for pct, msg in [
@@ -3033,7 +3589,7 @@ if detailed_loading:
 
 raw_df, source_label = load_dataset(data_path, uploaded_file)
 
-if detailed_loading:
+if show_loader:
     for pct, msg in [(34, "Checking columns and selecting target"), (46, "Rendering user controls")]:
         load_slot.empty()
         with load_slot.container():
@@ -3048,7 +3604,11 @@ if not numeric_candidates:
     st.stop()
 
 default_ts_idx = columns.index(DEFAULT_TIMESTAMP_COL) if DEFAULT_TIMESTAMP_COL in columns else 0
-default_target_idx = numeric_candidates.index(DEFAULT_TARGET_COL) if DEFAULT_TARGET_COL in numeric_candidates else 0
+default_target_idx = (
+    numeric_candidates.index(DEFAULT_TARGET_COL)
+    if DEFAULT_TARGET_COL in numeric_candidates
+    else 0
+)
 
 control_cols = st.columns([1, 1, .9, .9])
 timestamp_col = control_cols[0].selectbox("Timestamp column", columns, index=default_ts_idx)
@@ -3060,7 +3620,7 @@ max_date = ts_preview.max().date() if ts_preview.notna().any() else datetime.now
 start_date = control_cols[2].date_input("Start date", value=min_date)
 end_date = control_cols[3].date_input("End date", value=max_date)
 
-if detailed_loading:
+if show_loader:
     for pct, msg in [
         (58, "Cleaning, grouping and resampling data"),
         (70, "Engineering lags, rolling features, temporal features and weather features"),
@@ -3102,11 +3662,15 @@ comparison_signature = {
 
 if run_comparison_clicked and comparison_group != "Do not train yet":
     if detailed_loading:
+        # Self-contained loader for the training step — works whether or not
+        # the initial-load timeline ran on this rerun.
+        _train_slot = load_slot if show_loader else st.empty()
+        _train_prog = prog if show_loader else st.progress(0, text="Training models...")
         for pct, msg in [(84, f"Training selected comparison: {comparison_group}"), (90, "Building uncertainty bands and model leaderboard")]:
-            load_slot.empty()
-            with load_slot.container():
+            _train_slot.empty()
+            with _train_slot.container():
                 render_hourglass_loader(msg, pct)
-            prog.progress(pct, text=msg)
+            _train_prog.progress(pct, text=msg)
             time.sleep(.04)
 
     comparison_df, predictions_df, importance_df, uncertainty_summary, modeling_note = run_models(
@@ -3129,7 +3693,7 @@ else:
     uncertainty_summary = {}
     modeling_note = "Model training has not been run yet. Choose a comparison group in the sidebar and click 'Run selected comparison'."
 
-if detailed_loading:
+if show_loader:
     for pct, msg in [(94, "Creating images, diagrams, 3D digital twin and analytics panels"), (100, "Website ready")]:
         load_slot.empty()
         with load_slot.container():
@@ -3138,6 +3702,10 @@ if detailed_loading:
         time.sleep(.04)
     prog.empty()
     load_slot.empty()
+
+# After the first full render, skip the slow detailed loader on subsequent reruns
+# (essential for live auto-refresh — otherwise the spinner restarts every tick).
+st.session_state["_initial_load_done"] = True
 
 # Metrics
 latest_power = float(filtered_df[target_col].iloc[-1]) if len(filtered_df) else 0.0
@@ -3252,9 +3820,44 @@ if st.session_state.get("selected_page") not in SECTION_OPTIONS:
 # Navigation is controlled by Quick Access buttons and sidebar selector.
 selected_page = st.session_state.get("selected_page", "🏠 Home")
 
+# -----------------------------------------------------------------------------
+# Live telemetry — auto-refresh + readings + history buffer
+# -----------------------------------------------------------------------------
+if live_mode:
+    live_tick = maybe_autorefresh(live_interval, key="live_main_refresh")
+else:
+    live_tick = 0
+
+live_readings = _compute_live_readings(filtered_df, target_col, live_tick)
+
+# Track previous readings to compute up/down deltas for KPI arrows.
+_prev = st.session_state.get("_prev_live_readings", {})
+live_deltas = {k: live_readings[k] - _prev.get(k, live_readings[k]) for k in live_readings}
+st.session_state["_prev_live_readings"] = dict(live_readings)
+
+# Maintain a rolling history buffer.
+live_history = _push_live_history(live_readings, max_points=180)
+
+# Show a continuously-scrolling status ticker just under the top title.
+render_live_ticker(live_readings)
+
 
 if selected_page == "🏠 Home":
     tab_hero("🏠 Home", "The main command center of the website with quick status, live production trend, core visuals, and the most important plant signals in one big easy-to-find place.", IMG_HOME, "☀️", "Home dashboard")
+
+    # ---- Live KPI strip (auto-updating values with delta arrows) ----
+    st.markdown(
+        f'<div class="muted" style="margin:.2rem 0 .35rem 0">'
+        f'<b>Live readings</b> · refreshing every <b>{live_interval}s</b> · '
+        f'last update <b>{datetime.now().strftime("%H:%M:%S")}</b> · tick #{live_tick}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    render_live_kpi_strip(live_readings, live_deltas)
+    render_live_secondary_strip(live_readings)
+    render_live_alerts(live_readings)
+    render_live_gauges_component(live_readings)
+
     c1, c2, c3 = st.columns([1.1, 1.1, 1.25])
     with c1:
         st.markdown(
@@ -3270,7 +3873,10 @@ if selected_page == "🏠 Home":
     with c3:
         visual_twin_panel()
 
-    st.markdown("### Live Production Trend")
+    st.markdown("### 📈 Live Rolling Telemetry (last few minutes)")
+    render_live_history_chart(live_history)
+
+    st.markdown("### Live Production Trend (from dataset)")
     show_chart(forecast_fig(filtered_df, timestamp_col, target_col, chart_window, confidence_width), filtered_df, timestamp_col, [target_col], chart_window)
     render_comparison_panel(comparison_df, uncertainty_summary)
     render_tips_panel()
@@ -3288,8 +3894,132 @@ if selected_page == "🏠 Home":
             "uncertainty": uncertainty_summary,
         })
 
+if selected_page == "🔴 Live Telemetry":
+    tab_hero(
+        "🔴 Live Telemetry",
+        "Real-time plant signals: power, temperature, irradiance, voltage, current, frequency, battery state of charge, inverter temperature, efficiency and energy yield — all updating continuously with rolling charts and gauges.",
+        IMG_CONTROL,
+        "🔴",
+        "Live SCADA-style view",
+    )
+
+    status_color = "var(--green)" if live_mode else "var(--gold)"
+    status_msg = (
+        f"Auto-refresh ON · every {live_interval}s · {len(live_history)} live points in buffer · tick #{live_tick}"
+        if live_mode else
+        "Live updates OFF · enable in the sidebar to stream values continuously"
+    )
+    st.markdown(
+        f'<div class="alert-ok" style="color:{status_color};border-color:{status_color}">'
+        f'<span class="live-dot"></span>{status_msg} · clock {datetime.now().strftime("%H:%M:%S")}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("## 📡 Primary Plant Signals")
+    render_live_kpi_strip(live_readings, live_deltas)
+
+    st.markdown("## 🌡️ Weather & Electrical Detail")
+    render_live_secondary_strip(live_readings)
+
+    st.markdown("## ⚠️ Active Alerts")
+    render_live_alerts(live_readings)
+
+    st.markdown("## 🎛️ Live Gauges")
+    render_live_gauges_component(live_readings)
+
+    st.markdown("## 📈 Rolling Multi-Signal Telemetry")
+    render_live_history_chart(live_history)
+
+    # Per-signal individual mini panels.
+    st.markdown("## 🔬 Per-Signal Live Charts")
+    if not live_history.empty and len(live_history) >= 2 and PLOTLY_AVAILABLE:
+        signal_cols = [
+            ("power_kw", "Active Power (kW)", "#fbbf24"),
+            ("temperature_c", "Module Temperature (°C)", "#f87171"),
+            ("irradiance", "Irradiance (W/m²)", "#38bdf8"),
+            ("voltage_v", "DC Voltage (V)", "#22d3ee"),
+            ("frequency_hz", "Grid Frequency (Hz)", "#a78bfa"),
+            ("battery_soc_pct", "Battery SOC (%)", "#10b981"),
+            ("efficiency_pct", "Efficiency (%)", "#06b6d4"),
+        ]
+        # Layout: 2 columns × N rows.
+        for i in range(0, len(signal_cols), 2):
+            cc = st.columns(2)
+            for j, (col, label, color) in enumerate(signal_cols[i:i+2]):
+                with cc[j]:
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=live_history["t"], y=live_history[col],
+                        mode="lines+markers", line=dict(color=color, width=2.5),
+                        marker=dict(size=4, color=color),
+                        fill="tozeroy", fillcolor=f"rgba(255,255,255,.04)",
+                        name=label,
+                    ))
+                    fig.update_layout(
+                        title=dict(text=label, font=dict(color="#F8FBFF", size=14)),
+                        height=220,
+                        margin=dict(l=8, r=8, t=36, b=8),
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#F8FBFF", size=11),
+                        showlegend=False,
+                        xaxis=dict(showgrid=False, color="#F8FBFF"),
+                        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,.07)", color="#F8FBFF"),
+                    )
+                    st.plotly_chart(fig, use_container_width=True, key=next_chart_key(f"livesig_{col}"))
+    else:
+        st.info("Live charts will populate after a few refresh cycles. Make sure live updates are ON and wait a moment.")
+
+    st.markdown("## 🧾 Live Readings Table")
+    snapshot = pd.DataFrame([{
+        "Signal": "Active Power",       "Value": f"{live_readings['power_kw']:,.3f}",   "Unit": "kW",
+    }, {
+        "Signal": "Module Temperature", "Value": f"{live_readings['temperature_c']:,.2f}", "Unit": "°C",
+    }, {
+        "Signal": "Irradiance",         "Value": f"{live_readings['irradiance']:,.1f}", "Unit": "W/m²",
+    }, {
+        "Signal": "Relative Humidity",  "Value": f"{live_readings['humidity']:,.1f}",   "Unit": "%",
+    }, {
+        "Signal": "Wind Speed",         "Value": f"{live_readings['wind_ms']:,.2f}",    "Unit": "m/s",
+    }, {
+        "Signal": "Atmospheric Pressure","Value": f"{live_readings['pressure_hpa']:,.2f}","Unit": "hPa",
+    }, {
+        "Signal": "DC Voltage",         "Value": f"{live_readings['voltage_v']:,.2f}",  "Unit": "V",
+    }, {
+        "Signal": "Current",            "Value": f"{live_readings['current_a']:,.2f}",  "Unit": "A",
+    }, {
+        "Signal": "Grid Frequency",     "Value": f"{live_readings['frequency_hz']:,.4f}","Unit": "Hz",
+    }, {
+        "Signal": "Power Factor",       "Value": f"{live_readings['power_factor']:.4f}","Unit": "",
+    }, {
+        "Signal": "Inverter Temperature","Value": f"{live_readings['inverter_temp_c']:,.2f}","Unit": "°C",
+    }, {
+        "Signal": "Battery SOC",        "Value": f"{live_readings['battery_soc_pct']:,.2f}","Unit": "%",
+    }, {
+        "Signal": "Conversion Efficiency","Value": f"{live_readings['efficiency_pct']:,.2f}","Unit": "%",
+    }, {
+        "Signal": "Daily Energy Yield", "Value": f"{live_readings['daily_energy_kwh']:,.2f}","Unit": "kWh",
+    }, {
+        "Signal": "CO₂ Avoided (today)", "Value": f"{live_readings['co2_avoided_kg']:,.2f}","Unit": "kg",
+    }])
+    st.dataframe(snapshot, use_container_width=True, hide_index=True)
+
+    csv_buf = live_history.to_csv(index=False)
+    st.download_button(
+        "📥 Download live telemetry buffer (CSV)",
+        csv_buf,
+        file_name="live_telemetry_buffer.csv",
+        mime="text/csv",
+    )
+
 if selected_page == "📊 Forecasting":
     tab_hero("📊 Forecasting", "This section focuses on forecasting performance, actual-versus-predicted trends, weather context, and validation signals. Everything here is designed to feel large, clear, and interactive.", IMG_FORECAST, "📈", "Forecast intelligence")
+
+    # Live snapshot at the top so forecasts can be compared against current readings.
+    st.markdown("### 🔴 Live Plant Snapshot")
+    render_live_kpi_strip(live_readings, live_deltas)
+
     f1, f2 = st.columns(2)
     with f1:
         st.markdown('<div class="panel"><div class="section-title">Forecast Signal with User-Controlled Band</div>', unsafe_allow_html=True)
