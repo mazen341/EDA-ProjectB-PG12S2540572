@@ -69,7 +69,7 @@ except Exception:
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
-PROJECT_NAME = "Mini Project B — Solar PV Forecasting Intelligence Website"
+PROJECT_NAME = "EDA Project B — Time-Series Forecasting Starter"
 STUDENT_NAME_DEFAULT = "MAZEN AL-HIMALI"
 STUDENT_ID_DEFAULT = "PG12S2540572"
 DEFAULT_DATA_PATH = "data/dataset_sample.csv"
