@@ -38,12 +38,19 @@ except Exception:
     PLOTLY_AVAILABLE = False
 
 try:
-    from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
+    from sklearn.ensemble import (
+        ExtraTreesRegressor,
+        GradientBoostingRegressor,
+        HistGradientBoostingRegressor,
+        RandomForestRegressor,
+    )
     from sklearn.inspection import permutation_importance
-    from sklearn.linear_model import RidgeCV
+    from sklearn.linear_model import ElasticNetCV, LassoCV, RidgeCV
     from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+    from sklearn.neighbors import KNeighborsRegressor
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
+    from sklearn.svm import SVR
     SKLEARN_AVAILABLE = True
 except Exception:
     SKLEARN_AVAILABLE = False
@@ -1018,8 +1025,14 @@ def run_models(model_df: pd.DataFrame, features: list[str], timestamp_col: str, 
     if SKLEARN_AVAILABLE:
         models = [
             ("RidgeCV scaled", make_pipeline(StandardScaler(), RidgeCV(alphas=[.1, 1, 10, 100]))),
-            ("RandomForest compact", RandomForestRegressor(n_estimators=70, max_depth=14, min_samples_leaf=3, random_state=42, n_jobs=-1)),
-            ("HistGradientBoosting tuned", HistGradientBoostingRegressor(max_iter=240, learning_rate=.055, max_leaf_nodes=31, l2_regularization=.05, random_state=42)),
+            ("LassoCV sparse linear", make_pipeline(StandardScaler(), LassoCV(alphas=[.001, .01, .1, 1.0], cv=3, max_iter=5000, random_state=42))),
+            ("ElasticNetCV regularized", make_pipeline(StandardScaler(), ElasticNetCV(l1_ratio=[.15, .5, .85], alphas=[.001, .01, .1, 1.0], cv=3, max_iter=5000, random_state=42))),
+            ("KNN local pattern", make_pipeline(StandardScaler(), KNeighborsRegressor(n_neighbors=12, weights="distance"))),
+            ("SVR RBF sample", make_pipeline(StandardScaler(), SVR(C=10.0, gamma="scale", epsilon=.1))),
+            ("RandomForest compact", RandomForestRegressor(n_estimators=80, max_depth=14, min_samples_leaf=3, random_state=42, n_jobs=-1)),
+            ("ExtraTrees robust ensemble", ExtraTreesRegressor(n_estimators=90, max_depth=16, min_samples_leaf=3, random_state=42, n_jobs=-1)),
+            ("GradientBoosting classic", GradientBoostingRegressor(n_estimators=180, learning_rate=.05, max_depth=3, random_state=42)),
+            ("HistGradientBoosting tuned", HistGradientBoostingRegressor(max_iter=260, learning_rate=.05, max_leaf_nodes=31, l2_regularization=.05, random_state=42)),
         ]
         for name, model in models:
             model.fit(X_train, y_train)
@@ -1146,6 +1159,196 @@ def show_chart(fig, df: pd.DataFrame, timestamp_col: str, columns: list[str], wi
 # -----------------------------------------------------------------------------
 # Rendering helpers
 # -----------------------------------------------------------------------------
+
+
+def render_metric_bar_chart(comparison_df: pd.DataFrame, metric: str, title: str):
+    if comparison_df.empty or metric not in comparison_df.columns:
+        st.info(f"{metric} chart is unavailable.")
+        return
+    if PLOTLY_AVAILABLE:
+        chart_df = comparison_df.sort_values(metric, ascending=True).copy()
+        fig = go.Figure(
+            go.Bar(
+                x=chart_df[metric],
+                y=chart_df["model"],
+                orientation="h",
+                marker=dict(color=chart_df[metric], colorscale="Viridis", showscale=True),
+            )
+        )
+        fig.update_layout(
+            title=title,
+            template="plotly_dark",
+            height=max(420, 42 * len(chart_df)),
+            margin=dict(l=10, r=10, t=50, b=10),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            yaxis=dict(autorange="reversed"),
+        )
+        st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+    else:
+        st.bar_chart(comparison_df.set_index("model")[metric])
+
+
+def render_model_radar(comparison_df: pd.DataFrame):
+    if not PLOTLY_AVAILABLE or comparison_df.empty:
+        st.info("Radar chart requires Plotly and model comparison results.")
+        return
+    metrics = ["MAE", "RMSE", "MAPE_pct"]
+    available = [m for m in metrics if m in comparison_df.columns]
+    top = comparison_df.head(min(5, len(comparison_df))).copy()
+    fig = go.Figure()
+    for _, row in top.iterrows():
+        scores = []
+        for m in available:
+            max_v = float(comparison_df[m].max()) or 1.0
+            value = float(row[m])
+            scores.append(max(0.0, 1.0 - value / max_v))
+        fig.add_trace(go.Scatterpolar(r=scores + [scores[0]], theta=available + [available[0]], fill="toself", name=str(row["model"])))
+    fig.update_layout(
+        template="plotly_dark",
+        height=430,
+        margin=dict(l=10, r=10, t=35, b=10),
+        paper_bgcolor="rgba(0,0,0,0)",
+        polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+        title="Normalized model strength radar",
+    )
+    st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+
+
+def render_actual_predicted_scatter(predictions_df: pd.DataFrame):
+    if predictions_df.empty:
+        st.info("Actual vs predicted scatter appears after predictions are generated.")
+        return
+    if PLOTLY_AVAILABLE:
+        sample = predictions_df.tail(min(2000, len(predictions_df))).copy()
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=sample["y_target"],
+            y=sample["prediction"],
+            mode="markers",
+            marker=dict(size=6, opacity=.55, color=sample["absolute_error"], colorscale="Turbo", showscale=True),
+            name="Predictions",
+        ))
+        lo = float(min(sample["y_target"].min(), sample["prediction"].min()))
+        hi = float(max(sample["y_target"].max(), sample["prediction"].max()))
+        fig.add_trace(go.Scatter(x=[lo, hi], y=[lo, hi], mode="lines", line=dict(color="#fbbf24", dash="dash"), name="Perfect fit"))
+        fig.update_layout(
+            title="Actual vs predicted scatter",
+            template="plotly_dark",
+            height=430,
+            margin=dict(l=10, r=10, t=45, b=10),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            xaxis_title="Actual",
+            yaxis_title="Predicted",
+        )
+        st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+    else:
+        st.dataframe(predictions_df[["y_target", "prediction", "absolute_error"]].tail(500), use_container_width=True)
+
+
+def render_error_distribution(predictions_df: pd.DataFrame):
+    if predictions_df.empty:
+        st.info("Error distribution appears after predictions are generated.")
+        return
+    if PLOTLY_AVAILABLE:
+        sample = predictions_df.tail(min(3000, len(predictions_df))).copy()
+        fig = go.Figure()
+        fig.add_trace(go.Histogram(x=sample["residual"], nbinsx=45, name="Residual", marker_color="#38bdf8", opacity=.78))
+        fig.add_vline(x=0, line_color="#fbbf24", line_dash="dash")
+        fig.update_layout(
+            title="Residual distribution",
+            template="plotly_dark",
+            height=380,
+            margin=dict(l=10, r=10, t=45, b=10),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            xaxis_title="Residual",
+            yaxis_title="Count",
+        )
+        st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+    else:
+        st.dataframe(predictions_df[["residual", "absolute_error"]].describe(), use_container_width=True)
+
+
+def render_error_by_time(predictions_df: pd.DataFrame, timestamp_col: str):
+    if predictions_df.empty:
+        st.info("Time-based error breakdown appears after predictions are generated.")
+        return
+    work = predictions_df.copy()
+    work[timestamp_col] = pd.to_datetime(work[timestamp_col], errors="coerce")
+    work = work.dropna(subset=[timestamp_col])
+    if work.empty:
+        st.info("No valid timestamps for time-based error breakdown.")
+        return
+    work["hour"] = work[timestamp_col].dt.hour
+    work["month"] = work[timestamp_col].dt.to_period("M").astype(str)
+    by_hour = work.groupby("hour", as_index=False)["absolute_error"].mean()
+    by_month = work.groupby("month", as_index=False)["absolute_error"].mean()
+    hcol, mcol = st.columns(2)
+    with hcol:
+        st.markdown("#### Error by hour")
+        if PLOTLY_AVAILABLE:
+            fig = go.Figure(go.Bar(x=by_hour["hour"], y=by_hour["absolute_error"], marker_color="#38bdf8"))
+            fig.update_layout(template="plotly_dark", height=330, margin=dict(l=10, r=10, t=25, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+        else:
+            st.bar_chart(by_hour.set_index("hour")["absolute_error"])
+    with mcol:
+        st.markdown("#### Error by month")
+        if PLOTLY_AVAILABLE:
+            fig = go.Figure(go.Bar(x=by_month["month"], y=by_month["absolute_error"], marker_color="#10b981"))
+            fig.update_layout(template="plotly_dark", height=330, margin=dict(l=10, r=10, t=25, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+        else:
+            st.bar_chart(by_month.set_index("month")["absolute_error"])
+
+
+def render_feature_correlation_lab(model_df: pd.DataFrame, target_col: str, features: list[str]):
+    if model_df.empty:
+        st.info("Feature lab requires feature rows.")
+        return
+    available = [c for c in features if c in model_df.columns][:25]
+    if len(available) < 2:
+        st.info("Not enough feature columns for correlation analysis.")
+        return
+    corr_cols = available + ["y_target"]
+    corr = model_df[corr_cols].corr(numeric_only=True).round(3)
+    top_corr = corr["y_target"].drop("y_target").abs().sort_values(ascending=False).head(12).reset_index()
+    top_corr.columns = ["feature", "abs_corr_to_target"]
+    c1, c2 = st.columns([1.15, .85])
+    with c1:
+        st.markdown("#### Feature correlation heatmap")
+        if PLOTLY_AVAILABLE:
+            fig = go.Figure(data=go.Heatmap(z=corr.values, x=corr.columns, y=corr.index, colorscale="Viridis"))
+            fig.update_layout(template="plotly_dark", height=520, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+        else:
+            st.dataframe(corr, use_container_width=True)
+    with c2:
+        st.markdown("#### Top target-related features")
+        st.dataframe(top_corr, use_container_width=True)
+
+
+def render_all_in_one_recommendations(comparison_df: pd.DataFrame, predictions_df: pd.DataFrame):
+    st.markdown("### 🧠 Expert Recommendations")
+    if comparison_df.empty:
+        st.info("Recommendations will be stronger once model comparison is available.")
+        return
+    best = comparison_df.iloc[0]
+    recs = [
+        ("Model choice", f"Use **{best['model']}** as the current selected model because it leads the comparison table."),
+        ("Metric strategy", "Do not rely only on MAPE for PV forecasting. Compare MAE, RMSE, MAPE, R², and interval coverage together."),
+        ("Operational use", "Use prediction intervals to communicate uncertainty. Avoid presenting a single forecast line without confidence context."),
+        ("Next improvement", "Add local weather forecasts, irradiance forecast variables, panel temperature, inverter status, and maintenance markers if available."),
+    ]
+    if not predictions_df.empty and float(predictions_df["interval_covered"].mean() * 100) < 75:
+        recs.append(("Uncertainty warning", "Interval coverage is low. Widen intervals or calibrate residuals using a separate calibration period."))
+    cols = st.columns(2)
+    for i, (title, rec) in enumerate(recs):
+        with cols[i % 2]:
+            st.markdown(f'<div class="insight"><div class="insight-icon">🎯</div><div><b>{title}</b><br>{rec}</div></div>', unsafe_allow_html=True)
+
 
 def tab_hero(title: str, copy: str, img_url: str, symbol: str, kicker: str = "Section overview"):
     st.markdown(
@@ -1616,6 +1819,7 @@ tabs = st.tabs([
     "🤖 Models",
     "🧬 Advanced",
     "🕹️ Simulator",
+    "🔬 Comparison Lab",
     "📤 Export",
 ])
 
@@ -1908,7 +2112,65 @@ with tabs[6]:
     else:
         st.info("No data available for simulator.")
 
+
 with tabs[7]:
+    tab_hero("🔬 All-in-One Comparison Lab", "Everything needed for model and graph comparison is in one place: leaderboard, metric bars, radar view, actual-vs-predicted scatter, residual distribution, time-based error analysis, feature correlation, and expert recommendations.", IMG_BATTERY, "🔬", "All tools in one")
+    st.markdown("## All-in-One Model, Graph and Diagnostic Comparison")
+
+    lab_mode = st.selectbox(
+        "Choose comparison tool",
+        [
+            "Full comparison dashboard",
+            "Metric leaderboard",
+            "Actual vs predicted",
+            "Residual diagnostics",
+            "Feature correlation lab",
+            "Expert recommendations",
+        ],
+        index=0,
+    )
+
+    if lab_mode in ["Full comparison dashboard", "Metric leaderboard"]:
+        st.markdown("### Model Leaderboard")
+        st.dataframe(comparison_df, use_container_width=True)
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            render_metric_bar_chart(comparison_df, "MAE", "MAE comparison — lower is better")
+        with m2:
+            render_metric_bar_chart(comparison_df, "RMSE", "RMSE comparison — lower is better")
+        with m3:
+            render_metric_bar_chart(comparison_df, "MAPE_pct", "MAPE comparison — lower is better")
+        render_model_radar(comparison_df)
+
+    if lab_mode in ["Full comparison dashboard", "Actual vs predicted"]:
+        st.markdown("### Actual vs Predicted Diagnostics")
+        c1, c2 = st.columns(2)
+        with c1:
+            show_chart(prediction_fig(predictions_df, timestamp_col, chart_window), predictions_df if not predictions_df.empty else filtered_df, timestamp_col, ["y_target", "prediction"] if not predictions_df.empty else [target_col], chart_window)
+        with c2:
+            render_actual_predicted_scatter(predictions_df)
+
+    if lab_mode in ["Full comparison dashboard", "Residual diagnostics"]:
+        st.markdown("### Residual and Error Diagnostics")
+        r1, r2 = st.columns(2)
+        with r1:
+            render_error_distribution(predictions_df)
+        with r2:
+            if not predictions_df.empty:
+                st.dataframe(predictions_df[["residual", "absolute_error", "interval_covered"]].describe(), use_container_width=True)
+            else:
+                st.info("Residual summary requires predictions.")
+        render_error_by_time(predictions_df, timestamp_col)
+
+    if lab_mode in ["Full comparison dashboard", "Feature correlation lab"]:
+        st.markdown("### Feature Correlation and Data Relationship Lab")
+        render_feature_correlation_lab(model_df, target_col, feature_cols)
+
+    if lab_mode in ["Full comparison dashboard", "Expert recommendations"]:
+        render_all_in_one_recommendations(comparison_df, predictions_df)
+
+
+with tabs[8]:
     tab_hero("📤 Export", "All final outputs are organized here: exports, JSON evidence, predictions, metrics, and AI grading fallback. This makes the project easy to review and submit.", IMG_CONTROL, "📤", "Export and grading")
     st.markdown("## Export and AI Grader")
     dashboard_insights = [
@@ -1951,6 +2213,9 @@ with tabs[7]:
             "has_animated_loading": bool(detailed_loading),
             "has_large_visible_tabs": True,
             "has_what_if_simulator": True,
+            "has_all_in_one_comparison_lab": True,
+            "model_count": int(len(comparison_df)),
+            "graph_types": ["line", "bar", "radar", "scatter", "histogram", "heatmap", "table", "flowchart"],
             "user_selectable_dashboard_representation": dashboard_mode,
             "theme_palette": theme,
             "insights": dashboard_insights,
