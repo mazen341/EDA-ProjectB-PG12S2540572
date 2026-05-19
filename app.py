@@ -952,6 +952,38 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             animation:energyFlow 2.2s ease-in-out infinite;
         }}
 
+
+        /* Main Navigation interactive card styling */
+        .section-nav-card {{
+            cursor: pointer !important;
+            outline: 2px solid transparent;
+            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, filter .18s ease !important;
+        }}
+        .section-nav-card:hover {{
+            transform: translateY(-3px) !important;
+            border-color: rgba(251,191,36,.65) !important;
+            box-shadow: 0 18px 46px rgba(14,165,233,.22) !important;
+            filter: saturate(1.08) brightness(1.05);
+        }}
+        .section-nav-card:focus-within {{
+            outline: 3px solid rgba(251,191,36,.75);
+            outline-offset: 3px;
+        }}
+        .section-nav-card .nav-label::after {{
+            content: "  →";
+            color: #fbbf24;
+            font-weight: 1000;
+        }}
+        .nav-help-box {{
+            border: 1px solid rgba(14,165,233,.22);
+            border-radius: 16px;
+            padding: .65rem .75rem;
+            margin: .45rem 0 .85rem 0;
+            background: rgba(255,255,255,.06);
+            color: #dbeafe;
+            font-size: .84rem;
+            line-height: 1.45;
+        }}
         /* Final stability overrides: no overlap, clear positions, readable hierarchy */
         .final-page-section {{
             margin: .85rem 0 1.1rem 0;
@@ -1791,8 +1823,12 @@ def render_section_navigation():
     st.markdown(
         f'''
         <div class="panel" style="margin:.5rem 0 1rem 0;">
-            <div class="section-title">🧭 Clear Section Map</div>
-            <div class="muted">Each card matches one tab below. Start with Home, then move left to right through Forecasting, Images, Data Pipeline, Models, Advanced, Simulator, Comparison Lab, and Export.</div>
+            <div class="section-title">🧭 Main Navigation</div>
+            <div class="nav-help-box">
+                These image cards show the full website structure. Select the matching tab below to open each section.
+                All controls stay accessible in the sidebar: data upload, theme, size, animation, forecasting parameters,
+                model comparison, training button, clear results, simulator, and export tools.
+            </div>
             <div class="section-nav">{cards}</div>
         </div>
         ''',
@@ -1995,6 +2031,19 @@ with st.sidebar:
     anomaly_sensitivity = float(st.slider("Anomaly sensitivity", 1.0, 4.0, 2.0, .1))
     refresh_seconds = int(st.slider("Visible refresh timing", 5, 120, 30, 5))
     show_correlation = st.toggle("Show correlation diagnostics", value=True)
+
+    st.markdown(
+        '''
+        <div class="nav-help-box">
+            <b>How to use:</b><br>
+            1. Choose data and forecast settings above.<br>
+            2. Choose what to compare below.<br>
+            3. Click <b>⌛ Run selected comparison</b>.<br>
+            4. Open Models, Advanced, Comparison Lab, or Export tabs.
+        </div>
+        ''',
+        unsafe_allow_html=True,
+    )
 
     st.markdown("---")
     st.markdown('<div class="sidebar-section">🔬 Model Comparison Control</div>', unsafe_allow_html=True)
@@ -2271,7 +2320,7 @@ elif first_view == "Evidence first":
 
 
 # Tabs
-st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Main Navigation</div><div class="muted">Open one section at a time using the tabs below. Review order: Home → Forecasting → Images → Data Pipeline → Models → Advanced → Simulator → Comparison Lab → Export.</div></div>', unsafe_allow_html=True)
+st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Main Navigation</div><div class="muted">Open one section at a time using the tabs below. The sidebar stays available for all controls and buttons while each tab provides its own interactive charts, tables, simulator, comparison lab, and exports.</div></div>', unsafe_allow_html=True)
 
 tabs = st.tabs([
     "🏠 Home",
