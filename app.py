@@ -4874,8 +4874,8 @@ if selected_page == "📤 Export":
 st.markdown(
     """
     <div style="text-align:center;color:var(--muted);margin-top:2rem;font-size:.9rem;">
-        Fully alive interactive Solar PV Forecasting Website • organized sections • animations • images • 3D-style visual system • export-ready evidence
-    </div>
+©MAZEN AL-HIMALI 2026
+</div>
     """,
     unsafe_allow_html=True,
 )
