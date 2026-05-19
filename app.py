@@ -951,6 +951,142 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             background:linear-gradient(90deg, #38bdf8, #10b981, #fbbf24);
             animation:energyFlow 2.2s ease-in-out infinite;
         }}
+
+        /* Final stability overrides: no overlap, clear positions, readable hierarchy */
+        .final-page-section {{
+            margin: .85rem 0 1.1rem 0;
+            clear: both;
+        }}
+        .sticky-title {{
+            position: relative !important;
+            top: auto !important;
+            z-index: 5 !important;
+            margin-bottom: .9rem !important;
+        }}
+        .hero-grid {{
+            grid-template-columns: 1fr !important;
+            gap: .85rem !important;
+            margin-bottom: .85rem !important;
+        }}
+        .hero-card, .mode-card {{
+            min-height: auto !important;
+            border-radius: 20px !important;
+            padding: .95rem !important;
+        }}
+        .hero-title {{
+            font-size: 1.65rem !important;
+            line-height: 1.15 !important;
+            letter-spacing: -.035em !important;
+            margin: .45rem 0 .45rem 0 !important;
+        }}
+        .hero-copy {{
+            font-size: .9rem !important;
+            line-height: 1.5 !important;
+        }}
+        .control-grid {{
+            grid-template-columns: repeat(3, minmax(120px, 1fr)) !important;
+            gap: .55rem !important;
+        }}
+        .control-chip {{
+            padding: .55rem .62rem !important;
+            border-radius: 14px !important;
+        }}
+        .kpi-card {{
+            min-height: 96px !important;
+            padding: .75rem !important;
+            border-radius: 16px !important;
+        }}
+        .kpi-value {{
+            font-size: 1.25rem !important;
+        }}
+        .section-nav {{
+            grid-template-columns: repeat(3, minmax(150px, 1fr)) !important;
+            gap: .55rem !important;
+            margin: .55rem 0 .25rem 0 !important;
+            clear:both;
+            position:relative;
+            z-index:3;
+        }}
+        .section-nav-card {{
+            min-height: 92px !important;
+            border-radius: 14px !important;
+        }}
+        .section-nav-card .nav-label {{
+            font-size: .86rem !important;
+            left: .65rem !important;
+            right: .65rem !important;
+            bottom: .55rem !important;
+        }}
+        .section-nav-card .nav-sub {{
+            font-size: .68rem !important;
+        }}
+        .stTabs [data-baseweb="tab-list"] {{
+            gap: 6px !important;
+            padding: .35rem 0 .6rem 0 !important;
+            margin-top: .15rem !important;
+            border-bottom:1px solid rgba(14,165,233,.18);
+        }}
+        .stTabs [data-baseweb="tab"] {{
+            min-height: 46px !important;
+            min-width: 112px !important;
+            font-size: .84rem !important;
+            padding: .35rem .5rem !important;
+            border-radius: 12px 12px 0 0 !important;
+            box-shadow: 0 6px 14px rgba(15,23,42,.14) !important;
+            transform: none !important;
+        }}
+        .stTabs [data-baseweb="tab"]:hover,
+        .stTabs [aria-selected="true"] {{
+            transform: none !important;
+        }}
+        .tab-hero {{
+            min-height: 112px !important;
+            border-radius: 16px !important;
+            margin: .2rem 0 .75rem 0 !important;
+            clear:both;
+        }}
+        .tab-hero-content {{
+            padding: .68rem .8rem !important;
+            max-width: 780px !important;
+        }}
+        .tab-hero-title {{
+            font-size: 1.05rem !important;
+            margin: .12rem 0 .15rem 0 !important;
+        }}
+        .tab-hero-copy {{
+            font-size: .78rem !important;
+            line-height: 1.35 !important;
+        }}
+        .tab-hero-kicker {{
+            padding: .26rem .48rem !important;
+            font-size: .66rem !important;
+            margin-bottom: .22rem !important;
+        }}
+        .floating-3d-badge,
+        .tab-float-grid {{
+            display: none !important;
+        }}
+        .image-card {{
+            min-height: 150px !important;
+            border-radius: 16px !important;
+        }}
+        .flow-card, .visual-card {{
+            min-height: 245px !important;
+            border-radius: 18px !important;
+        }}
+        .panel {{
+            border-radius: 18px !important;
+            padding: .85rem !important;
+            margin-bottom: .75rem !important;
+        }}
+        .workflow-card {{
+            min-height: 86px !important;
+            padding: .72rem !important;
+        }}
+        @media (max-width: 1100px) {{
+            .section-nav {{ grid-template-columns: repeat(2, minmax(140px, 1fr)) !important; }}
+            .control-grid {{ grid-template-columns: repeat(2, minmax(120px, 1fr)) !important; }}
+        }}
         @media (max-width: 1250px) {{
             .hero-grid {{ grid-template-columns:1fr; }}
             .control-grid {{ grid-template-columns:repeat(2,minmax(120px,1fr)); }}
@@ -1642,6 +1778,7 @@ def render_section_navigation():
         ("🤖 Models", "Model evidence", IMG_BATTERY),
         ("🧬 Advanced", "Diagnostics", IMG_GRID),
         ("🕹️ Simulator", "What-if tools", IMG_SOLAR_1),
+        ("🔬 Comparison Lab", "All tools", IMG_BATTERY),
         ("📤 Export", "Downloads", IMG_CONTROL),
     ]
     cards = ""
@@ -1655,7 +1792,7 @@ def render_section_navigation():
         f'''
         <div class="panel" style="margin:.5rem 0 1rem 0;">
             <div class="section-title">🧭 Clear Section Map</div>
-            <div class="muted">Use the tabs below to open each section. These cards show where every main area is located.</div>
+            <div class="muted">Each card matches one tab below. Start with Home, then move left to right through Forecasting, Images, Data Pipeline, Models, Advanced, Simulator, Comparison Lab, and Export.</div>
             <div class="section-nav">{cards}</div>
         </div>
         ''',
@@ -2134,7 +2271,7 @@ elif first_view == "Evidence first":
 
 
 # Tabs
-st.markdown("<div style=\"height:.35rem\"></div>", unsafe_allow_html=True)
+st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Main Navigation</div><div class="muted">Open one section at a time using the tabs below. Review order: Home → Forecasting → Images → Data Pipeline → Models → Advanced → Simulator → Comparison Lab → Export.</div></div>', unsafe_allow_html=True)
 
 tabs = st.tabs([
     "🏠 Home",
