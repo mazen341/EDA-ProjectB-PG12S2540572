@@ -887,7 +887,7 @@ st.write(
     "The AI grader uses OpenRouter with the fixed model string "
     f"`{OPENROUTER_MODEL}` and the fixed Project B /80 rubric."
 )
- 
+
 with st.expander("Show fixed AI grader prompt"):
     st.code(AI_GRADER_PROMPT_TEMPLATE, language="text")
 
