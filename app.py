@@ -1,3 +1,4 @@
+
 """
 app.py — Fully Alive Professional Solar PV Forecasting Website
 
@@ -883,6 +884,16 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             border-radius:16px;
             padding:.55rem .6rem;
             background:rgba(255,255,255,.06);
+            min-height:62px;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+            transition:border-color .18s ease, background .18s ease;
+        }}
+        .sidebar-mini-card:hover {{
+            border-color:rgba(56,189,248,.45);
+            background:rgba(56,189,248,.08);
         }}
         .sidebar-mini-card .t1 {{
             color:#A5C9F3;
@@ -906,6 +917,131 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             color:#F8FBFF;
             font-size:.92rem;
             font-weight:1000;
+        }}
+
+        /* -------------------------------------------------------------- */
+        /* Sidebar expanders — each one acts as a "drop-down" group.      */
+        /* Beautiful frosted-glass cards with smooth hover and a clean    */
+        /* aligned chevron. All groups have identical width and padding   */
+        /* so the sidebar looks neat regardless of which is open.         */
+        /* -------------------------------------------------------------- */
+        section[data-testid="stSidebar"] [data-testid="stExpander"] {{
+            margin:.55rem 0 !important;
+            border-radius:16px !important;
+            border:1px solid rgba(56,189,248,.28) !important;
+            background:linear-gradient(140deg, rgba(8,22,47,.88), rgba(15,46,84,.72)) !important;
+            box-shadow:0 10px 28px rgba(2,6,23,.32) !important;
+            overflow:hidden !important;
+            transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;
+        }}
+        section[data-testid="stSidebar"] [data-testid="stExpander"]:hover {{
+            border-color:rgba(56,189,248,.55) !important;
+            box-shadow:0 14px 36px rgba(14,165,233,.22) !important;
+            transform:translateY(-1px);
+        }}
+        /* Header (the clickable summary). Streamlit uses <summary> inside details. */
+        section[data-testid="stSidebar"] [data-testid="stExpander"] summary,
+        section[data-testid="stSidebar"] [data-testid="stExpander"] > details > summary {{
+            padding:.85rem 1rem !important;
+            font-weight:900 !important;
+            font-size:.98rem !important;
+            color:#F8FBFF !important;
+            letter-spacing:.2px;
+            background:linear-gradient(90deg, rgba(56,189,248,.18), rgba(16,185,129,.08)) !important;
+            border-bottom:1px solid rgba(56,189,248,.18) !important;
+            list-style:none;
+            cursor:pointer;
+        }}
+        section[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {{
+            background:linear-gradient(90deg, rgba(56,189,248,.28), rgba(16,185,129,.14)) !important;
+        }}
+        /* Body of each expander. */
+        section[data-testid="stSidebar"] [data-testid="stExpander"] > details[open] > div,
+        section[data-testid="stSidebar"] [data-testid="stExpanderDetails"] {{
+            padding:.85rem .9rem 1rem .9rem !important;
+            background:rgba(2,6,23,.30) !important;
+        }}
+        /* Tighten widget spacing inside expanders so they feel like one card. */
+        section[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stVerticalBlock"] {{
+            gap:.55rem !important;
+        }}
+
+        /* -------------------------------------------------------------- */
+        /* Sidebar inputs — uniform width, rounded corners, consistent    */
+        /* height, frosted background. Same look across selectbox, text,  */
+        /* slider, toggle, file uploader.                                 */
+        /* -------------------------------------------------------------- */
+        section[data-testid="stSidebar"] .stSelectbox > div > div,
+        section[data-testid="stSidebar"] .stTextInput input,
+        section[data-testid="stSidebar"] .stNumberInput input,
+        section[data-testid="stSidebar"] [data-baseweb="select"] > div {{
+            background:rgba(255,255,255,.06) !important;
+            border:1px solid rgba(148,197,255,.28) !important;
+            border-radius:12px !important;
+            color:#F8FBFF !important;
+        }}
+        section[data-testid="stSidebar"] .stSelectbox label,
+        section[data-testid="stSidebar"] .stTextInput label,
+        section[data-testid="stSidebar"] .stNumberInput label,
+        section[data-testid="stSidebar"] .stSlider label,
+        section[data-testid="stSidebar"] .stFileUploader label,
+        section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
+            color:#DBEAFE !important;
+            font-weight:700 !important;
+            font-size:.86rem !important;
+        }}
+        /* Sidebar buttons — primary and secondary both look like cards. */
+        section[data-testid="stSidebar"] .stButton > button {{
+            border-radius:12px !important;
+            font-weight:800 !important;
+            padding:.55rem .85rem !important;
+            border:1px solid rgba(56,189,248,.32) !important;
+            background:linear-gradient(135deg, rgba(14,165,233,.18), rgba(16,185,129,.12)) !important;
+            color:#F8FBFF !important;
+            transition:transform .15s ease, box-shadow .15s ease, background .15s ease !important;
+        }}
+        section[data-testid="stSidebar"] .stButton > button:hover {{
+            transform:translateY(-1px);
+            box-shadow:0 10px 22px rgba(14,165,233,.32) !important;
+            background:linear-gradient(135deg, rgba(14,165,233,.30), rgba(16,185,129,.20)) !important;
+        }}
+        section[data-testid="stSidebar"] .stButton > button[kind="primary"] {{
+            background:linear-gradient(135deg, #0EA5E9, #10B981) !important;
+            border:none !important;
+            color:#031424 !important;
+        }}
+
+        /* -------------------------------------------------------------- */
+        /* Quick Access button grid on the main page — force every button */
+        /* to identical width AND height regardless of label length.      */
+        /* -------------------------------------------------------------- */
+        .main .stButton > button {{
+            min-height:64px !important;
+            height:64px !important;
+            border-radius:14px !important;
+            font-weight:900 !important;
+            font-size:.98rem !important;
+            white-space:normal !important;
+            line-height:1.15 !important;
+            padding:.45rem .65rem !important;
+            display:flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            text-align:center !important;
+            border:1px solid rgba(14,165,233,.28) !important;
+            background:linear-gradient(135deg, rgba(15,46,84,.86), rgba(8,22,47,.82)) !important;
+            color:#F8FBFF !important;
+            transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease !important;
+        }}
+        .main .stButton > button:hover {{
+            transform:translateY(-2px);
+            border-color:rgba(56,189,248,.6) !important;
+            box-shadow:0 16px 38px rgba(14,165,233,.28) !important;
+        }}
+        .main .stButton > button[kind="primary"] {{
+            background:linear-gradient(135deg, #0EA5E9, #10B981) !important;
+            color:#031424 !important;
+            border:none !important;
         }}
 
         .sticky-title, .hero-card, .mode-card, .kpi-card, .panel, .visual-card, .flow-card, .workflow-card, .tab-hero, .loading-card {{
@@ -2722,36 +2858,46 @@ def render_technical_feature_cards():
 def render_section_navigation():
     """Fast, compact navigation.
 
-    Users can access every section quickly from one button grid.
-    The sidebar also has a dropdown quick-access selector.
+    A 5x2 grid of equal-size buttons. The Quick Access grid and the sidebar
+    Navigation dropdown share one source of truth (st.session_state["selected_page"]).
+    Box sizes are kept uniform by CSS (`.main .stButton > button` rules) so
+    every label has the same height regardless of emoji/text width.
     """
     if "selected_page" not in st.session_state:
         st.session_state["selected_page"] = "🏠 Home"
 
+    current = st.session_state.get("selected_page", "🏠 Home")
     st.markdown(
-        """
+        f"""
         <div class="panel" style="margin:.45rem 0 .7rem 0;">
             <div class="section-title">⚡ Quick Access</div>
             <div class="nav-help-box">
-                Choose any section below. This is the only main navigation area, designed for fast access.
+                Tap any section to open it. Currently viewing: <b>{current}</b>.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
+    # 5 columns × 2 rows = 10 equal cells. CSS forces every button to the
+    # same height and rounded card style.
     rows = [SECTION_OPTIONS[:5], SECTION_OPTIONS[5:]]
     for row_i, row in enumerate(rows):
-        cols = st.columns(len(row))
+        cols = st.columns(len(row), gap="small")
         for col, page in zip(cols, row):
             with col:
-                active = page == st.session_state.get("selected_page", "🏠 Home")
-                label = f"✅ {page}" if active else page
-                if st.button(label, key=f"quick_nav_{row_i}_{page}", use_container_width=True):
+                active = page == current
+                label = f"✅  {page}" if active else page
+                btn_type = "primary" if active else "secondary"
+                if st.button(
+                    label,
+                    key=f"quick_nav_{row_i}_{page}",
+                    use_container_width=True,
+                    type=btn_type,
+                ):
                     st.session_state["selected_page"] = page
-                    # Rerun so the sidebar selectbox and the rest of the page
-                    # immediately reflect the new section. Without this the
-                    # active highlight on the button grid lags by one click.
+                    # Rerun so the sidebar dropdown and the rest of the page
+                    # immediately reflect the new section.
                     try:
                         st.rerun()
                     except Exception:
@@ -2760,9 +2906,7 @@ def render_section_navigation():
                         except Exception:
                             pass
 
-    selected = st.session_state.get("selected_page", "🏠 Home")
-    st.info(f"Current section: {selected}")
-    return selected
+    return st.session_state.get("selected_page", "🏠 Home")
 
 
 def render_hourglass_loader(message: str, pct: int):
@@ -3971,7 +4115,10 @@ def call_openrouter(api_key: str, submission_json: str) -> str:
 
 
 # -----------------------------------------------------------------------------
-# Sidebar
+# Sidebar — fully reorganized into collapsible "drop-down" expander groups.
+# Each group is one card. Important groups (Navigation, Appearance) are open
+# by default; less-frequently-used groups are collapsed to keep the sidebar
+# clean and compact.
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.markdown(
@@ -3979,7 +4126,8 @@ with st.sidebar:
         <div class="sidebar-hero">
             <div class="sidebar-hero-title">☀️ Website Controls</div>
             <div class="sidebar-hero-copy">
-                Select style, data, forecasting, comparison tools, and export settings.
+                Expand any section below to adjust appearance, data, forecasting,
+                models, the AI grader, and live telemetry settings.
             </div>
             <div class="sidebar-mini-grid">
                 <div class="sidebar-mini-card"><div class="t1">Experience</div><div class="t2">Interactive</div></div>
@@ -3992,148 +4140,180 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="sidebar-section">⚡ Quick Access</div>', unsafe_allow_html=True)
-    # Make sure the page state is valid before we touch the widget.
+    # ---- Make sure page state is valid before any widget reads/writes it ----
     if "selected_page" not in st.session_state or st.session_state["selected_page"] not in SECTION_OPTIONS:
         st.session_state["selected_page"] = "🏠 Home"
 
-    # The sidebar dropdown and the Quick Access buttons share one source of
-    # truth: st.session_state["selected_page"].
-    #
-    # IMPORTANT FIX: previously, after clicking a Quick Access button, the
-    # sidebar selectbox (which renders before the button grid each rerun) was
-    # still holding its old cached value and would overwrite selected_page back
-    # to "🏠 Home", so every click bounced the user back to the main page.
-    #
-    # We solve it with two pieces:
-    #   1. A callback (on_change) that pushes the dropdown's value into
-    #      selected_page when the user changes the dropdown.
-    #   2. Before rendering the widget, mirror selected_page -> the widget key,
-    #      but ONLY if the widget key isn't already correctly in sync. This
-    #      keeps the dropdown visually in sync with the active page after a
-    #      button click, without clobbering a fresh user choice.
     def _sidebar_nav_changed():
         st.session_state["selected_page"] = st.session_state["sidebar_page_choice"]
 
     if st.session_state.get("sidebar_page_choice") != st.session_state["selected_page"]:
         st.session_state["sidebar_page_choice"] = st.session_state["selected_page"]
 
-    sidebar_page_choice = st.selectbox(
-        "Go to section",
-        SECTION_OPTIONS,
-        key="sidebar_page_choice",
-        on_change=_sidebar_nav_changed,
-        help="Fast access to every page section."
-    )
+    # =================================================================
+    # GROUP 1 — Navigation (open by default)
+    # =================================================================
+    with st.expander("⚡  Navigation", expanded=True):
+        sidebar_page_choice = st.selectbox(
+            "Go to section",
+            SECTION_OPTIONS,
+            key="sidebar_page_choice",
+            on_change=_sidebar_nav_changed,
+            help="Fast access to every page section.",
+        )
+        st.caption(f"📍 Current: **{st.session_state['selected_page']}**")
 
-    dashboard_mode = st.selectbox(
-        "Choose dashboard style",
-        [
-            "Live Command Website",
-            "Visual 3D Experience",
-            "Engineering Workbench",
-            "Student Evidence Center",
-            "Simple Friendly View",
-        ],
-        index=0,
-    )
-    theme = st.selectbox("Color theme", list(THEMES.keys()), index=0)
-    big_dashboard = st.toggle("Normal comfortable size", value=False, help="Keep off for normal readable size. Turn on only if presenting on a large screen.")
-    alive_motion = st.toggle("Keep everything alive / animated", value=True)
-    detailed_loading = st.toggle("Show loading timeline", value=True)
-    first_view = st.selectbox("First screen priority", ["Balanced", "Charts first", "3D visuals first", "Evidence first"], index=0)
+    # =================================================================
+    # GROUP 2 — Appearance & Style (open by default)
+    # =================================================================
+    with st.expander("🎨  Appearance & Style", expanded=True):
+        dashboard_mode = st.selectbox(
+            "Dashboard style",
+            [
+                "Live Command Website",
+                "Visual 3D Experience",
+                "Engineering Workbench",
+                "Student Evidence Center",
+                "Simple Friendly View",
+            ],
+            index=0,
+        )
+        theme = st.selectbox("Color theme", list(THEMES.keys()), index=0)
+        first_view = st.selectbox(
+            "First screen priority",
+            ["Balanced", "Charts first", "3D visuals first", "Evidence first"],
+            index=0,
+        )
+        col_a, col_b = st.columns(2)
+        with col_a:
+            big_dashboard = st.toggle(
+                "Big mode",
+                value=False,
+                help="Keep off for normal readable size. Turn on for large screens or presentations.",
+            )
+        with col_b:
+            alive_motion = st.toggle("Animations", value=True)
+        detailed_loading = st.toggle("Show loading timeline", value=True)
 
-    st.markdown("---")
-    st.markdown('<div class="sidebar-section">🔴 Live Telemetry</div>', unsafe_allow_html=True)
-    live_mode = st.toggle(
-        "Live updates ON",
-        value=True,
-        help="When ON, the dashboard auto-refreshes so power, temperature, irradiance and other readings update in real time.",
-    )
-    live_interval = int(st.slider("Live refresh interval (seconds)", 1, 30, 3, 1))
-    if not AUTOREFRESH_AVAILABLE:
-        st.caption("⚠️ For continuous auto-refresh install: `pip install streamlit-autorefresh` (the app still works without it; click any control to refresh).")
+    # =================================================================
+    # GROUP 3 — Project Details (collapsed)
+    # =================================================================
+    with st.expander("👤  Project Details", expanded=False):
+        student_name = st.text_input("Student name", STUDENT_NAME_DEFAULT)
+        student_id = st.text_input("Student ID", STUDENT_ID_DEFAULT)
+        project_title = st.text_input("Top project name", PROJECT_NAME)
 
-    st.markdown("---")
-    st.markdown('<div class="sidebar-section">👤 Project Details</div>', unsafe_allow_html=True)
-    student_name = st.text_input("Student name", STUDENT_NAME_DEFAULT)
-    student_id = st.text_input("Student ID", STUDENT_ID_DEFAULT)
-    project_title = st.text_input("Top project name", PROJECT_NAME)
+    # =================================================================
+    # GROUP 4 — Data Source (collapsed)
+    # =================================================================
+    with st.expander("📁  Data Source", expanded=False):
+        data_path = st.text_input("Dataset path", DEFAULT_DATA_PATH)
+        uploaded_file = st.file_uploader("Upload data", type=["csv", "xlsx", "xls", "json"])
+        st.caption("CSV, Excel, or JSON. Falls back to demo data if nothing is provided.")
 
-    st.markdown("---")
-    st.markdown('<div class="sidebar-section">📁 Data Source</div>', unsafe_allow_html=True)
-    data_path = st.text_input("Dataset path", DEFAULT_DATA_PATH)
-    uploaded_file = st.file_uploader("Upload data", type=["csv", "xlsx", "xls", "json"])
+    # =================================================================
+    # GROUP 5 — Forecast Parameters (collapsed)
+    # =================================================================
+    with st.expander("⚙️  Forecast Parameters", expanded=False):
+        site_name = st.selectbox("Site", ["Solar Farm Alpha", "Rooftop PV Lab", "Campus PV Plant"], index=0)
+        resample_rule = st.selectbox("Resampling rule", ["None", "15min", "30min", "1h", "1D"], index=1)
+        horizon = int(st.number_input("Forecast horizon rows", min_value=1, max_value=96, value=1, step=1))
+        model_rows = int(st.slider("Model rows", 1000, 40000, 18000, 1000))
+        chart_window = int(st.slider("Chart window rows", 96, 3000, 700, 32))
+        confidence_width = float(st.slider("Forecast band width", .05, .35, .12, .01))
+        anomaly_sensitivity = float(st.slider("Anomaly sensitivity", 1.0, 4.0, 2.0, .1))
+        refresh_seconds = int(st.slider("Visible refresh timing", 5, 120, 30, 5))
+        show_correlation = st.toggle("Show correlation diagnostics", value=True)
 
-    st.markdown("---")
-    st.markdown('<div class="sidebar-section">⚙️ Forecast Parameters</div>', unsafe_allow_html=True)
-    site_name = st.selectbox("Site", ["Solar Farm Alpha", "Rooftop PV Lab", "Campus PV Plant"], index=0)
-    resample_rule = st.selectbox("Resampling rule", ["None", "15min", "30min", "1h", "1D"], index=1)
-    horizon = int(st.number_input("Forecast horizon rows", min_value=1, max_value=96, value=1, step=1))
-    model_rows = int(st.slider("Model rows", 1000, 40000, 18000, 1000))
-    chart_window = int(st.slider("Chart window rows", 96, 3000, 700, 32))
-    confidence_width = float(st.slider("Forecast band width", .05, .35, .12, .01))
-    anomaly_sensitivity = float(st.slider("Anomaly sensitivity", 1.0, 4.0, 2.0, .1))
-    refresh_seconds = int(st.slider("Visible refresh timing", 5, 120, 30, 5))
-    show_correlation = st.toggle("Show correlation diagnostics", value=True)
+    # =================================================================
+    # GROUP 6 — Model Comparison Control (open by default — main action)
+    # =================================================================
+    with st.expander("🔬  Model Comparison", expanded=True):
+        comparison_group = st.selectbox(
+            "What to compare",
+            [
+                "Do not train yet",
+                "Baseline only",
+                "Fast comparison",
+                "Linear models",
+                "Tree ensemble models",
+                "All available models",
+            ],
+            index=0,
+            help="Training starts only after you press the button below.",
+        )
+        comparison_metric = st.selectbox(
+            "Rank models by",
+            ["MAPE_pct", "RMSE", "MAE", "R2"],
+            index=0,
+        )
+        run_comparison_clicked = st.button(
+            "⌛ Run selected comparison",
+            type="primary",
+            use_container_width=True,
+            key="run_comparison_btn",
+        )
+        clear_comparison_clicked = st.button(
+            "Clear saved model results",
+            use_container_width=True,
+            key="clear_comparison_btn",
+        )
+        st.caption(
+            "Tip: pick a group → click Run → open the Models, Comparison Lab, "
+            "or Export tab."
+        )
 
+    # =================================================================
+    # GROUP 7 — AI Grader / OpenRouter (collapsed)
+    # =================================================================
+    with st.expander("🤖  AI Grader (OpenRouter)", expanded=False):
+        # Resolve a default value from st.secrets / environment on first visit.
+        _default_or_key = ""
+        try:
+            _default_or_key = st.secrets.get("OPENROUTER_API_KEY", "") or ""
+        except Exception:
+            _default_or_key = ""
+        _default_or_key = _default_or_key or os.environ.get("OPENROUTER_API_KEY", "")
+        if "openrouter_api_key" not in st.session_state:
+            st.session_state["openrouter_api_key"] = _default_or_key
+
+        openrouter_api_key = st.text_input(
+            "OpenRouter API key",
+            type="password",
+            key="openrouter_api_key",
+            help="Used by the AI grader on the Export tab. Leave blank to use the local fallback grader.",
+            placeholder="sk-or-...",
+        )
+        st.caption("🔐 Stored only in this session. Used on the Export tab.")
+
+    # =================================================================
+    # GROUP 8 — Live Telemetry (collapsed)
+    # =================================================================
+    with st.expander("🔴  Live Telemetry", expanded=False):
+        live_mode = st.toggle(
+            "Live updates ON",
+            value=True,
+            help="Auto-refresh power, temperature, irradiance, and other live readings.",
+        )
+        live_interval = int(st.slider("Refresh interval (seconds)", 1, 30, 3, 1))
+        if not AUTOREFRESH_AVAILABLE:
+            st.caption("⚠️ For continuous auto-refresh install: `pip install streamlit-autorefresh`")
+
+    # =================================================================
+    # Help footer
+    # =================================================================
     st.markdown(
         '''
-        <div class="nav-help-box">
+        <div class="nav-help-box" style="margin-top:1rem;">
             <b>How to use:</b><br>
-            1. Choose data and forecast settings above.<br>
-            2. Choose what to compare below.<br>
+            1. Pick data and forecast settings.<br>
+            2. Pick what to compare under <b>🔬 Model Comparison</b>.<br>
             3. Click <b>⌛ Run selected comparison</b>.<br>
-            4. Open Models, Advanced, Comparison Lab, or Export tabs.
+            4. Open the Models, Comparison Lab, or Export tab.
         </div>
         ''',
         unsafe_allow_html=True,
     )
-
-    st.markdown("---")
-    st.markdown('<div class="sidebar-section">🔬 Model Comparison Control</div>', unsafe_allow_html=True)
-    comparison_group = st.selectbox(
-        "What do you want to compare?",
-        [
-            "Do not train yet",
-            "Baseline only",
-            "Fast comparison",
-            "Linear models",
-            "Tree ensemble models",
-            "All available models",
-        ],
-        index=0,
-        help="Training starts only after you press the button below."
-    )
-    comparison_metric = st.selectbox(
-        "Rank models by",
-        ["MAPE_pct", "RMSE", "MAE", "R2"],
-        index=0,
-    )
-    run_comparison_clicked = st.button("⌛ Run selected comparison", type="primary", use_container_width=True)
-    clear_comparison_clicked = st.button("Clear saved model results", use_container_width=True)
-
-    st.markdown("---")
-    st.markdown('<div class="sidebar-section">🤖 OpenRouter (AI Grader)</div>', unsafe_allow_html=True)
-    # Resolve a default value from st.secrets / environment, but only on the
-    # first visit. After that, we trust the user's entry.
-    _default_or_key = ""
-    try:
-        _default_or_key = st.secrets.get("OPENROUTER_API_KEY", "") or ""
-    except Exception:
-        _default_or_key = ""
-    _default_or_key = _default_or_key or os.environ.get("OPENROUTER_API_KEY", "")
-    if "openrouter_api_key" not in st.session_state:
-        st.session_state["openrouter_api_key"] = _default_or_key
-
-    openrouter_api_key = st.text_input(
-        "OpenRouter API key",
-        type="password",
-        key="openrouter_api_key",
-        help="Used by the AI grader on the Export tab. Leave blank to use the local fallback grader.",
-        placeholder="sk-or-...",
-    )
-    st.caption("🔐 Stored only in this session. Used by the AI grader on the Export tab.")
 
 
 inject_css(theme, alive_motion, big_dashboard)
