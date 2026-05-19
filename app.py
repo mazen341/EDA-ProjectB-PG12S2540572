@@ -1263,6 +1263,14 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             width:30% !important;
             z-index:4 !important;
         }}
+
+        /* Accessible Streamlit Main Navigation buttons */
+        div[data-testid="stButton"] > button {{
+            white-space: pre-line !important;
+        }}
+        .section-nav-card {{
+            pointer-events: none !important;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -1939,38 +1947,56 @@ def kpi(title: str, value: str, icon: str, detail: str):
 
 
 def render_section_navigation():
+    """Accessible main navigation with real Streamlit buttons."""
     sections = [
-        ("🏠 Home", "Main status", IMG_SOLAR_1),
-        ("📊 Forecasting", "Forecast charts", IMG_WEATHER),
-        ("🧩 Images + 3D", "Visual system", IMG_SOLAR_2),
-        ("🧹 Data Pipeline", "Cleaning flow", IMG_CONTROL),
-        ("🤖 Models", "Model evidence", IMG_BATTERY),
-        ("🧬 Advanced", "Diagnostics", IMG_GRID),
-        ("🕹️ Simulator", "What-if tools", IMG_SOLAR_1),
-        ("🔬 Comparison Lab", "All tools", IMG_BATTERY),
-        ("📤 Export", "Downloads", IMG_CONTROL),
+        ("🏠 Home", "Main status", IMG_SOLAR_1, "Home"),
+        ("📊 Forecasting", "Forecast charts", IMG_WEATHER, "Forecasting"),
+        ("🧩 Images + 3D", "Visual system", IMG_SOLAR_2, "Images + 3D"),
+        ("🧹 Data Pipeline", "Cleaning flow", IMG_CONTROL, "Data Pipeline"),
+        ("🤖 Models", "Model evidence", IMG_BATTERY, "Models"),
+        ("🧬 Advanced", "Diagnostics", IMG_GRID, "Advanced"),
+        ("🕹️ Simulator", "What-if tools", IMG_SOLAR_1, "Simulator"),
+        ("🔬 Comparison Lab", "All tools", IMG_BATTERY, "Comparison Lab"),
+        ("📤 Export", "Downloads", IMG_CONTROL, "Export"),
     ]
-    cards = ""
-    for title, subtitle, img in sections:
-        cards += f"""
-        <div class="section-nav-card" style="background-image:url('{img}')">
-            <div class="nav-label">{title}<span class="nav-sub">{subtitle}</span></div>
-        </div>
-        """
+
+    if "main_nav_selected" not in st.session_state:
+        st.session_state["main_nav_selected"] = "Home"
+
     st.markdown(
-        f'''
+        """
         <div class="panel" style="margin:.5rem 0 1rem 0;">
             <div class="section-title">🧭 Main Navigation</div>
             <div class="nav-help-box">
-                These image cards show the full website structure. Select the matching tab below to open each section.
-                All controls stay accessible in the sidebar: data upload, theme, size, animation, forecasting parameters,
-                model comparison, training button, clear results, simulator, and export tools.
+                Use the real buttons below to choose a section. The selected section is highlighted and the matching tab name is shown.
+                All sidebar controls remain available: data upload, theme, animation, forecasting parameters, model comparison,
+                training button, clear results, simulator, and export tools.
             </div>
-            <div class="section-nav">{cards}</div>
         </div>
-        ''',
+        """,
         unsafe_allow_html=True,
     )
+
+    cols = st.columns(3)
+    for i, (title, subtitle, img, short_name) in enumerate(sections):
+        with cols[i % 3]:
+            st.image(img, use_container_width=True)
+            button_label = f"{title}\n{subtitle}"
+            if st.button(button_label, key=f"main_nav_btn_{short_name}", use_container_width=True):
+                st.session_state["main_nav_selected"] = short_name
+
+    selected = st.session_state.get("main_nav_selected", "Home")
+    st.success(f"Selected section: {selected}. Open the matching tab below to view that section.")
+
+    cards = ""
+    for title, subtitle, img, short_name in sections:
+        active_style = "border-color:rgba(251,191,36,.85); box-shadow:0 0 0 2px rgba(251,191,36,.25);" if selected == short_name else ""
+        cards += f"""
+        <div class="section-nav-card" style="background-image:url('{img}'); {active_style}">
+            <div class="nav-label">{title}<span class="nav-sub">{subtitle}</span></div>
+        </div>
+        """
+    st.markdown(f'<div class="section-nav">{cards}</div>', unsafe_allow_html=True)
 
 
 def render_hourglass_loader(message: str, pct: int):
