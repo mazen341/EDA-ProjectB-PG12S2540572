@@ -82,6 +82,17 @@ IMG_ADVANCED = "https://images.unsplash.com/photo-1518186285589-2f7649de83e0?aut
 IMG_SIMULATOR = "https://images.unsplash.com/photo-1518779578993-ec3579fee39f?auto=format&fit=crop&w=1100&q=80"
 IMG_COMPARE = "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1100&q=80"
 IMG_EXPORT = "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1100&q=80"
+SECTION_OPTIONS = [
+    "🏠 Home",
+    "📊 Forecasting",
+    "🧩 Images + 3D",
+    "🧹 Data Pipeline",
+    "🤖 Models",
+    "🧬 Advanced",
+    "🕹️ Simulator",
+    "🔬 Comparison Lab",
+    "📤 Export",
+]
 
 AI_GRADER_PROMPT_TEMPLATE = """SYSTEM:
 You are a strict academic grader. Return ONLY valid JSON.
@@ -962,7 +973,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         }}
 
 
-        /* Main Navigation interactive card styling */
+        /* Quick Access interactive card styling */
         .section-nav-card {{
             cursor: pointer !important;
             outline: 2px solid transparent;
@@ -1273,7 +1284,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             z-index:4 !important;
         }}
 
-        /* Accessible Streamlit Main Navigation buttons */
+        /* Accessible Streamlit Quick Access buttons */
         div[data-testid="stButton"] > button {{
             white-space: pre-line !important;
         }}
@@ -1286,6 +1297,25 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             max-height: 105px;
             object-fit: cover;
             border: 1px solid rgba(14,165,233,.20);
+        }}
+
+        /* Fast navigation overrides */
+        .section-nav {{
+            display:none !important;
+        }}
+        .nav-help-box {{
+            margin:.25rem 0 .35rem 0 !important;
+            padding:.45rem .6rem !important;
+            font-size:.78rem !important;
+        }}
+        .panel:has(.section-title) {{
+            clear:both;
+        }}
+        div[data-testid="stButton"] > button {{
+            min-height:2.55rem !important;
+            font-size:.9rem !important;
+            border-radius:12px !important;
+            white-space: normal !important;
         }}
         </style>
         """,
@@ -1963,57 +1993,38 @@ def kpi(title: str, value: str, icon: str, detail: str):
 
 
 def render_section_navigation():
-    """Real accessible main navigation.
+    """Fast, compact navigation.
 
-    These buttons change the visible section directly. No hidden tab-clicking is required.
+    Users can access every section quickly from one button grid.
+    The sidebar also has a dropdown quick-access selector.
     """
-    sections = [
-        ("🏠 Home", "Main status", IMG_HOME, "🏠 Home"),
-        ("📊 Forecasting", "Forecast charts", IMG_FORECAST, "📊 Forecasting"),
-        ("🧩 Images + 3D", "Visual system", IMG_3D, "🧩 Images + 3D"),
-        ("🧹 Data Pipeline", "Cleaning flow", IMG_PIPELINE, "🧹 Data Pipeline"),
-        ("🤖 Models", "Model evidence", IMG_MODEL, "🤖 Models"),
-        ("🧬 Advanced", "Diagnostics", IMG_ADVANCED, "🧬 Advanced"),
-        ("🕹️ Simulator", "What-if tools", IMG_SIMULATOR, "🕹️ Simulator"),
-        ("🔬 Comparison Lab", "All comparison tools", IMG_COMPARE, "🔬 Comparison Lab"),
-        ("📤 Export", "Downloads", IMG_EXPORT, "📤 Export"),
-    ]
-
     if "selected_page" not in st.session_state:
         st.session_state["selected_page"] = "🏠 Home"
 
     st.markdown(
         """
-        <div class="panel" style="margin:.5rem 0 1rem 0;">
-            <div class="section-title">🧭 Main Navigation</div>
+        <div class="panel" style="margin:.45rem 0 .7rem 0;">
+            <div class="section-title">⚡ Quick Access</div>
             <div class="nav-help-box">
-                Choose a section using the buttons below. The page opens immediately below this menu.
-                Every option stays available: sidebar controls, model training, simulator, comparison lab, and exports.
+                Choose any section below. This is the only main navigation area, designed for fast access.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    cols = st.columns(3)
-    for i, (title, subtitle, img, page_value) in enumerate(sections):
-        with cols[i % 3]:
-            st.image(img, use_container_width=True)
-            label = f"{title}\n{subtitle}"
-            if st.button(label, key=f"main_nav_btn_{i}", use_container_width=True):
-                st.session_state["selected_page"] = page_value
+    rows = [SECTION_OPTIONS[:5], SECTION_OPTIONS[5:]]
+    for row_i, row in enumerate(rows):
+        cols = st.columns(len(row))
+        for col, page in zip(cols, row):
+            with col:
+                active = page == st.session_state.get("selected_page", "🏠 Home")
+                label = f"✅ {page}" if active else page
+                if st.button(label, key=f"quick_nav_{row_i}_{page}", use_container_width=True):
+                    st.session_state["selected_page"] = page
 
     selected = st.session_state.get("selected_page", "🏠 Home")
-    cards = ""
-    for title, subtitle, img, page_value in sections:
-        active_style = "border-color:rgba(251,191,36,.9); box-shadow:0 0 0 2px rgba(251,191,36,.28);" if selected == page_value else ""
-        cards += f"""
-        <div class="section-nav-card" style="background-image:url('{img}'); {active_style}">
-            <div class="nav-label">{title}<span class="nav-sub">{subtitle}</span></div>
-        </div>
-        """
-    st.markdown(f'<div class="section-nav">{cards}</div>', unsafe_allow_html=True)
-    st.success(f"Current open section: {selected}")
+    st.info(f"Current section: {selected}")
     return selected
 
 
@@ -2172,6 +2183,19 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
+
+    st.markdown('<div class="sidebar-section">⚡ Quick Access</div>', unsafe_allow_html=True)
+    current_page = st.session_state.get("selected_page", "🏠 Home")
+    quick_idx = SECTION_OPTIONS.index(current_page) if current_page in SECTION_OPTIONS else 0
+    sidebar_page_choice = st.selectbox(
+        "Go to section",
+        SECTION_OPTIONS,
+        index=quick_idx,
+        key="sidebar_page_choice",
+        help="Fast access to every page section."
+    )
+    if sidebar_page_choice != st.session_state.get("selected_page", "🏠 Home"):
+        st.session_state["selected_page"] = sidebar_page_choice
 
     dashboard_mode = st.selectbox(
         "Choose dashboard style",
@@ -2501,23 +2525,12 @@ elif first_view == "Evidence first":
 
 
 # Tabs
-st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Open Sections</div><div class="muted">Use only the Main Navigation buttons above to open sections. The sidebar stays available for all controls and buttons while each tab provides its own interactive charts, tables, simulator, comparison lab, and exports.</div></div>', unsafe_allow_html=True)
+st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Open Sections</div><div class="muted">Use only the Quick Access buttons above to open sections. The sidebar stays available for all controls and buttons while each tab provides its own interactive charts, tables, simulator, comparison lab, and exports.</div></div>', unsafe_allow_html=True)
 
-section_options = [
-    "🏠 Home",
-    "📊 Forecasting",
-    "🧩 Images + 3D",
-    "🧹 Data Pipeline",
-    "🤖 Models",
-    "🧬 Advanced",
-    "🕹️ Simulator",
-    "🔬 Comparison Lab",
-    "📤 Export",
-]
-if st.session_state.get("selected_page") not in section_options:
+if st.session_state.get("selected_page") not in SECTION_OPTIONS:
     st.session_state["selected_page"] = "🏠 Home"
 
-# Navigation is controlled only by Main Navigation buttons above.
+# Navigation is controlled by Quick Access buttons and sidebar selector.
 selected_page = st.session_state.get("selected_page", "🏠 Home")
 
 
