@@ -726,7 +726,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         }}
 
 
-        .sidebar-hero {
+        .sidebar-hero {{
             border:1px solid rgba(56,189,248,.28);
             border-radius:26px;
             padding:1rem 1rem .95rem 1rem;
@@ -738,8 +738,8 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             box-shadow:0 22px 58px rgba(0,0,0,.28);
             overflow:hidden;
             position:relative;
-        }
-        .sidebar-hero::after {
+        }}
+        .sidebar-hero::after {{
             content:"";
             position:absolute;
             right:-24px;
@@ -749,50 +749,50 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             border-radius:50%;
             background:radial-gradient(circle, rgba(251,191,36,.95) 0%, rgba(251,191,36,.30) 55%, transparent 72%);
             box-shadow:0 0 30px rgba(251,191,36,.24);
-        }
-        .sidebar-hero-title {
+        }}
+        .sidebar-hero-title {{
             font-size:1.1rem;
             font-weight:1000;
             color:#FFFFFF;
             margin-bottom:.22rem;
             position:relative;
             z-index:2;
-        }
-        .sidebar-hero-copy {
+        }}
+        .sidebar-hero-copy {{
             color:#DDEBFB;
             font-size:.84rem;
             line-height:1.55;
             position:relative;
             z-index:2;
-        }
-        .sidebar-mini-grid {
+        }}
+        .sidebar-mini-grid {{
             display:grid;
             grid-template-columns:repeat(2,minmax(90px,1fr));
             gap:.55rem;
             margin-top:.75rem;
             position:relative;
             z-index:2;
-        }
-        .sidebar-mini-card {
+        }}
+        .sidebar-mini-card {{
             border:1px solid rgba(148,163,184,.18);
             border-radius:16px;
             padding:.55rem .6rem;
             background:rgba(255,255,255,.06);
-        }
-        .sidebar-mini-card .t1 {
+        }}
+        .sidebar-mini-card .t1 {{
             color:#A5C9F3;
             font-size:.68rem;
             font-weight:900;
             text-transform:uppercase;
             letter-spacing:.04em;
-        }
-        .sidebar-mini-card .t2 {
+        }}
+        .sidebar-mini-card .t2 {{
             color:#FFFFFF;
             font-size:.82rem;
             font-weight:1000;
             margin-top:.1rem;
-        }
-        .sidebar-section {
+        }}
+        .sidebar-section {{
             margin:.75rem 0 .35rem 0;
             padding:.48rem .75rem;
             border-radius:14px;
@@ -801,7 +801,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             color:#F8FBFF;
             font-size:1rem;
             font-weight:1000;
-        }
+        }}
         @media (max-width: 1250px) {{
             .hero-grid {{ grid-template-columns:1fr; }}
             .control-grid {{ grid-template-columns:repeat(2,minmax(120px,1fr)); }}
