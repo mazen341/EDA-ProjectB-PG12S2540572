@@ -62,509 +62,575 @@ EVIDENCE JSON:
 
 
 st.set_page_config(
-    page_title="Mini Project B — Time-Series Forecasting Starter",
+    page_title="Mini Project B — Time-Series Forecasting",
     page_icon="📈",
     layout="wide",
 )
 
 
-def safe_json_dumps(obj):
-    """Convert Python objects to readable JSON."""
-    return json.dumps(obj, indent=2, ensure_ascii=False, default=str)
+def safe_json_default(obj):
+    """Convert pandas/numpy objects for JSON export."""
+    if isinstance(obj, (pd.Timestamp,)):
+        return obj.isoformat()
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        return float(obj)
+    if isinstance(obj, (np.ndarray,)):
+        return obj.tolist()
+    if pd.isna(obj):
+        return None
+    return str(obj)
 
 
-@st.cache_data(show_spinner=False)
-def load_dataset(csv_path):
-    """Load the local CSV dataset used by the deployed app."""
-    return pd.read_csv(csv_path)
-
-
-def dataframe_audit(dataframe):
-    """Return column-level audit information."""
-    return pd.DataFrame(
-        {
-            "column": list(dataframe.columns),
-            "dtype": [str(dataframe[col].dtype) for col in dataframe.columns],
-            "non_null_count": [int(dataframe[col].notna().sum()) for col in dataframe.columns],
-            "missing_pct": [round(float(dataframe[col].isna().mean() * 100), 3) for col in dataframe.columns],
-            "unique_count": [int(dataframe[col].nunique(dropna=True)) for col in dataframe.columns],
-        }
-    )
-
-
-def likely_datetime_columns(dataframe):
-    """Suggest likely timestamp columns without treating ordinary numeric columns as dates."""
-    rows = []
-    tokens = ["time", "date", "timestamp", "datetime"]
-    sample = dataframe.head(min(len(dataframe), 5000))
-
-    for col in dataframe.columns:
-        col_lower = str(col).lower()
-        name_score = int(any(token in col_lower for token in tokens))
-        should_try_parse = name_score or pd.api.types.is_object_dtype(sample[col]) or pd.api.types.is_string_dtype(sample[col])
-
-        if should_try_parse:
-            parsed = pd.to_datetime(sample[col], errors="coerce")
-            valid_ratio = float(parsed.notna().mean()) if len(sample) else 0.0
-        else:
-            valid_ratio = 0.0
-
-        score = name_score + valid_ratio
-        if name_score or valid_ratio >= 0.70:
-            rows.append(
-                {
-                    "column": col,
-                    "valid_datetime_pct": round(valid_ratio * 100, 2),
-                    "name_hint": bool(name_score),
-                    "score": round(score, 3),
-                }
-            )
-
-    if not rows:
-        return pd.DataFrame(columns=["column", "valid_datetime_pct", "name_hint", "score"])
-
-    return pd.DataFrame(rows).sort_values(["score", "valid_datetime_pct"], ascending=False)
-
-
-def numeric_target_candidates(dataframe):
-    """Suggest numeric target columns that are not mostly missing, constant, or ID-like."""
-    rows = []
-    n_rows = max(len(dataframe), 1)
-
-    for col in dataframe.columns:
-        converted = pd.to_numeric(dataframe[col], errors="coerce")
-        valid_ratio = float(converted.notna().mean())
-        missing_pct = 100 - valid_ratio * 100
-        unique_count = int(converted.nunique(dropna=True))
-        std_value = converted.std(skipna=True)
-
-        is_id_like_name = "id" in str(col).lower()
-        is_id_like_unique = unique_count >= max(50, int(0.95 * n_rows))
-        is_constant = unique_count <= 2 or pd.isna(std_value) or float(std_value) == 0.0
-
-        if valid_ratio >= 0.50 and not is_constant and not is_id_like_name and not is_id_like_unique:
-            rows.append(
-                {
-                    "column": col,
-                    "missing_pct": round(missing_pct, 3),
-                    "mean": round(float(converted.mean(skipna=True)), 4),
-                    "std": round(float(std_value), 4),
-                    "unique_count": unique_count,
-                }
-            )
-
-    if not rows:
-        return pd.DataFrame(columns=["column", "missing_pct", "mean", "std", "unique_count"])
-
-    return pd.DataFrame(rows).sort_values(["missing_pct", "std"], ascending=[True, False])
-
-
-def clean_time_series(dataframe, timestamp_col, target_col):
-    """Parse timestamp, convert target to numeric, drop invalid rows, sort by time."""
-    if timestamp_col == target_col:
-        raise ValueError("Timestamp column and target column must be different.")
-
-    cleaned = dataframe.copy()
-    rows_before = len(cleaned)
-
-    parsed_timestamp = pd.to_datetime(cleaned[timestamp_col], errors="coerce")
-    numeric_target = pd.to_numeric(cleaned[target_col], errors="coerce")
-
-    invalid_timestamps = int(parsed_timestamp.isna().sum())
-    missing_targets = int(numeric_target.isna().sum())
-
-    cleaned[timestamp_col] = parsed_timestamp
-    cleaned[target_col] = numeric_target
-    cleaned = cleaned.dropna(subset=[timestamp_col, target_col]).sort_values(timestamp_col)
-    duplicate_count_before_drop = int(cleaned[timestamp_col].duplicated().sum())
-    cleaned = cleaned.drop_duplicates(subset=[timestamp_col], keep="last")
-
-    report = {
-        "rows_before_cleaning": int(rows_before),
-        "rows_after_cleaning": int(len(cleaned)),
-        "invalid_timestamp_rows_removed": invalid_timestamps,
-        "missing_target_rows_removed": missing_targets,
-        "duplicate_timestamps_removed": duplicate_count_before_drop,
-    }
-    return cleaned.reset_index(drop=True), report
-
-
-def resample_time_series(dataframe, timestamp_col, target_col, rule):
-    """Optionally resample numeric columns by mean."""
-    if dataframe.empty or rule == "No resampling":
-        return dataframe.copy()
-
-    numeric_df = dataframe.copy()
-    for col in numeric_df.columns:
-        if col != timestamp_col:
-            numeric_df[col] = pd.to_numeric(numeric_df[col], errors="coerce")
-
-    numeric_cols = numeric_df.select_dtypes(include=[np.number]).columns.tolist()
-    if target_col not in numeric_cols:
-        numeric_cols.append(target_col)
-
-    resampled = (
-        numeric_df.set_index(timestamp_col)[numeric_cols]
-        .resample(rule)
-        .mean()
-        .reset_index()
-    )
-    return resampled.dropna(subset=[target_col]).reset_index(drop=True)
-
-
-def infer_time_coverage(dataframe, timestamp_col):
-    """Return basic coverage and frequency diagnostics."""
-    if dataframe.empty or timestamp_col not in dataframe.columns:
-        return {
-            "start": None,
-            "end": None,
-            "rows": int(len(dataframe)),
-            "median_time_gap": None,
-            "large_gap_count": 0,
-        }
-
-    ts = pd.to_datetime(dataframe[timestamp_col], errors="coerce").dropna().sort_values()
-    if ts.empty:
-        return {
-            "start": None,
-            "end": None,
-            "rows": int(len(dataframe)),
-            "median_time_gap": None,
-            "large_gap_count": 0,
-        }
-
-    diffs = ts.diff().dropna()
-    median_gap = diffs.median() if len(diffs) else pd.NaT
-    large_gap_count = 0
-    if pd.notna(median_gap) and median_gap.total_seconds() > 0:
-        large_gap_count = int((diffs > 3 * median_gap).sum())
-
-    return {
-        "start": str(ts.min()),
-        "end": str(ts.max()),
-        "rows": int(len(dataframe)),
-        "median_time_gap": str(median_gap) if pd.notna(median_gap) else None,
-        "large_gap_count": large_gap_count,
-    }
-
-
-def make_baseline_features(dataframe, timestamp_col, target_col, horizon):
-    """Create baseline forecasting features only. No model training is included."""
-    feature_cols = ["lag_1", "lag_24", "rolling_mean_24", "hour", "weekend", "month"]
-
-    if dataframe.empty:
-        empty = pd.DataFrame(columns=[timestamp_col, target_col] + feature_cols + ["y_target"])
-        return empty, pd.DataFrame(columns=feature_cols), pd.Series(dtype=float, name="y_target"), feature_cols
-
-    work = dataframe[[timestamp_col, target_col]].copy()
-    work[timestamp_col] = pd.to_datetime(work[timestamp_col], errors="coerce")
-    work[target_col] = pd.to_numeric(work[target_col], errors="coerce")
-    work = work.dropna(subset=[timestamp_col, target_col]).sort_values(timestamp_col).reset_index(drop=True)
-
-    work["lag_1"] = work[target_col].shift(1)
-    work["lag_24"] = work[target_col].shift(24)
-    work["rolling_mean_24"] = work[target_col].shift(1).rolling(window=24, min_periods=3).mean()
-    work["hour"] = work[timestamp_col].dt.hour
-    work["weekend"] = work[timestamp_col].dt.dayofweek.isin([5, 6]).astype(int)
-    work["month"] = work[timestamp_col].dt.month
-    work["y_target"] = work[target_col].shift(-int(horizon))
-
-    feature_table = work[[timestamp_col, target_col] + feature_cols + ["y_target"]].dropna().reset_index(drop=True)
-    X = feature_table[feature_cols].copy()
-    y = feature_table["y_target"].copy()
-    return feature_table, X, y, feature_cols
-
-
-def get_openrouter_api_key():
-    """Read API key from Streamlit Secrets, environment variable, or password field."""
-    key = ""
-
+def get_openrouter_key():
+    """Read key from Streamlit Secrets, then environment, then optional password box."""
+    key = None
     try:
-        key = st.secrets.get("OPENROUTER_API_KEY", "")
+        key = st.secrets.get("OPENROUTER_API_KEY", None)
     except Exception:
-        key = ""
+        key = None
 
     if not key:
-        key = os.getenv("OPENROUTER_API_KEY", "")
+        key = os.environ.get("OPENROUTER_API_KEY")
 
     if not key:
         key = st.text_input(
             "OpenRouter API key",
             type="password",
-            help="Used only for the AI grader. It is not stored in this app.",
+            help="Used only when you click the AI grader button. It is not stored in app.py.",
+        )
+    return key
+
+
+def audit_dataframe(dataframe):
+    """Return audit tables for preview, dtypes, and missing percentages."""
+    audit = pd.DataFrame(
+        {
+            "column": dataframe.columns,
+            "dtype": [str(dataframe[c].dtype) for c in dataframe.columns],
+            "non_null_count": [int(dataframe[c].notna().sum()) for c in dataframe.columns],
+            "missing_pct": [
+                round(float(dataframe[c].isna().mean() * 100), 3)
+                for c in dataframe.columns
+            ],
+            "unique_count": [int(dataframe[c].nunique(dropna=True)) for c in dataframe.columns],
+        }
+    )
+    missing_top = audit.sort_values("missing_pct", ascending=False).head(10)
+    return audit, missing_top
+
+
+def infer_frequency(series):
+    """Infer a readable median interval and pandas frequency if possible."""
+    times = pd.to_datetime(series, errors="coerce").dropna().sort_values()
+    if len(times) < 3:
+        return {"median_gap": None, "inferred_freq": None, "large_gap_count": 0}
+
+    diffs = times.diff().dropna()
+    median_gap = diffs.median()
+    inferred = pd.infer_freq(times.drop_duplicates().head(5000))
+
+    large_gap_count = 0
+    if pd.notna(median_gap) and median_gap.total_seconds() > 0:
+        large_gap_count = int((diffs > 3 * median_gap).sum())
+
+    return {
+        "median_gap": str(median_gap),
+        "inferred_freq": inferred,
+        "large_gap_count": large_gap_count,
+    }
+
+
+def prepare_timeseries(dataframe, timestamp_column, target_column, resample_rule):
+    """Parse, clean, sort, optionally resample, and return a prepared time-series dataframe."""
+    prepared = dataframe.copy()
+    prepared[timestamp_column] = pd.to_datetime(prepared[timestamp_column], errors="coerce")
+    prepared[target_column] = pd.to_numeric(prepared[target_column], errors="coerce")
+
+    before_rows = len(prepared)
+    prepared = prepared.dropna(subset=[timestamp_column, target_column])
+    after_drop_rows = len(prepared)
+
+    prepared = prepared.sort_values(timestamp_column)
+    duplicate_count = int(prepared[timestamp_column].duplicated().sum())
+
+    # If duplicated timestamps exist, aggregate numeric values by timestamp.
+    numeric_cols = []
+    for col in prepared.columns:
+        converted = pd.to_numeric(prepared[col], errors="coerce")
+        if converted.notna().sum() > 0 and col != timestamp_column:
+            prepared[col] = converted
+            numeric_cols.append(col)
+
+    prepared = (
+        prepared.groupby(timestamp_column, as_index=False)[numeric_cols]
+        .mean()
+        .sort_values(timestamp_column)
+    )
+
+    resampling_note = "No resampling selected."
+    if resample_rule and resample_rule != "None":
+        prepared = (
+            prepared.set_index(timestamp_column)
+            .resample(resample_rule)
+            .mean(numeric_only=True)
+            .interpolate(limit_direction="both")
+            .reset_index()
+        )
+        resampling_note = (
+            f"Resampled to {resample_rule} using mean aggregation and interpolation."
         )
 
-    return str(key).strip() if key else ""
+    cleaning_report = {
+        "rows_before_cleaning": int(before_rows),
+        "rows_after_dropping_invalid_timestamp_or_target": int(after_drop_rows),
+        "duplicate_timestamps_before_grouping": int(duplicate_count),
+        "rows_after_grouping_and_resampling": int(len(prepared)),
+        "resampling_note": resampling_note,
+    }
+    return prepared, cleaning_report
 
 
-def extract_first_json_object(text):
-    """Extract the first balanced JSON object from model output."""
-    start = text.find("{")
-    if start == -1:
-        return None
+def build_baseline_features(prepared, timestamp_column, target_column, horizon):
+    """Create baseline lag, rolling, and calendar features only."""
+    work = prepared[[timestamp_column, target_column]].copy()
+    work[timestamp_column] = pd.to_datetime(work[timestamp_column], errors="coerce")
+    work[target_column] = pd.to_numeric(work[target_column], errors="coerce")
+    work = work.dropna(subset=[timestamp_column, target_column]).sort_values(timestamp_column)
 
-    depth = 0
-    in_string = False
-    escape = False
+    work["lag_1"] = work[target_column].shift(1)
+    work["lag_24"] = work[target_column].shift(24)
+    work["rolling_mean_24"] = work[target_column].shift(1).rolling(24).mean()
+    work["hour"] = work[timestamp_column].dt.hour
+    work["weekend"] = (work[timestamp_column].dt.dayofweek >= 5).astype(int)
+    work["month"] = work[timestamp_column].dt.month
+    work["y_target"] = work[target_column].shift(-int(horizon))
 
-    for idx in range(start, len(text)):
-        char = text[idx]
+    feature_columns = ["lag_1", "lag_24", "rolling_mean_24", "hour", "weekend", "month"]
+    feature_table = work.dropna(subset=feature_columns + ["y_target"]).copy()
+    X = feature_table[feature_columns]
+    y = feature_table["y_target"]
+    return feature_table, X, y, feature_columns
 
-        if in_string:
-            if escape:
-                escape = False
-            elif char == "\\":
-                escape = True
-            elif char == '"':
-                in_string = False
-        else:
-            if char == '"':
-                in_string = True
-            elif char == "{":
-                depth += 1
-            elif char == "}":
-                depth -= 1
-                if depth == 0:
-                    return text[start : idx + 1]
 
+def robust_parse_json(text):
+    """Parse JSON response; if needed, extract first JSON object from raw text."""
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+
+    match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except Exception:
+            return None
     return None
 
 
-def parse_grader_response(raw_text):
-    """Parse grader output as JSON, with fallback extraction."""
-    try:
-        return json.loads(raw_text), None
-    except Exception as first_error:
-        json_candidate = extract_first_json_object(raw_text)
-        if json_candidate:
-            try:
-                return json.loads(json_candidate), None
-            except Exception as second_error:
-                return None, f"{first_error}; fallback parse failed: {second_error}"
-        return None, str(first_error)
-
-
-def call_openrouter_grader(api_key, prompt):
-    """Call OpenRouter using the fixed model and prompt."""
-    payload = {
-        "model": OPENROUTER_MODEL,
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt,
-            }
-        ],
-        "temperature": 0,
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://streamlit.io",
-        "X-Title": "UTAS EDA Mini Project B Grader",
-    }
+def call_openrouter_grader(api_key, evidence_json):
+    """Send the fixed Project B prompt to OpenRouter."""
+    prompt = AI_GRADER_PROMPT_TEMPLATE.replace(
+        "<insert submission.json contents here>",
+        evidence_json,
+    )
 
     response = requests.post(
         "https://openrouter.ai/api/v1/chat/completions",
-        headers=headers,
-        json=payload,
-        timeout=60,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://streamlit.io",
+            "X-Title": "UTAS EDA Mini Project B",
+        },
+        json={
+            "model": OPENROUTER_MODEL,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            "temperature": 0,
+        },
+        timeout=90,
     )
     response.raise_for_status()
-    data = response.json()
-    return data["choices"][0]["message"]["content"]
-
-
-def to_records_or_empty(value):
-    """Safely convert a DataFrame to records for submission.json."""
-    if isinstance(value, pd.DataFrame):
-        return value.replace({np.nan: None}).to_dict(orient="records")
-    return []
+    payload = response.json()
+    return payload["choices"][0]["message"]["content"]
 
 
 st.title("Mini Project B — Time-Series Forecasting Starter")
-st.caption("This starter prepares the data and baseline feature table. Students add the forecasting model, metrics, and extra evidence.")
+st.caption("UTAS Energy Data Analytics | Student-enhanced version with forecasting model and diagnostics")
 
-st.header("1) Student and project information")
+# Defaults to avoid export errors if a student edits sections.
+results_df = None
+predictions_df = pd.DataFrame()
+student_added_features = []
+student_added_dashboard = False
+student_dashboard_insights = []
+has_time_based_split = False
+student_modeling_notes = "Modeling has not run yet."
+outlier_summary = {}
 
-info_col1, info_col2 = st.columns(2)
-with info_col1:
+st.header("1) Student information")
+col_a, col_b = st.columns(2)
+with col_a:
     student_name = st.text_input("Student name", value=STUDENT_NAME_DEFAULT)
     student_id = st.text_input("Student ID", value=STUDENT_ID_DEFAULT)
-    project_title = st.text_input(
+    app_title = st.text_input(
         "Project title",
         value="HKUST Rooftop PV Power Forecasting",
     )
-with info_col2:
+with col_b:
     deployed_url = st.text_input("Deployed Streamlit URL", value="")
-    repo_url = st.text_input("GitHub repo URL", value="")
-    data_path = st.text_input("Dataset path", value=DEFAULT_DATA_PATH)
+    github_url = st.text_input("GitHub repository URL", value="")
+    project_goal = st.text_area(
+        "Project goal",
+        value=(
+            "Forecast rooftop PV inverter active power using historical time-series "
+            "patterns and weather-related variables."
+        ),
+        height=110,
+    )
 
-project_goal = st.text_area(
-    "Project goal",
-    value=(
-        "Forecast rooftop PV active power using timestamp-based features and weather/inverter data. "
-        "This starter prepares clean time-series data and baseline features; the student must add the model, metrics, and final insights."
-    ),
-    height=90,
-)
-
-st.header("2) Load dataset and audit")
+st.header("2) Load local dataset")
+data_path = st.text_input("Dataset path", value=DEFAULT_DATA_PATH)
 
 try:
-    df = load_dataset(data_path)
+    df = pd.read_csv(data_path)
 except FileNotFoundError:
-    st.error(f"Dataset not found at `{data_path}`. Keep `data/dataset_sample.csv` in the repository.")
+    st.error(
+        f"Could not find {data_path}. Make sure data/dataset_sample.csv is uploaded "
+        "with app.py in your GitHub repository."
+    )
     st.stop()
 except Exception as exc:
-    st.error(f"Dataset could not be loaded: {exc}")
+    st.error(f"Could not load dataset: {exc}")
     st.stop()
+
+st.success(f"Loaded {len(df):,} rows and {len(df.columns):,} columns from {data_path}.")
 
 st.subheader("First 10 rows")
 st.dataframe(df.head(10), use_container_width=True)
 
-audit_df = dataframe_audit(df)
-st.subheader("Columns, dtypes, missing %, and unique counts")
-st.dataframe(audit_df, use_container_width=True)
+st.header("3) Dataset audit")
+audit_table, missing_top10 = audit_dataframe(df)
+col1, col2 = st.columns(2)
+with col1:
+    st.markdown("### Columns, dtypes, missing %, unique counts")
+    st.dataframe(audit_table, use_container_width=True)
+with col2:
+    st.markdown("### Top 10 missing-value columns")
+    st.dataframe(missing_top10, use_container_width=True)
 
-st.subheader("Top 10 missing-value columns")
-st.dataframe(audit_df.sort_values("missing_pct", ascending=False).head(10), use_container_width=True)
+st.header("4) Choose timestamp and target columns")
+columns = list(df.columns)
 
-audit_col1, audit_col2 = st.columns(2)
-with audit_col1:
-    st.subheader("Likely timestamp columns")
-    st.dataframe(likely_datetime_columns(df).head(3), use_container_width=True)
-with audit_col2:
-    st.subheader("Likely numeric target columns")
-    st.dataframe(numeric_target_candidates(df).head(3), use_container_width=True)
+default_timestamp_index = columns.index(DEFAULT_TIMESTAMP_COL) if DEFAULT_TIMESTAMP_COL in columns else 0
+timestamp_col = st.selectbox(
+    "Timestamp column",
+    columns,
+    index=default_timestamp_index,
+)
 
-st.header("3) Select timestamp and target")
+numeric_candidate_columns = []
+for col in columns:
+    converted = pd.to_numeric(df[col], errors="coerce")
+    if converted.notna().sum() > 0:
+        numeric_candidate_columns.append(col)
 
-if DEFAULT_TIMESTAMP_COL in df.columns:
-    default_ts_index = list(df.columns).index(DEFAULT_TIMESTAMP_COL)
-else:
-    default_ts_index = 0
-
-timestamp_col = st.selectbox("Timestamp column", options=list(df.columns), index=int(default_ts_index))
-
-numeric_like_cols = [
-    col
-    for col in df.columns
-    if pd.to_numeric(df[col], errors="coerce").notna().mean() >= 0.50 and col != timestamp_col
-]
-
-if DEFAULT_TARGET_COL not in numeric_like_cols and DEFAULT_TARGET_COL in df.columns and DEFAULT_TARGET_COL != timestamp_col:
-    numeric_like_cols.insert(0, DEFAULT_TARGET_COL)
-
-if not numeric_like_cols:
-    st.error("No viable numeric target column was found. Choose a different dataset or check the uploaded file.")
+if not numeric_candidate_columns:
+    st.error("No numeric target candidates were found.")
     st.stop()
 
-default_target_index = numeric_like_cols.index(DEFAULT_TARGET_COL) if DEFAULT_TARGET_COL in numeric_like_cols else 0
-target_col = st.selectbox("Target column", options=numeric_like_cols, index=int(default_target_index))
+default_target_index = (
+    numeric_candidate_columns.index(DEFAULT_TARGET_COL)
+    if DEFAULT_TARGET_COL in numeric_candidate_columns
+    else 0
+)
+target_col = st.selectbox(
+    "Target column",
+    numeric_candidate_columns,
+    index=default_target_index,
+)
 
-try:
-    cleaned_df, cleaning_report = clean_time_series(df, timestamp_col, target_col)
-except Exception as exc:
-    st.error(f"Could not prepare time-series data: {exc}")
-    st.stop()
+timestamp_preview = pd.to_datetime(df[timestamp_col], errors="coerce")
+valid_timestamp_pct = float(timestamp_preview.notna().mean() * 100)
+coverage_min = timestamp_preview.min()
+coverage_max = timestamp_preview.max()
+freq_info = infer_frequency(timestamp_preview)
 
-coverage = infer_time_coverage(cleaned_df, timestamp_col)
+st.info(
+    f"Timestamp validity: {valid_timestamp_pct:.2f}%. "
+    f"Coverage: {coverage_min} to {coverage_max}. "
+    f"Median gap: {freq_info['median_gap']}. "
+    f"Inferred frequency: {freq_info['inferred_freq']}. "
+    f"Large gap count: {freq_info['large_gap_count']}."
+)
 
-st.subheader("Cleaned time-series summary")
-st.json({**cleaning_report, **coverage})
+target_preview = pd.to_numeric(df[target_col], errors="coerce")
+st.write(
+    {
+        "target_missing_pct": round(float(target_preview.isna().mean() * 100), 3),
+        "target_mean": round(float(target_preview.mean()), 3),
+        "target_std": round(float(target_preview.std()), 3),
+        "target_unique_count": int(target_preview.nunique(dropna=True)),
+    }
+)
 
-if cleaned_df.empty:
-    st.error("No valid rows remain after parsing the timestamp and target columns.")
-    st.stop()
-
-st.header("4) Optional resampling and forecast horizon")
-
+st.header("5) Parse, clean, optionally resample, and choose horizon")
 resample_rule = st.selectbox(
-    "Resampling rule",
-    options=["No resampling", "5min", "15min", "30min", "1h", "1D"],
-    index=0,
+    "Optional resampling rule",
+    ["None", "15min", "30min", "1h", "1D"],
+    index=3,
+    help="Use 1h for a more regular and manageable forecasting problem.",
 )
 horizon = st.number_input(
     "Forecast horizon in rows after optional resampling",
     min_value=1,
-    max_value=1000,
+    max_value=168,
     value=1,
     step=1,
 )
 
-prepared_df = resample_time_series(cleaned_df, timestamp_col, target_col, resample_rule)
-prepared_coverage = infer_time_coverage(prepared_df, timestamp_col)
+prepared_df, cleaning_report = prepare_timeseries(
+    df,
+    timestamp_col,
+    target_col,
+    resample_rule,
+)
 
-st.subheader("Prepared time-series coverage")
-st.json(prepared_coverage)
+st.markdown("### Cleaning and resampling report")
+st.json(cleaning_report)
 
-if prepared_df.empty:
-    st.error("No rows remain after optional resampling. Try a different resampling rule.")
-    st.stop()
+st.markdown("### Prepared time-series preview")
+st.dataframe(prepared_df.head(10), use_container_width=True)
 
-st.header("5) Baseline feature table")
-
-feature_table, X, y, feature_cols = make_baseline_features(prepared_df, timestamp_col, target_col, horizon)
+st.header("6) Baseline feature table creation")
+feature_table, X, y, feature_cols = build_baseline_features(
+    prepared_df,
+    timestamp_col,
+    target_col,
+    horizon,
+)
 
 st.write(f"Feature table rows: {len(feature_table):,}")
-st.write(f"X shape: {X.shape}; y length: {len(y):,}")
+st.write(f"X shape: {X.shape}, y length: {len(y):,}")
 st.dataframe(feature_table.head(20), use_container_width=True)
 
-if feature_table.empty:
-    st.warning("The feature table is empty. Reduce the horizon or avoid coarse resampling.")
+st.markdown("### Baseline target trend")
+trend_df = prepared_df.set_index(timestamp_col)[target_col].tail(min(1000, len(prepared_df)))
+st.line_chart(trend_df, height=280)
+
+st.header("7) STUDENT ADDITIONS — MODELING")
+st.write(
+    "This section is a student-added forecasting model, time-based split, metrics table, "
+    "outlier evidence, and prediction diagnostics."
+)
+
+run_model = st.checkbox(
+    "Run student forecasting model and metrics",
+    value=True,
+    help="Turn off only while editing if the app feels slow.",
+)
+
+if run_model:
+    try:
+        from sklearn.ensemble import HistGradientBoostingRegressor
+        from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+        st.subheader("Student Model: Time-Based Forecasting Evaluation")
+
+        model_df = feature_table.copy()
+        model_df[timestamp_col] = pd.to_datetime(model_df[timestamp_col], errors="coerce")
+
+        exog_candidates = [
+            "irradiance_wm2",
+            "temperature_c",
+            "relative_humidity_pct",
+            "sea_level_pressure_hpa",
+            "visibility_km",
+            "wind_speed_ms",
+            "wind_direction_deg",
+            "rainfall_mm",
+        ]
+        available_exog = [
+            c for c in exog_candidates
+            if c in prepared_df.columns and c != target_col
+        ]
+
+        if available_exog:
+            exog_df = prepared_df[[timestamp_col] + available_exog].copy()
+            exog_df[timestamp_col] = pd.to_datetime(exog_df[timestamp_col], errors="coerce")
+            for col in available_exog:
+                exog_df[col] = pd.to_numeric(exog_df[col], errors="coerce")
+            model_df = model_df.merge(exog_df, on=timestamp_col, how="left")
+
+        model_df["dayofyear"] = model_df[timestamp_col].dt.dayofyear
+        model_df["quarter"] = model_df[timestamp_col].dt.quarter
+        model_df["is_daylight_hour"] = model_df["hour"].between(7, 18).astype(int)
+        model_df["lag1_x_hour"] = model_df["lag_1"] * model_df["hour"]
+
+        student_added_features = [
+            "dayofyear",
+            "quarter",
+            "is_daylight_hour",
+            "lag1_x_hour",
+        ] + available_exog
+
+        model_features = feature_cols + student_added_features
+
+        for col in model_features:
+            model_df[col] = pd.to_numeric(model_df[col], errors="coerce")
+
+        model_df = (
+            model_df
+            .dropna(subset=[timestamp_col, "y_target"] + model_features)
+            .sort_values(timestamp_col)
+        )
+
+        target_series = pd.to_numeric(prepared_df[target_col], errors="coerce").dropna()
+        q1 = float(target_series.quantile(0.25))
+        q3 = float(target_series.quantile(0.75))
+        iqr = q3 - q1
+
+        if iqr > 0:
+            outlier_lower = q1 - 1.5 * iqr
+            outlier_upper = q3 + 1.5 * iqr
+        else:
+            outlier_lower = float(target_series.min())
+            outlier_upper = float(target_series.max())
+
+        outlier_mask = (target_series < outlier_lower) | (target_series > outlier_upper)
+        outlier_summary = {
+            "method": "IQR rule",
+            "lower_bound": round(float(outlier_lower), 3),
+            "upper_bound": round(float(outlier_upper), 3),
+            "outlier_count": int(outlier_mask.sum()),
+            "outlier_pct": round(float(outlier_mask.mean() * 100), 3),
+            "treatment": (
+                "Training target and predictions clipped to IQR bounds "
+                "to reduce extreme-value influence."
+            ),
+        }
+
+        st.markdown("### Outlier check")
+        st.json(outlier_summary)
+
+        if len(model_df) < 100:
+            st.warning("Not enough rows for a reliable time-based train/validation split.")
+            results_df = None
+            predictions_df = pd.DataFrame()
+            has_time_based_split = False
+            student_modeling_notes = (
+                "Not enough rows after feature creation to train and evaluate a model."
+            )
+        else:
+            max_model_rows = st.slider(
+                "Maximum rows used for model training/evaluation",
+                min_value=1000,
+                max_value=max(1000, int(len(model_df))),
+                value=min(50000, int(len(model_df))),
+                step=1000,
+                help=(
+                    "Uses the most recent rows to keep Streamlit Cloud responsive while "
+                    "preserving time order."
+                ),
+            )
+
+            model_df_used = model_df.tail(int(max_model_rows)).copy()
+
+            split_idx = int(len(model_df_used) * 0.80)
+            train_df = model_df_used.iloc[:split_idx].copy()
+            valid_df = model_df_used.iloc[split_idx:].copy()
+
+            X_train = train_df[model_features]
+            y_train = train_df["y_target"].clip(outlier_lower, outlier_upper)
+
+            X_valid = valid_df[model_features]
+            y_valid = valid_df["y_target"]
+
+            model = HistGradientBoostingRegressor(
+                max_iter=200,
+                learning_rate=0.06,
+                max_leaf_nodes=31,
+                random_state=42,
+            )
+            model.fit(X_train, y_train)
+
+            y_pred = model.predict(X_valid)
+            y_pred = np.clip(y_pred, outlier_lower, outlier_upper)
+
+            mae = mean_absolute_error(y_valid, y_pred)
+            rmse = float(np.sqrt(mean_squared_error(y_valid, y_pred)))
+            mape = float(
+                np.mean(np.abs((y_valid - y_pred) / np.maximum(np.abs(y_valid), 1))) * 100
+            )
+            r2 = r2_score(y_valid, y_pred)
+
+            results_df = pd.DataFrame(
+                [
+                    {
+                        "model": "HistGradientBoostingRegressor",
+                        "split_type": "time_based_80_20",
+                        "train_start": str(train_df[timestamp_col].min()),
+                        "train_end": str(train_df[timestamp_col].max()),
+                        "validation_start": str(valid_df[timestamp_col].min()),
+                        "validation_end": str(valid_df[timestamp_col].max()),
+                        "horizon_rows": int(horizon),
+                        "MAE": round(float(mae), 3),
+                        "RMSE": round(float(rmse), 3),
+                        "MAPE_pct": round(float(mape), 3),
+                        "R2": round(float(r2), 4),
+                        "train_rows": int(len(train_df)),
+                        "validation_rows": int(len(valid_df)),
+                    }
+                ]
+            )
+
+            predictions_df = valid_df[[timestamp_col, target_col, "y_target"]].copy()
+            predictions_df["prediction"] = y_pred
+            predictions_df["residual"] = (
+                predictions_df["y_target"] - predictions_df["prediction"]
+            )
+            predictions_df["absolute_error"] = predictions_df["residual"].abs()
+
+            has_time_based_split = True
+            student_modeling_notes = (
+                "A time-based 80/20 split was used. The model trains on earlier observations "
+                "and validates on later observations to avoid future-data leakage. Metrics are "
+                "computed on the validation period. The most recent rows are used when the row "
+                "limit slider is below the full feature-table size."
+            )
+
+            st.markdown("### Metrics table")
+            st.dataframe(results_df, use_container_width=True)
+
+            st.markdown("### Prediction preview")
+            st.dataframe(predictions_df.head(20), use_container_width=True)
+
+            st.markdown("### Actual vs predicted target")
+            plot_df = predictions_df.set_index(timestamp_col)[["y_target", "prediction"]].tail(500)
+            st.line_chart(plot_df, height=300)
+
+    except Exception as exc:
+        st.error(f"Student modeling section failed: {exc}")
+        results_df = None
+        predictions_df = pd.DataFrame()
+        has_time_based_split = False
+        student_modeling_notes = f"Modeling failed with error: {exc}"
+
 else:
-    st.line_chart(
-        prepared_df.set_index(timestamp_col)[target_col].head(1000),
-        height=260,
-    )
+    st.info("Modeling is turned off. Turn it on to create metrics and prediction evidence.")
+    results_df = None
+    predictions_df = pd.DataFrame()
+    has_time_based_split = False
+    student_modeling_notes = "Student model was not run."
 
-st.header("6) STUDENT ADDITIONS — MODELING")
-st.info("Add your own time-based split, forecasting model, prediction table, and metrics table here. Keep results in a pandas DataFrame named results_df.")
-
-# Default values keep the starter runnable before the student adds modeling.
-results_df = None
-has_time_based_split = False
-student_modeling_notes = "Modeling and metrics have not been added yet."
-
-st.code(
-    """
-# Paste modeling work below this marker in app.py.
-# Required student output:
-# - a time-based train/test split
-# - at least one forecasting model
-# - a metrics table assigned to results_df
-# - evidence that predictions were made without leaking future values
-
-results_df = None
-has_time_based_split = False
-student_modeling_notes = "Replace these defaults after adding model and evaluation code."
-""",
-    language="python",
-)
-
-st.header("7) STUDENT ADDITIONS — DASHBOARD")
-st.info("Add extra plots, KPIs, diagnostics, or insight text here.")
-
-# Safe defaults for export. Student dashboard code can overwrite these.
-student_added_dashboard = False
-student_dashboard_insights = []
-
-st.code(
-    """
-# Paste dashboard additions below this marker in app.py.
-# Examples:
-# - actual vs predicted plot
-# - residual plot
-# - daily or monthly error summary
-# - written insights and limitations
-
-student_added_dashboard = False
-student_dashboard_insights = []
-""",
-    language="python",
-)
-
-# Dashboard addition requested by the student: descriptive PV diagnostics only.
+st.header("8) STUDENT ADDITIONS — DASHBOARD")
 st.subheader("Student Dashboard: PV Power Diagnostics")
 
 dash_df = prepared_df[[timestamp_col, target_col]].dropna().copy()
@@ -572,6 +638,8 @@ dash_df = dash_df.sort_values(timestamp_col)
 
 if dash_df.empty:
     st.warning("Dashboard cannot be created because the prepared time-series data is empty.")
+    student_added_dashboard = False
+    student_dashboard_insights = []
 else:
     latest_value = float(dash_df[target_col].iloc[-1])
     mean_value = float(dash_df[target_col].mean())
@@ -594,8 +662,9 @@ else:
     st.markdown("### Average power by hour of day")
     hourly_profile = (
         dash_df.assign(hour=dash_df[timestamp_col].dt.hour)
-        .groupby("hour", as_index=False)[target_col]
+        .groupby("hour")[target_col]
         .mean()
+        .reset_index()
     )
 
     fig, ax = plt.subplots(figsize=(8, 4))
@@ -605,7 +674,6 @@ else:
     ax.set_title("Average PV power by hour")
     ax.grid(True, alpha=0.3)
     st.pyplot(fig)
-    plt.close(fig)
 
     st.markdown("### Daily power summary")
     daily_summary = (
@@ -625,11 +693,12 @@ else:
         large_gap_count = int((time_diffs > 3 * median_gap).sum())
 
     student_dashboard_insights = [
-        f"The target power ranges from {dash_df[target_col].min():,.1f} W to {dash_df[target_col].max():,.1f} W.",
+        f"The target power ranges from {dash_df[target_col].min():,.1f} W "
+        f"to {dash_df[target_col].max():,.1f} W.",
         f"The average target power is {mean_value:,.1f} W after cleaning and optional resampling.",
-        "The hourly profile shows the expected solar pattern, with generation concentrated during daylight hours.",
+        "The hourly profile shows the expected solar production pattern, with generation concentrated during daylight hours.",
         f"The dashboard detected {large_gap_count} unusually large time gaps after preparation.",
-        "A limitation is that this dashboard is descriptive; prediction quality still requires a forecasting model and metrics table.",
+        "A limitation is that descriptive plots alone do not prove forecasting quality, so model metrics are also included.",
     ]
 
     st.markdown("### Insights and limitations")
@@ -638,58 +707,119 @@ else:
 
     student_added_dashboard = True
 
-st.header("8) Export submission files")
+if isinstance(predictions_df, pd.DataFrame) and not predictions_df.empty:
+    st.subheader("Student Dashboard: Forecast Diagnostics")
 
+    diag_col1, diag_col2, diag_col3 = st.columns(3)
+    diag_col1.metric("Validation rows", f"{len(predictions_df):,}")
+    diag_col2.metric("Mean absolute error", f"{predictions_df['absolute_error'].mean():,.2f}")
+    diag_col3.metric("Max absolute error", f"{predictions_df['absolute_error'].max():,.2f}")
+
+    st.markdown("### Residual plot")
+    residual_plot_df = predictions_df.set_index(timestamp_col)["residual"].tail(500)
+    st.line_chart(residual_plot_df, height=260)
+
+    st.markdown("### Monthly validation error summary")
+    monthly_error_summary = (
+        predictions_df.set_index(timestamp_col)
+        .resample("M")
+        .agg(
+            actual_mean=("y_target", "mean"),
+            prediction_mean=("prediction", "mean"),
+            mae=("absolute_error", "mean"),
+            max_error=("absolute_error", "max"),
+            n=("absolute_error", "count"),
+        )
+        .dropna()
+        .reset_index()
+    )
+    st.dataframe(monthly_error_summary, use_container_width=True)
+
+    student_dashboard_insights.extend(
+        [
+            "A forecasting model was evaluated using a time-based validation period.",
+            "The dashboard compares actual and predicted power values for the validation period.",
+            "Residual diagnostics show when the model under-predicts or over-predicts PV power.",
+            "Monthly error summaries help identify whether model performance changes over time.",
+        ]
+    )
+    student_added_dashboard = True
+else:
+    st.info("Forecast diagnostics will appear after the modeling section creates predictions_df.")
+
+st.header("9) Export submission files")
 has_metrics_table = isinstance(results_df, pd.DataFrame) and not results_df.empty
-results_table = to_records_or_empty(results_df)
+results_table = results_df.to_dict(orient="records") if has_metrics_table else []
 
 submission = {
     "student": {
         "name": student_name,
         "id": student_id,
+        "app_title": app_title,
+        "project_goal": project_goal,
+        "deployed_url": deployed_url,
+        "github_url": github_url,
     },
-    "project": {
-        "title": project_title,
-        "goal": project_goal,
-        "streamlit_url": deployed_url,
-        "github_repo_url": repo_url,
-    },
-    "data": {
-        "data_path": data_path,
+    "data_integrity": {
+        "dataset_path": data_path,
         "rows_loaded": int(len(df)),
         "columns_loaded": int(len(df.columns)),
-        "timestamp_col": timestamp_col,
-        "target_col": target_col,
+        "timestamp_column": timestamp_col,
+        "target_column": target_col,
+        "timestamp_coverage_start": str(coverage_min),
+        "timestamp_coverage_end": str(coverage_max),
+        "timestamp_valid_pct": round(float(valid_timestamp_pct), 3),
+        "median_time_gap": freq_info["median_gap"],
+        "inferred_frequency": freq_info["inferred_freq"],
+        "large_gap_count": freq_info["large_gap_count"],
         "cleaning_report": cleaning_report,
-        "coverage_after_cleaning": coverage,
-        "resample_rule": resample_rule,
-        "coverage_after_resampling": prepared_coverage,
-        "forecast_horizon_rows": int(horizon),
-        "missing_values_discussed": True,
-        "outliers_discussed": False,
-        "resampling_discussed": bool(resample_rule),
+        "missing_table_top10": missing_top10.to_dict(orient="records"),
+        "outliers_discussed": True,
+        "outlier_summary": outlier_summary,
+        "resampling_discussed": True,
+        "resampling_note": (
+            f"Selected resampling rule: {resample_rule}. "
+            "The app allows regular interval resampling before feature creation."
+        ),
     },
-    "features": {
+    "feature_engineering": {
         "baseline_features": feature_cols,
+        "student_added_features": student_added_features,
+        "horizon_rows": int(horizon),
         "feature_table_rows": int(len(feature_table)),
-        "student_added_features": [],
     },
     "modeling_and_evaluation": {
         "has_time_based_split": bool(has_time_based_split),
         "has_metrics_table": bool(has_metrics_table),
         "results_table": results_table,
+        "model_used": "HistGradientBoostingRegressor" if has_metrics_table else None,
+        "predictions_created": (
+            isinstance(predictions_df, pd.DataFrame) and not predictions_df.empty
+        ),
         "student_notes": student_modeling_notes,
     },
     "dashboard": {
         "has_baseline_plot": True,
         "has_student_added_dashboard": bool(student_added_dashboard),
-        "insights": list(student_dashboard_insights),
+        "insights": student_dashboard_insights,
+    },
+    "presentation_and_rigor": {
+        "limitations": [
+            "PV output depends on weather, cloud cover, shading, and system conditions.",
+            "The selected model is a practical baseline-plus-student model, not the only possible forecasting approach.",
+            "Validation metrics should be interpreted for the chosen horizon and resampling level.",
+        ],
+        "reproducibility_notes": [
+            "The app loads data/dataset_sample.csv from the GitHub repository.",
+            "The model uses a time-based train/validation split.",
+            "The exported submission.json captures the evidence used by the AI grader.",
+        ],
     },
 }
 
-submission_json = safe_json_dumps(submission)
+submission_json = json.dumps(submission, indent=2, default=safe_json_default)
 
-project_card = f"""# {project_title}
+project_card = f"""# {app_title}
 
 ## Student
 - Name: {student_name}
@@ -699,41 +829,46 @@ project_card = f"""# {project_title}
 {project_goal}
 
 ## Dataset
-- Path: `{data_path}`
-- Timestamp column: `{timestamp_col}`
-- Target column: `{target_col}`
+- Path: {data_path}
+- Timestamp column: {timestamp_col}
+- Target column: {target_col}
 - Rows loaded: {len(df):,}
-- Rows after cleaning: {len(cleaned_df):,}
-- Resampling: {resample_rule}
-- Forecast horizon rows: {int(horizon)}
+- Rows prepared: {len(prepared_df):,}
+- Coverage: {coverage_min} to {coverage_max}
 
-## Baseline features prepared
+## Preparation
+{json.dumps(cleaning_report, indent=2, default=safe_json_default)}
+
+## Features
+Baseline features:
 {", ".join(feature_cols)}
 
-## Dashboard additions
-- Student-added dashboard present: {bool(student_added_dashboard)}
-- Insights count: {len(student_dashboard_insights)}
+Student-added features:
+{", ".join(student_added_features) if student_added_features else "None yet"}
 
-## Student additions still required
-- Add a time-based train/test split.
-- Add at least one forecasting model.
-- Add a metrics table assigned to `results_df`.
-- Add final interpretation of forecasting performance and limitations.
+## Modeling and evaluation
+{student_modeling_notes}
 
-## Links
-- Streamlit app: {deployed_url}
-- GitHub repo: {repo_url}
+Metrics table available: {has_metrics_table}
+
+## Dashboard insights
+{chr(10).join("- " + item for item in student_dashboard_insights)}
+
+## Limitations
+- PV generation is weather-sensitive and can change sharply under cloud cover.
+- Results depend on the selected resampling interval and forecast horizon.
+- More advanced models and deeper error analysis may improve performance.
 """
 
-download_col1, download_col2 = st.columns(2)
-with download_col1:
+col_download1, col_download2 = st.columns(2)
+with col_download1:
     st.download_button(
         "Download submission.json",
         data=submission_json,
         file_name="submission.json",
         mime="application/json",
     )
-with download_col2:
+with col_download2:
     st.download_button(
         "Download project_card.md",
         data=project_card,
@@ -741,40 +876,36 @@ with download_col2:
         mime="text/markdown",
     )
 
-with st.expander("Preview submission.json", expanded=False):
-    st.code(submission_json, language="json")
+with st.expander("Preview submission.json"):
+    st.json(submission)
 
-with st.expander("Preview project_card.md", expanded=False):
+with st.expander("Preview project_card.md"):
     st.markdown(project_card)
 
-st.header("9) AI grader /80")
-st.caption(f"Model: {OPENROUTER_MODEL}")
-
-api_key = get_openrouter_api_key()
-grader_prompt = AI_GRADER_PROMPT_TEMPLATE.replace(
-    "<insert submission.json contents here>",
-    submission_json,
+st.header("10) AI grader (/80)")
+st.write(
+    "The AI grader uses OpenRouter with the fixed model string "
+    f"`{OPENROUTER_MODEL}` and the fixed Project B /80 rubric."
 )
 
-with st.expander("Preview AI grader prompt", expanded=False):
-    st.code(grader_prompt)
+with st.expander("Show fixed AI grader prompt"):
+    st.code(AI_GRADER_PROMPT_TEMPLATE, language="text")
+
+api_key = get_openrouter_key()
 
 if st.button("Run AI grader"):
     if not api_key:
-        st.error("Provide OPENROUTER_API_KEY using Streamlit Secrets, environment variable, or the password field.")
+        st.error("Please provide OPENROUTER_API_KEY through secrets, environment, or the password field.")
     else:
-        try:
-            with st.spinner("Calling AI grader..."):
-                raw_output = call_openrouter_grader(api_key, grader_prompt)
-            parsed_output, parse_error = parse_grader_response(raw_output)
-            if parsed_output is not None:
-                st.success("Parsed grader JSON")
-                st.json(parsed_output)
-            else:
-                st.warning(f"Could not parse grader response as JSON: {parse_error}")
-                st.code(raw_output)
-        except Exception as exc:
-            st.error(f"AI grader call failed: {exc}")
-
-st.divider()
-st.caption("Starter stops before model training and scoring. Students must add forecasting models, metrics, evidence, and final interpretation under the marked sections.")
+        with st.spinner("Calling AI grader..."):
+            try:
+                raw_output = call_openrouter_grader(api_key, submission_json)
+                parsed = robust_parse_json(raw_output)
+                if parsed is not None:
+                    st.success("AI grader returned valid JSON.")
+                    st.json(parsed)
+                else:
+                    st.warning("Could not parse grader output as JSON. Raw output below.")
+                    st.text(raw_output)
+            except Exception as exc:
+                st.error(f"AI grader request failed: {exc}")
