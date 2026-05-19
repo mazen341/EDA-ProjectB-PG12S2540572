@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 try:
     import plotly.graph_objects as go
@@ -2456,7 +2457,7 @@ def render_interactive_diagram_lab(location: str = "main"):
         detail_level = st.selectbox("Detail level", ["Compact", "Standard", "Detailed"], index=1, key=f"diagram_detail_{location}")
 
     dot = build_diagram_source(diagram_name, direction, detail_level)
-    st.graphviz_chart(dot, use_container_width=True)
+    st.graphviz_chart(dot)
 
     d1, d2 = st.columns(2)
     with d1:
@@ -2562,76 +2563,235 @@ def render_hourglass_loader(message: str, pct: int):
 
 
 def energy_flow_panel():
-    """Reliable animated PV energy flow panel.
+    """Self-contained animated PV energy flow.
 
-    Uses visible tracks and moving pulse dots instead of fragile arrow pseudo-elements.
+    This uses Streamlit components so the animation is isolated from the app's global CSS.
     """
-    st.markdown(
-        """
-        <div class="pv-flow-card">
-            <div class="section-title">Animated PV Energy Flow</div>
-            <div class="muted">Live-style movement from generation to conversion, storage, load, and grid export.</div>
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="utf-8" />
+    <style>
+        :root {
+            --bg1: rgba(5,18,38,.95);
+            --bg2: rgba(8,28,52,.82);
+            --cyan: #38bdf8;
+            --gold: #fbbf24;
+            --green: #10b981;
+            --text: #f8fbff;
+            --muted: #dbeafe;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin:0;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color:var(--text);
+            background: transparent;
+        }
+        .wrap {
+            width:100%;
+            min-height:360px;
+            border:1px solid rgba(56,189,248,.28);
+            border-radius:24px;
+            padding:18px;
+            overflow:hidden;
+            position:relative;
+            background:
+                radial-gradient(circle at 8% 12%, rgba(251,191,36,.16), transparent 24%),
+                radial-gradient(circle at 92% 10%, rgba(56,189,248,.18), transparent 28%),
+                linear-gradient(145deg, var(--bg1), var(--bg2));
+            box-shadow:0 18px 54px rgba(0,0,0,.26);
+        }
+        .title {
+            font-weight:1000;
+            color:var(--gold);
+            font-size:20px;
+            margin-bottom:4px;
+        }
+        .sub {
+            color:var(--muted);
+            font-size:13px;
+            margin-bottom:12px;
+        }
+        .system {
+            width:100%;
+            height:235px;
+            display:block;
+            overflow:visible;
+        }
+        .node {
+            fill: rgba(255,255,255,.07);
+            stroke: rgba(148,203,255,.28);
+            stroke-width: 1.6;
+            filter: drop-shadow(0 6px 12px rgba(0,0,0,.25));
+        }
+        .nodeText {
+            fill: var(--text);
+            font-size: 13px;
+            font-weight: 900;
+            text-anchor: middle;
+        }
+        .nodeSub {
+            fill: var(--muted);
+            font-size: 10px;
+            text-anchor: middle;
+        }
+        .icon {
+            font-size: 26px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+        .track {
+            stroke: rgba(56,189,248,.28);
+            stroke-width: 7;
+            stroke-linecap: round;
+        }
+        .trackGlow {
+            stroke: rgba(251,191,36,.45);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-dasharray: 14 20;
+            animation: dash 1.4s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -34; }
+        }
+        .pulse {
+            filter: drop-shadow(0 0 8px rgba(251,191,36,.95));
+        }
+        .pulse1 { animation: moveA 3.0s linear infinite; }
+        .pulse2 { animation: moveA 3.0s linear infinite .8s; }
+        .pulse3 { animation: moveA 3.0s linear infinite 1.6s; }
+        .pulseB1 { animation: moveB 3.2s linear infinite; }
+        .pulseB2 { animation: moveB 3.2s linear infinite 1.05s; }
+        .pulseB3 { animation: moveB 3.2s linear infinite 2.1s; }
+        @keyframes moveA {
+            0% { transform: translate(118px,72px); opacity:0; }
+            8% { opacity:1; }
+            30% { transform: translate(270px,72px); opacity:1; }
+            58% { transform: translate(425px,72px); opacity:1; }
+            88% { transform: translate(585px,72px); opacity:1; }
+            100% { transform: translate(675px,72px); opacity:0; }
+        }
+        @keyframes moveB {
+            0% { transform: translate(118px,174px); opacity:0; }
+            10% { opacity:1; }
+            34% { transform: translate(270px,174px); opacity:1; }
+            62% { transform: translate(425px,174px); opacity:1; }
+            90% { transform: translate(585px,174px); opacity:1; }
+            100% { transform: translate(675px,174px); opacity:0; }
+        }
+        .status {
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            border:1px solid rgba(16,185,129,.32);
+            background:rgba(16,185,129,.10);
+            border-radius:999px;
+            padding:8px 12px;
+            color:#ecfeff;
+            font-weight:900;
+            font-size:13px;
+            margin-top:4px;
+        }
+        .dot {
+            width:10px;
+            height:10px;
+            border-radius:50%;
+            background:var(--green);
+            box-shadow:0 0 16px rgba(16,185,129,.95);
+            animation:blink 1.2s ease-in-out infinite;
+        }
+        @keyframes blink {
+            0%,100% { opacity:.4; transform:scale(.8); }
+            50% { opacity:1; transform:scale(1.2); }
+        }
+        @media (max-width: 760px) {
+            .wrap { min-height: 520px; }
+            .system { height: 390px; }
+        }
+    </style>
+    </head>
+    <body>
+    <div class="wrap">
+        <div class="title">Animated PV Energy Flow</div>
+        <div class="sub">Visible moving energy pulses from generation to grid, model, battery, and load.</div>
 
-            <div class="pv-flow-stage">
-                <div class="pv-node">
-                    <div class="pv-node-icon">☀️</div>
-                    <div class="pv-node-title">Sun</div>
-                    <div class="pv-node-sub">irradiance</div>
-                </div>
-                <div class="pv-track"><span></span><span></span><span></span></div>
-                <div class="pv-node">
-                    <div class="pv-node-icon">🔷</div>
-                    <div class="pv-node-title">PV Array</div>
-                    <div class="pv-node-sub">DC power</div>
-                </div>
-                <div class="pv-track"><span></span><span></span><span></span></div>
-                <div class="pv-node">
-                    <div class="pv-node-icon">🔌</div>
-                    <div class="pv-node-title">Inverter</div>
-                    <div class="pv-node-sub">DC → AC</div>
-                </div>
-                <div class="pv-track"><span></span><span></span><span></span></div>
-                <div class="pv-node">
-                    <div class="pv-node-icon">🗼</div>
-                    <div class="pv-node-title">Grid</div>
-                    <div class="pv-node-sub">export</div>
-                </div>
-            </div>
+        <svg class="system" viewBox="0 0 720 235" preserveAspectRatio="xMidYMid meet">
+            <!-- Main row tracks -->
+            <line class="track" x1="118" y1="72" x2="205" y2="72"></line>
+            <line class="trackGlow" x1="118" y1="72" x2="205" y2="72"></line>
+            <line class="track" x1="280" y1="72" x2="365" y2="72"></line>
+            <line class="trackGlow" x1="280" y1="72" x2="365" y2="72"></line>
+            <line class="track" x1="440" y1="72" x2="525" y2="72"></line>
+            <line class="trackGlow" x1="440" y1="72" x2="525" y2="72"></line>
 
-            <div class="pv-flow-stage pv-flow-stage-secondary">
-                <div class="pv-node small">
-                    <div class="pv-node-icon">🌤️</div>
-                    <div class="pv-node-title">Weather</div>
-                    <div class="pv-node-sub">forecast drivers</div>
-                </div>
-                <div class="pv-track reverse"><span></span><span></span><span></span></div>
-                <div class="pv-node small">
-                    <div class="pv-node-icon">🤖</div>
-                    <div class="pv-node-title">Model</div>
-                    <div class="pv-node-sub">prediction</div>
-                </div>
-                <div class="pv-track"><span></span><span></span><span></span></div>
-                <div class="pv-node small">
-                    <div class="pv-node-icon">🔋</div>
-                    <div class="pv-node-title">Battery</div>
-                    <div class="pv-node-sub">charge / discharge</div>
-                </div>
-                <div class="pv-track"><span></span><span></span><span></span></div>
-                <div class="pv-node small">
-                    <div class="pv-node-icon">🏠</div>
-                    <div class="pv-node-title">Load</div>
-                    <div class="pv-node-sub">demand</div>
-                </div>
-            </div>
+            <!-- Secondary row tracks -->
+            <line class="track" x1="118" y1="174" x2="205" y2="174"></line>
+            <line class="trackGlow" x1="118" y1="174" x2="205" y2="174"></line>
+            <line class="track" x1="280" y1="174" x2="365" y2="174"></line>
+            <line class="trackGlow" x1="280" y1="174" x2="365" y2="174"></line>
+            <line class="track" x1="440" y1="174" x2="525" y2="174"></line>
+            <line class="trackGlow" x1="440" y1="174" x2="525" y2="174"></line>
 
-            <div class="pv-flow-status">
-                <span class="live-dot"></span>
-                Energy moving • telemetry online • forecast active
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            <!-- Energy pulse dots -->
+            <circle class="pulse pulse1" r="7" fill="#fbbf24"></circle>
+            <circle class="pulse pulse2" r="7" fill="#38bdf8"></circle>
+            <circle class="pulse pulse3" r="7" fill="#10b981"></circle>
+            <circle class="pulse pulseB1" r="7" fill="#38bdf8"></circle>
+            <circle class="pulse pulseB2" r="7" fill="#fbbf24"></circle>
+            <circle class="pulse pulseB3" r="7" fill="#10b981"></circle>
+
+            <!-- Main row nodes -->
+            <rect class="node" x="10" y="28" width="108" height="88" rx="18"></rect>
+            <text class="icon" x="64" y="55">☀️</text>
+            <text class="nodeText" x="64" y="83">Sun</text>
+            <text class="nodeSub" x="64" y="99">irradiance</text>
+
+            <rect class="node" x="205" y="28" width="108" height="88" rx="18"></rect>
+            <text class="icon" x="259" y="55">🔷</text>
+            <text class="nodeText" x="259" y="83">PV Array</text>
+            <text class="nodeSub" x="259" y="99">DC power</text>
+
+            <rect class="node" x="365" y="28" width="108" height="88" rx="18"></rect>
+            <text class="icon" x="419" y="55">🔌</text>
+            <text class="nodeText" x="419" y="83">Inverter</text>
+            <text class="nodeSub" x="419" y="99">DC to AC</text>
+
+            <rect class="node" x="525" y="28" width="108" height="88" rx="18"></rect>
+            <text class="icon" x="579" y="55">🗼</text>
+            <text class="nodeText" x="579" y="83">Grid</text>
+            <text class="nodeSub" x="579" y="99">export</text>
+
+            <!-- Secondary row nodes -->
+            <rect class="node" x="10" y="130" width="108" height="88" rx="18"></rect>
+            <text class="icon" x="64" y="157">🌤️</text>
+            <text class="nodeText" x="64" y="185">Weather</text>
+            <text class="nodeSub" x="64" y="201">drivers</text>
+
+            <rect class="node" x="205" y="130" width="108" height="88" rx="18"></rect>
+            <text class="icon" x="259" y="157">🤖</text>
+            <text class="nodeText" x="259" y="185">Model</text>
+            <text class="nodeSub" x="259" y="201">forecast</text>
+
+            <rect class="node" x="365" y="130" width="108" height="88" rx="18"></rect>
+            <text class="icon" x="419" y="157">🔋</text>
+            <text class="nodeText" x="419" y="185">Battery</text>
+            <text class="nodeSub" x="419" y="201">storage</text>
+
+            <rect class="node" x="525" y="130" width="108" height="88" rx="18"></rect>
+            <text class="icon" x="579" y="157">🏠</text>
+            <text class="nodeText" x="579" y="185">Load</text>
+            <text class="nodeSub" x="579" y="201">demand</text>
+        </svg>
+
+        <div class="status"><span class="dot"></span>Energy moving • telemetry online • forecast active</div>
+    </div>
+    </body>
+    </html>
+    """
+    components.html(html, height=395, scrolling=False)
 
 
 def visual_twin_panel():
