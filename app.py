@@ -4612,7 +4612,7 @@ st.markdown(
             <div class="brand-logo">☀️</div>
             <div>
                 <div class="brand-title">{project_title}</div>
-                <div class="brand-sub">Student: <b>{student_name}</b> • ID: <b>{student_id}</b> • Professional interactive Streamlit website</div>
+                <div class="brand-sub">Student: <b>{student_name}</b> • ID: <b>{student_id}</b>  Streamlit website</div>
             </div>
         </div>
         <div class="top-actions">
