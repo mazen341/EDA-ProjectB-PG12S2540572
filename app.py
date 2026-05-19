@@ -1281,18 +1281,6 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             pointer-events: none !important;
         }}
 
-        /* Real page selector styling */
-        div[role="radiogroup"] {{
-            background: rgba(5,18,38,.86);
-            border: 1px solid rgba(14,165,233,.22);
-            border-radius: 16px;
-            padding: .55rem;
-            margin-bottom: .75rem;
-        }}
-        div[role="radiogroup"] label {{
-            color: #f8fbff !important;
-            font-weight: 900 !important;
-        }}
         [data-testid="stImage"] img {{
             border-radius: 14px;
             max-height: 105px;
@@ -2513,7 +2501,7 @@ elif first_view == "Evidence first":
 
 
 # Tabs
-st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Open Sections</div><div class="muted">Use the selector below after choosing from Main Navigation above. The sidebar stays available for all controls and buttons while each tab provides its own interactive charts, tables, simulator, comparison lab, and exports.</div></div>', unsafe_allow_html=True)
+st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Open Sections</div><div class="muted">Use only the Main Navigation buttons above to open sections. The sidebar stays available for all controls and buttons while each tab provides its own interactive charts, tables, simulator, comparison lab, and exports.</div></div>', unsafe_allow_html=True)
 
 section_options = [
     "🏠 Home",
@@ -2529,12 +2517,8 @@ section_options = [
 if st.session_state.get("selected_page") not in section_options:
     st.session_state["selected_page"] = "🏠 Home"
 
-selected_page = st.radio(
-    "Open section",
-    section_options,
-    key="selected_page",
-    horizontal=True,
-)
+# Navigation is controlled only by Main Navigation buttons above.
+selected_page = st.session_state.get("selected_page", "🏠 Home")
 
 
 if selected_page == "🏠 Home":
