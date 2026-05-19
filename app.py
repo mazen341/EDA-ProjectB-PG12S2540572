@@ -1,35 +1,40 @@
+
 """
 app.py — Fully Interactive Solar PV Forecasting Dashboard
 
 Run:
     streamlit run app.py
 
-Optional files:
-    data/dataset_sample.csv
+This version is designed to look alive and complete:
+- Premium dark background and modern UI styling
+- System photo cards
+- Technical PV energy-flow diagram
+- 3D-style PV system visualization using HTML/CSS
+- Interactive filters
+- Data cleaning, resampling, outlier handling
+- Feature engineering
+- Time-based train/validation split
+- Model comparison and metrics table
+- Feature importance
+- Empirical uncertainty intervals
+- OpenRouter AI grader with local fallback for 429 errors
 
-This app is designed to be visually strong and robust:
-- Works with your real dataset if available.
-- Falls back to realistic demo PV data if no dataset is found.
-- Includes interactive controls, premium background, system photos,
-  technical diagrams, 3D-style system view, charts, workflow cards,
-  metrics, model comparison, and local AI-grader fallback.
+It works with:
+1. Your real file: data/dataset_sample.csv
+2. An uploaded CSV/XLSX/JSON file
+3. Generated demo solar PV data if no dataset is found
 """
 
 import json
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
-
-try:
-    import plotly.express as px
-except Exception:
-    px = None
 
 try:
     from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
@@ -43,9 +48,6 @@ except Exception:
     SKLEARN_AVAILABLE = False
 
 
-# -----------------------------------------------------------------------------
-# App constants
-# -----------------------------------------------------------------------------
 STUDENT_NAME_DEFAULT = "MAZEN AL-HIMALI"
 STUDENT_ID_DEFAULT = "PG12S2540572"
 DEFAULT_DATA_PATH = "data/dataset_sample.csv"
@@ -55,7 +57,7 @@ OPENROUTER_MODEL = "openai/gpt-oss-20b:free"
 
 SOLAR_PHOTO_URL = "https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=1400&q=80"
 INVERTER_PHOTO_URL = "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=900&q=80"
-WEATHER_STATION_URL = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80"
+WEATHER_PHOTO_URL = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80"
 
 AI_GRADER_PROMPT_TEMPLATE = """SYSTEM:
 You are a strict academic grader. Return ONLY valid JSON.
@@ -99,64 +101,67 @@ EVIDENCE JSON:
 """
 
 
-# -----------------------------------------------------------------------------
-# Page setup and styling
-# -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Solar PV Forecasting Dashboard",
     page_icon="☀️",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={"About": "Premium Solar PV Forecasting Dashboard built with Streamlit."},
 )
 
 
-def inject_css() -> None:
+def inject_css():
     st.markdown(
         """
         <style>
         :root {
-            --bg-primary:#07111f;
-            --bg-secondary:#0b1728;
-            --bg-card:#101d33;
-            --bg-glass:rgba(16,29,51,0.78);
-            --border:rgba(148,163,184,0.18);
+            --bg:#07111f;
+            --bg2:#0b1728;
+            --card:rgba(16,29,51,.82);
+            --border:rgba(148,163,184,.18);
             --text:#ecf5ff;
             --muted:#9fb0c7;
             --blue:#3b82f6;
             --cyan:#22d3ee;
-            --emerald:#10b981;
+            --green:#10b981;
             --gold:#fbbf24;
-            --violet:#8b5cf6;
             --red:#ef4444;
         }
+
         html, body, .stApp {
             color:var(--text);
             background:
                 radial-gradient(circle at 10% 10%, rgba(59,130,246,.22), transparent 30%),
-                radial-gradient(circle at 80% 10%, rgba(16,185,129,.14), transparent 34%),
-                radial-gradient(circle at 50% 100%, rgba(251,191,36,.10), transparent 38%),
-                linear-gradient(135deg, #050b14 0%, #07111f 45%, #0c2037 100%);
+                radial-gradient(circle at 80% 5%, rgba(16,185,129,.15), transparent 32%),
+                radial-gradient(circle at 55% 100%, rgba(251,191,36,.10), transparent 38%),
+                linear-gradient(135deg, #050b14 0%, #07111f 48%, #0c2037 100%);
         }
+
         [data-testid="stHeader"] { background: rgba(0,0,0,0); }
         [data-testid="stSidebar"] {
             background: linear-gradient(180deg, rgba(5,11,20,.98), rgba(8,18,32,.96));
-            border-right:1px solid var(--border);
+            border-right: 1px solid var(--border);
         }
-        .block-container { padding-top: 1.1rem; padding-bottom: 2rem; }
-        h1, h2, h3, h4, h5, h6 { color:var(--text)!important; }
+        .block-container { padding-top: 1rem; padding-bottom: 2rem; }
+        h1, h2, h3, h4 { color:var(--text)!important; }
+
         .hero {
             padding: 1.25rem 1.35rem;
             border-radius: 24px;
-            border: 1px solid rgba(251,191,36,.26);
+            border: 1px solid rgba(251,191,36,.28);
             background:
-                linear-gradient(135deg, rgba(16,29,51,.88), rgba(8,18,32,.84)),
-                radial-gradient(circle at 20% 10%, rgba(34,211,238,.18), transparent 30%);
-            box-shadow: 0 24px 70px rgba(0,0,0,.32);
+                linear-gradient(135deg, rgba(16,29,51,.90), rgba(8,18,32,.82)),
+                radial-gradient(circle at 20% 10%, rgba(34,211,238,.20), transparent 32%);
+            box-shadow: 0 24px 70px rgba(0,0,0,.34);
             margin-bottom: 1rem;
         }
-        .hero-title { font-size: 2.25rem; font-weight: 850; letter-spacing: -0.04em; margin: 0; }
-        .hero-subtitle { color: var(--muted); font-size: 1rem; margin-top: .25rem; }
+        .hero-title {
+            font-size: 2.25rem;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            margin: .25rem 0 0 0;
+        }
+        .hero-subtitle { color:var(--muted); font-size:1rem; margin-top:.35rem; }
+
         .glass-card {
             background: linear-gradient(145deg, rgba(16,29,51,.84), rgba(9,20,36,.72));
             border: 1px solid var(--border);
@@ -175,34 +180,43 @@ def inject_css() -> None:
             box-shadow: 0 12px 32px rgba(0,0,0,.24);
             padding: 1rem;
         }
-        .kpi-top { color: var(--muted); font-size: .82rem; font-weight: 700; letter-spacing:.02em; }
-        .kpi-value { font-size: 1.65rem; font-weight: 850; margin-top:.35rem; }
-        .kpi-delta { color: var(--emerald); font-size:.82rem; margin-top:.25rem; }
-        .section-title { color: var(--gold); font-weight: 850; font-size: 1.05rem; margin-bottom:.6rem; }
+        .kpi-top { color: var(--muted); font-size: .82rem; font-weight: 800; }
+        .kpi-value { font-size: 1.65rem; font-weight: 900; margin-top:.35rem; }
+        .kpi-delta { color: var(--green); font-size:.82rem; margin-top:.25rem; }
+        .section-title { color: var(--gold); font-weight: 900; font-size: 1.05rem; margin-bottom:.6rem; }
         .small-muted { color: var(--muted); font-size: .86rem; }
+
         .pill {
             display:inline-flex; align-items:center; gap:.35rem;
             padding:.35rem .65rem; border-radius:999px;
             border:1px solid rgba(59,130,246,.35);
-            color:#bfdbfe; background:rgba(59,130,246,.14); font-size:.8rem; font-weight:700;
+            color:#bfdbfe; background:rgba(59,130,246,.14);
+            font-size:.8rem; font-weight:800;
         }
+
         .photo-card {
-            position:relative; min-height: 306px; border-radius:22px; overflow:hidden;
-            border:1px solid rgba(251,191,36,.24);
+            position:relative; min-height: 320px; border-radius:22px; overflow:hidden;
+            border:1px solid rgba(251,191,36,.25);
             background-size: cover; background-position:center;
-            box-shadow: inset 0 -120px 110px rgba(0,0,0,.72), 0 18px 44px rgba(0,0,0,.28);
+            box-shadow: inset 0 -130px 120px rgba(0,0,0,.74), 0 18px 44px rgba(0,0,0,.28);
         }
         .photo-overlay { position:absolute; left:1rem; right:1rem; bottom:1rem; }
-        .photo-title { font-size:1.3rem; font-weight:850; }
+        .photo-title { font-size:1.35rem; font-weight:900; }
+
         .media-thumb {
-            height: 112px; border-radius: 16px; background-size:cover; background-position:center;
-            border:1px solid rgba(148,163,184,.18); box-shadow: inset 0 -60px 80px rgba(0,0,0,.35);
+            height: 120px; border-radius: 16px;
+            background-size:cover; background-position:center;
+            border:1px solid rgba(148,163,184,.18);
+            box-shadow: inset 0 -60px 80px rgba(0,0,0,.35);
         }
+
         .diagram-box {
-            border-radius: 18px;
-            border: 1px solid rgba(34,211,238,.20);
+            border-radius: 22px;
+            border: 1px solid rgba(34,211,238,.22);
             background: linear-gradient(135deg, rgba(8,18,32,.88), rgba(14,29,50,.76));
-            min-height: 306px; padding: 1rem; overflow:hidden;
+            min-height: 320px;
+            padding: 1rem;
+            overflow:hidden;
         }
         .flow-row { display:flex; align-items:center; justify-content:space-between; gap:.55rem; margin-top:1rem; }
         .node {
@@ -210,50 +224,101 @@ def inject_css() -> None:
             border:1px solid rgba(148,163,184,.18); background: rgba(255,255,255,.045);
         }
         .node-icon { font-size:2.05rem; margin-bottom:.25rem; }
-        .node-label { font-weight:800; font-size:.86rem; }
+        .node-label { font-weight:900; font-size:.86rem; }
         .node-sub { color:var(--muted); font-size:.74rem; }
         .arrow { color:var(--gold); font-size:1.35rem; font-weight:900; }
+
         .isometric {
-            min-height:306px; border-radius:22px; border:1px solid rgba(59,130,246,.24);
+            min-height:320px; border-radius:22px; border:1px solid rgba(59,130,246,.26);
             position:relative; overflow:hidden; padding:1rem;
             background:
-                radial-gradient(circle at 70% 35%, rgba(34,211,238,.22), transparent 32%),
+                radial-gradient(circle at 70% 35%, rgba(34,211,238,.24), transparent 32%),
                 linear-gradient(145deg, rgba(12,25,43,.95), rgba(6,13,24,.92));
         }
         .platform {
             width:74%; height:58%; position:absolute; left:12%; bottom:10%;
             transform: skewX(-18deg) rotateX(8deg);
-            border-radius:24px; background:linear-gradient(135deg,#193957,#09182b);
-            border:1px solid rgba(34,211,238,.35); box-shadow:0 22px 80px rgba(34,211,238,.15);
+            border-radius:24px;
+            background:linear-gradient(135deg,#193957,#09182b);
+            border:1px solid rgba(34,211,238,.35);
+            box-shadow:0 22px 80px rgba(34,211,238,.16);
         }
-        .panel-grid { position:absolute; left:13%; top:18%; display:grid; grid-template-columns:repeat(5,44px); gap:7px; transform: rotate(-10deg); }
+        .panel-grid {
+            position:absolute; left:13%; top:18%;
+            display:grid; grid-template-columns:repeat(5,44px); gap:7px;
+            transform: rotate(-10deg);
+        }
         .solar-panel {
-            height:34px; border-radius:5px; background:linear-gradient(135deg,#143f8f,#051b44);
-            border:1px solid rgba(191,219,254,.6); box-shadow: inset 0 0 12px rgba(34,211,238,.24);
+            height:34px; border-radius:5px;
+            background:linear-gradient(135deg,#143f8f,#051b44);
+            border:1px solid rgba(191,219,254,.62);
+            box-shadow: inset 0 0 12px rgba(34,211,238,.26);
         }
-        .inverter-3d { position:absolute; right:20%; bottom:23%; width:86px; height:78px; border-radius:10px; background:linear-gradient(135deg,#e5e7eb,#64748b); box-shadow: 0 18px 40px rgba(0,0,0,.35); }
-        .battery-3d { position:absolute; right:41%; bottom:19%; width:92px; height:54px; border-radius:10px; background:linear-gradient(135deg,#1e293b,#0f172a); border:1px solid rgba(16,185,129,.45); }
+        .inverter-3d {
+            position:absolute; right:20%; bottom:23%;
+            width:86px; height:78px; border-radius:10px;
+            background:linear-gradient(135deg,#e5e7eb,#64748b);
+            box-shadow: 0 18px 40px rgba(0,0,0,.35);
+        }
+        .battery-3d {
+            position:absolute; right:41%; bottom:19%;
+            width:92px; height:54px; border-radius:10px;
+            background:linear-gradient(135deg,#1e293b,#0f172a);
+            border:1px solid rgba(16,185,129,.45);
+        }
         .battery-bars { display:flex; gap:5px; padding:12px; height:100%; align-items:end; }
         .battery-bars span { width:11px; border-radius:4px; background:#22c55e; box-shadow:0 0 10px rgba(34,197,94,.7); }
         .tower { position:absolute; right:6%; top:25%; font-size:4.2rem; color:#cbd5e1; text-shadow:0 0 18px rgba(34,211,238,.5); }
-        .glow-line { position:absolute; right:10%; top:44%; width:32%; height:2px; background:linear-gradient(90deg, transparent, #22d3ee, #10b981); box-shadow:0 0 16px #22d3ee; transform:rotate(-10deg); }
-        .workflow-card {
-            border-radius: 16px; border:1px solid rgba(16,185,129,.24); background:rgba(16,185,129,.07);
-            padding:.85rem; min-height: 96px;
+        .glow-line {
+            position:absolute; right:10%; top:44%;
+            width:32%; height:2px;
+            background:linear-gradient(90deg, transparent, #22d3ee, #10b981);
+            box-shadow:0 0 16px #22d3ee;
+            transform:rotate(-10deg);
         }
-        .check { color:var(--emerald); font-weight:900; font-size:1.15rem; }
-        .insight { display:flex; gap:.7rem; padding:.75rem; border-radius:16px; background:rgba(255,255,255,.045); border:1px solid rgba(148,163,184,.13); margin-bottom:.55rem; }
-        .insight-icon { font-size:1.2rem; width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:12px; background:rgba(59,130,246,.14); }
+
+        .workflow-card {
+            border-radius: 16px;
+            border:1px solid rgba(16,185,129,.24);
+            background:rgba(16,185,129,.07);
+            padding:.85rem;
+            min-height: 104px;
+        }
+        .check { color:var(--green); font-weight:900; font-size:1.15rem; }
+        .insight {
+            display:flex; gap:.7rem; padding:.75rem;
+            border-radius:16px; background:rgba(255,255,255,.045);
+            border:1px solid rgba(148,163,184,.13);
+            margin-bottom:.55rem;
+        }
+        .insight-icon {
+            font-size:1.2rem; min-width:34px; height:34px;
+            display:flex; align-items:center; justify-content:center;
+            border-radius:12px; background:rgba(59,130,246,.14);
+        }
+
         div[data-testid="stMetric"] {
             background: linear-gradient(145deg, rgba(17,31,53,.86), rgba(9,20,36,.72));
-            border: 1px solid var(--border); border-radius: 18px; padding: .85rem;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: .85rem;
         }
         .stButton > button, .stDownloadButton > button {
-            border-radius: 13px; border: 1px solid rgba(251,191,36,.32);
-            background: linear-gradient(135deg, #0f766e, #0b5e6c); color: white; font-weight: 800;
+            border-radius: 13px;
+            border: 1px solid rgba(251,191,36,.32);
+            background: linear-gradient(135deg, #0f766e, #0b5e6c);
+            color: white;
+            font-weight: 900;
         }
-        .stTabs [data-baseweb="tab"] { background:rgba(255,255,255,.055); border-radius:14px 14px 0 0; padding:.65rem 1rem; }
-        .stTabs [aria-selected="true"] { background:rgba(59,130,246,.22)!important; border-bottom:2px solid var(--cyan); }
+        .stTabs [data-baseweb="tab"] {
+            background:rgba(255,255,255,.055);
+            border-radius:14px 14px 0 0;
+            padding:.65rem 1rem;
+        }
+        .stTabs [aria-selected="true"] {
+            background:rgba(59,130,246,.22)!important;
+            border-bottom:2px solid var(--cyan);
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -263,9 +328,6 @@ def inject_css() -> None:
 inject_css()
 
 
-# -----------------------------------------------------------------------------
-# Helpers
-# -----------------------------------------------------------------------------
 def safe_json_default(obj):
     if isinstance(obj, pd.Timestamp):
         return obj.isoformat()
@@ -275,26 +337,23 @@ def safe_json_default(obj):
         return float(obj)
     if isinstance(obj, np.ndarray):
         return obj.tolist()
-    if pd.isna(obj):
-        return None
+    try:
+        if pd.isna(obj):
+            return None
+    except Exception:
+        pass
     return str(obj)
 
 
-def local_asset_or_url(path: str, fallback_url: str) -> str:
-    if path and os.path.exists(path):
-        return path
-    return fallback_url
-
-
-def generate_demo_data(days: int = 180, freq: str = "15min") -> pd.DataFrame:
+def generate_demo_data(days=180, freq="15min"):
     np.random.seed(42)
     end = pd.Timestamp.now().floor("15min")
     idx = pd.date_range(end=end, periods=int(days * 24 * 4), freq=freq)
     hour = idx.hour + idx.minute / 60
-    day_of_year = idx.dayofyear
+    doy = idx.dayofyear
 
     daylight = np.clip(np.sin((hour - 6) / 12 * np.pi), 0, None)
-    seasonal = 0.78 + 0.18 * np.sin(2 * np.pi * (day_of_year - 70) / 365)
+    seasonal = 0.78 + 0.18 * np.sin(2 * np.pi * (doy - 70) / 365)
     cloud = np.clip(np.random.normal(0.92, 0.18, len(idx)), 0.28, 1.18)
     temp = 25 + 8 * np.sin((hour - 8) / 24 * 2 * np.pi) + np.random.normal(0, 1.7, len(idx))
     humidity = 54 - 17 * daylight + np.random.normal(0, 4, len(idx))
@@ -303,7 +362,6 @@ def generate_demo_data(days: int = 180, freq: str = "15min") -> pd.DataFrame:
     power += np.random.normal(0, 110, len(idx))
     power = np.clip(power, 0, None)
 
-    # A few realistic anomalies / curtailments.
     anomaly_idx = np.random.choice(np.arange(len(idx)), size=max(8, len(idx) // 450), replace=False)
     power[anomaly_idx] *= np.random.uniform(0.25, 0.65, len(anomaly_idx))
 
@@ -315,13 +373,17 @@ def generate_demo_data(days: int = 180, freq: str = "15min") -> pd.DataFrame:
             "temperature_c": temp,
             "relative_humidity_pct": np.clip(humidity, 18, 96),
             "wind_speed_ms": np.clip(np.random.normal(3.2, 1.1, len(idx)), 0.1, 11),
-            "rainfall_mm": np.random.choice([0, 0, 0, 0, 0.2, 0.8, 1.5], len(idx), p=[.75, .08, .06, .04, .035, .025, .01]),
+            "rainfall_mm": np.random.choice(
+                [0, 0, 0, 0, 0.2, 0.8, 1.5],
+                len(idx),
+                p=[.75, .08, .06, .04, .035, .025, .01],
+            ),
             "sea_level_pressure_hpa": np.random.normal(1008, 4.0, len(idx)),
         }
     )
 
 
-def load_dataset(path: str, uploaded_file):
+def load_dataset(path, uploaded_file):
     if uploaded_file is not None:
         name = uploaded_file.name.lower()
         if name.endswith(".csv"):
@@ -336,7 +398,7 @@ def load_dataset(path: str, uploaded_file):
     return generate_demo_data(), "generated demo PV dataset"
 
 
-def audit_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+def audit_dataframe(df):
     return pd.DataFrame(
         {
             "column": df.columns,
@@ -348,7 +410,7 @@ def audit_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def prepare_timeseries(df: pd.DataFrame, timestamp_col: str, target_col: str, resample_rule: str):
+def prepare_timeseries(df, timestamp_col, target_col, resample_rule):
     work = df.copy()
     work[timestamp_col] = pd.to_datetime(work[timestamp_col], errors="coerce")
     work[target_col] = pd.to_numeric(work[target_col], errors="coerce")
@@ -367,6 +429,7 @@ def prepare_timeseries(df: pd.DataFrame, timestamp_col: str, target_col: str, re
             numeric_cols.append(col)
 
     work = work.groupby(timestamp_col, as_index=False)[numeric_cols].mean().sort_values(timestamp_col)
+
     note = "No resampling selected."
     if resample_rule != "None":
         work = (
@@ -378,17 +441,16 @@ def prepare_timeseries(df: pd.DataFrame, timestamp_col: str, target_col: str, re
         )
         note = f"Resampled to {resample_rule} using mean aggregation and interpolation."
 
-    report = {
+    return work, {
         "rows_before_cleaning": int(before),
         "rows_after_invalid_drop": int(after_drop),
         "duplicate_timestamps_before_grouping": int(duplicate_count),
         "rows_after_grouping_resampling": int(len(work)),
         "resampling_note": note,
     }
-    return work, report
 
 
-def build_features(df: pd.DataFrame, timestamp_col: str, target_col: str, horizon: int):
+def build_features(df, timestamp_col, target_col, horizon):
     work = df.copy().sort_values(timestamp_col)
     work[target_col] = pd.to_numeric(work[target_col], errors="coerce")
     work["lag_1"] = work[target_col].shift(1)
@@ -417,6 +479,7 @@ def build_features(df: pd.DataFrame, timestamp_col: str, target_col: str, horizo
         "sea_level_pressure_hpa",
     ]
     weather_features = [c for c in candidate_weather if c in work.columns and c != target_col]
+
     feature_cols = [
         "lag_1",
         "lag_4",
@@ -433,8 +496,10 @@ def build_features(df: pd.DataFrame, timestamp_col: str, target_col: str, horizo
         "dayofyear_cos",
         "is_daylight_hour",
     ] + weather_features
+
     for col in feature_cols:
         work[col] = pd.to_numeric(work[col], errors="coerce")
+
     model_df = work.dropna(subset=feature_cols + ["y_target"]).copy()
     return model_df, feature_cols, weather_features
 
@@ -442,10 +507,15 @@ def build_features(df: pd.DataFrame, timestamp_col: str, target_col: str, horizo
 def metric_row(name, y_true, y_pred, train_rows, valid_rows, note=""):
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
-    mae = float(mean_absolute_error(y_true, y_pred)) if SKLEARN_AVAILABLE else float(np.mean(np.abs(y_true - y_pred)))
-    rmse = float(np.sqrt(mean_squared_error(y_true, y_pred))) if SKLEARN_AVAILABLE else float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
+    if SKLEARN_AVAILABLE:
+        mae = float(mean_absolute_error(y_true, y_pred))
+        rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
+        r2 = float(r2_score(y_true, y_pred))
+    else:
+        mae = float(np.mean(np.abs(y_true - y_pred)))
+        rmse = float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
+        r2 = 0.0
     mape = float(np.mean(np.abs((y_true - y_pred) / np.maximum(np.abs(y_true), 1))) * 100)
-    r2 = float(r2_score(y_true, y_pred)) if SKLEARN_AVAILABLE else 0.0
     return {
         "model": name,
         "MAE": round(mae, 3),
@@ -459,7 +529,7 @@ def metric_row(name, y_true, y_pred, train_rows, valid_rows, note=""):
     }
 
 
-def run_models(model_df: pd.DataFrame, features: list, timestamp_col: str, target_col: str):
+def run_models(model_df, features, timestamp_col, target_col):
     if len(model_df) < 120:
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), {}, "Not enough rows for modeling."
 
@@ -485,14 +555,16 @@ def run_models(model_df: pd.DataFrame, features: list, timestamp_col: str, targe
     rows.append(metric_row("Naive seasonal lag_24 baseline", y_valid, baseline_pred, len(train), len(valid), "Transparent lag baseline."))
     preds["Naive seasonal lag_24 baseline"] = baseline_pred.to_numpy()
 
+    fitted_models = {}
     if SKLEARN_AVAILABLE:
-        models = [
+        model_specs = [
             ("RidgeCV scaled", make_pipeline(StandardScaler(), RidgeCV(alphas=[0.1, 1, 10, 100]))),
             ("RandomForest compact", RandomForestRegressor(n_estimators=60, max_depth=14, min_samples_leaf=3, random_state=42, n_jobs=-1)),
             ("HistGradientBoosting tuned", HistGradientBoostingRegressor(max_iter=220, learning_rate=.06, max_leaf_nodes=31, l2_regularization=.05, random_state=42)),
         ]
-        for name, model in models:
+        for name, model in model_specs:
             model.fit(X_train, y_train)
+            fitted_models[name] = model
             pred = np.clip(model.predict(X_valid), low, high)
             rows.append(metric_row(name, y_valid, pred, len(train), len(valid), "Candidate model in explicit comparison table."))
             preds[name] = pred
@@ -504,23 +576,25 @@ def run_models(model_df: pd.DataFrame, features: list, timestamp_col: str, targe
     residual = y_valid.to_numpy(dtype=float) - best_pred
     lower_resid = float(np.nanquantile(residual, 0.05))
     upper_resid = float(np.nanquantile(residual, 0.95))
+
     pred_df = valid[[timestamp_col, target_col, "y_target"]].copy()
     pred_df["prediction"] = best_pred
     pred_df["prediction_lower_90"] = np.clip(best_pred + lower_resid, low, high)
     pred_df["prediction_upper_90"] = np.clip(best_pred + upper_resid, low, high)
     pred_df["residual"] = pred_df["y_target"] - pred_df["prediction"]
     pred_df["absolute_error"] = pred_df["residual"].abs()
-    pred_df["interval_covered"] = (pred_df["y_target"] >= pred_df["prediction_lower_90"]) & (pred_df["y_target"] <= pred_df["prediction_upper_90"])
+    pred_df["interval_covered"] = (
+        (pred_df["y_target"] >= pred_df["prediction_lower_90"])
+        & (pred_df["y_target"] <= pred_df["prediction_upper_90"])
+    )
 
-    importance_df = pd.DataFrame()
-    if SKLEARN_AVAILABLE and best != "Naive seasonal lag_24 baseline":
+    if SKLEARN_AVAILABLE and best in fitted_models:
         try:
-            best_model = dict(models)[best]
-            importance_sample = min(900, len(X_valid))
+            sample = min(900, len(X_valid))
             perm = permutation_importance(
-                best_model,
-                X_valid.tail(importance_sample),
-                y_valid.tail(importance_sample),
+                fitted_models[best],
+                X_valid.tail(sample),
+                y_valid.tail(sample),
                 n_repeats=4,
                 random_state=42,
                 scoring="neg_mean_absolute_error",
@@ -541,15 +615,14 @@ def run_models(model_df: pd.DataFrame, features: list, timestamp_col: str, targe
         "average_interval_width": round(float((pred_df["prediction_upper_90"] - pred_df["prediction_lower_90"]).mean()), 3),
         "outlier_bounds": {"lower": round(float(low), 3), "upper": round(float(high), 3)},
     }
-    note = f"Best model: {best}. Strict time-based 80/20 validation used."
-    return comparison, pred_df, importance_df, uncertainty, note
+    return comparison, pred_df, importance_df, uncertainty, f"Best model: {best}. Strict chronological 80/20 split used."
 
 
-def make_forecast_chart(df: pd.DataFrame, timestamp_col: str, target_col: str, window: int = 96):
+def make_forecast_chart(df, timestamp_col, target_col, window=384):
     chart = df[[timestamp_col, target_col]].dropna().tail(window).copy()
     if chart.empty:
         return go.Figure()
-    chart["smooth"] = chart[target_col].rolling(max(2, min(12, len(chart)//8))).mean().bfill()
+    chart["smooth"] = chart[target_col].rolling(max(2, min(12, len(chart) // 8))).mean().bfill()
     chart["p10"] = chart["smooth"] * 0.88
     chart["p90"] = chart["smooth"] * 1.12
     fig = go.Figure()
@@ -561,7 +634,7 @@ def make_forecast_chart(df: pd.DataFrame, timestamp_col: str, target_col: str, w
     return fig
 
 
-def make_prediction_chart(pred_df: pd.DataFrame, timestamp_col: str):
+def make_prediction_chart(pred_df, timestamp_col):
     if pred_df.empty:
         return go.Figure()
     chart = pred_df.tail(500).copy()
@@ -574,7 +647,7 @@ def make_prediction_chart(pred_df: pd.DataFrame, timestamp_col: str):
     return fig
 
 
-def local_grader(submission: dict) -> dict:
+def local_grader(submission):
     data = submission.get("data_integrity", {})
     features = submission.get("feature_engineering", {})
     modeling = submission.get("modeling_and_evaluation", {})
@@ -582,44 +655,16 @@ def local_grader(submission: dict) -> dict:
     rigor = submission.get("presentation_and_rigor", {})
 
     scores = {
-        "Data & integrity": 0,
-        "Feature engineering": 0,
-        "Modeling & evaluation": 0,
-        "Dashboard quality": 0,
-        "Presentation & rigor": 0,
+        "Data & integrity": min(20, (6 if data.get("rows_loaded", 0) > 0 else 0) + (5 if data.get("resampling_discussed") else 0) + (5 if data.get("outliers_discussed") else 0) + (4 if data.get("cleaning_report") else 0)),
+        "Feature engineering": min(15, (6 if features.get("baseline_features") else 0) + (6 if len(features.get("student_added_features", [])) >= 5 else 2) + (3 if features.get("weather_features") else 0)),
+        "Modeling & evaluation": min(25, (6 if modeling.get("has_time_based_split") else 0) + (7 if modeling.get("has_metrics_table") else 0) + (5 if modeling.get("model_comparison_table") else 0) + (4 if modeling.get("feature_importance_table") else 0) + (3 if modeling.get("uncertainty_summary") else 0)),
+        "Dashboard quality": min(10, (4 if dashboard.get("has_student_added_dashboard") else 0) + (3 if dashboard.get("has_system_photos") else 0) + (2 if dashboard.get("has_diagrams_and_3d") else 0) + (1 if dashboard.get("insights") else 0)),
+        "Presentation & rigor": min(10, (5 if rigor.get("limitations") else 0) + (5 if rigor.get("reproducibility_notes") else 0)),
     }
-    scores["Data & integrity"] += 6 if data.get("rows_loaded", 0) > 0 else 0
-    scores["Data & integrity"] += 5 if data.get("resampling_discussed") else 0
-    scores["Data & integrity"] += 5 if data.get("outliers_discussed") else 0
-    scores["Data & integrity"] += 4 if data.get("cleaning_report") else 0
-    scores["Data & integrity"] = min(20, scores["Data & integrity"])
 
-    scores["Feature engineering"] += 6 if features.get("baseline_features") else 0
-    scores["Feature engineering"] += 6 if len(features.get("student_added_features", [])) >= 5 else 2
-    scores["Feature engineering"] += 3 if features.get("weather_features") else 0
-    scores["Feature engineering"] = min(15, scores["Feature engineering"])
-
-    scores["Modeling & evaluation"] += 6 if modeling.get("has_time_based_split") else 0
-    scores["Modeling & evaluation"] += 7 if modeling.get("has_metrics_table") else 0
-    scores["Modeling & evaluation"] += 5 if modeling.get("model_comparison_table") else 0
-    scores["Modeling & evaluation"] += 4 if modeling.get("feature_importance_table") else 0
-    scores["Modeling & evaluation"] += 3 if modeling.get("uncertainty_summary") else 0
-    scores["Modeling & evaluation"] = min(25, scores["Modeling & evaluation"])
-
-    scores["Dashboard quality"] += 4 if dashboard.get("has_student_added_dashboard") else 0
-    scores["Dashboard quality"] += 3 if dashboard.get("has_system_photos") else 0
-    scores["Dashboard quality"] += 2 if dashboard.get("has_diagrams_and_3d") else 0
-    scores["Dashboard quality"] += 1 if dashboard.get("insights") else 0
-    scores["Dashboard quality"] = min(10, scores["Dashboard quality"])
-
-    scores["Presentation & rigor"] += 5 if rigor.get("limitations") else 0
-    scores["Presentation & rigor"] += 5 if rigor.get("reproducibility_notes") else 0
-    scores["Presentation & rigor"] = min(10, scores["Presentation & rigor"])
-
-    total = int(sum(scores.values()))
     return {
         "scores": {k: int(v) for k, v in scores.items()},
-        "total_80": total,
+        "total_80": int(sum(scores.values())),
         "strengths": [
             "Strong interactive dashboard with system photos, technical diagram, and 3D-style visualization.",
             "Explicit cleaning, resampling, outlier handling, feature engineering, and time-based validation evidence.",
@@ -637,7 +682,7 @@ def local_grader(submission: dict) -> dict:
     }
 
 
-def robust_json(text: str):
+def robust_json(text):
     try:
         return json.loads(text)
     except Exception:
@@ -650,7 +695,7 @@ def robust_json(text: str):
     return None
 
 
-def call_openrouter(api_key: str, submission_json: str) -> str:
+def call_openrouter(api_key, submission_json):
     prompt = AI_GRADER_PROMPT_TEMPLATE.replace("<insert submission.json contents here>", submission_json)
     response = requests.post(
         "https://openrouter.ai/api/v1/chat/completions",
@@ -671,9 +716,6 @@ def call_openrouter(api_key: str, submission_json: str) -> str:
     return response.json()["choices"][0]["message"]["content"]
 
 
-# -----------------------------------------------------------------------------
-# Sidebar
-# -----------------------------------------------------------------------------
 with st.sidebar:
     st.markdown(
         """
@@ -704,9 +746,6 @@ with st.sidebar:
     model_rows = int(st.slider("Rows for modeling", 1000, 40000, 18000, 1000))
 
 
-# -----------------------------------------------------------------------------
-# Load and prepare data
-# -----------------------------------------------------------------------------
 raw_df, dataset_source = load_dataset(data_path, uploaded_file)
 columns = list(raw_df.columns)
 
@@ -715,52 +754,51 @@ for c in columns:
     if pd.to_numeric(raw_df[c], errors="coerce").notna().sum() > 0:
         numeric_candidates.append(c)
 
-if DEFAULT_TIMESTAMP_COL in columns:
-    default_ts_idx = columns.index(DEFAULT_TIMESTAMP_COL)
-else:
-    default_ts_idx = 0
-
-if DEFAULT_TARGET_COL in numeric_candidates:
-    default_target_idx = numeric_candidates.index(DEFAULT_TARGET_COL)
-else:
-    default_target_idx = 0
+default_ts_idx = columns.index(DEFAULT_TIMESTAMP_COL) if DEFAULT_TIMESTAMP_COL in columns else 0
+default_target_idx = numeric_candidates.index(DEFAULT_TARGET_COL) if DEFAULT_TARGET_COL in numeric_candidates else 0
 
 setup_cols = st.columns([1.1, 1.1, .9, .9])
 timestamp_col = setup_cols[0].selectbox("Timestamp column", columns, index=default_ts_idx)
 target_col = setup_cols[1].selectbox("Target column", numeric_candidates, index=default_target_idx)
-start_filter = setup_cols[2].date_input("Start filter", value=pd.to_datetime(raw_df[timestamp_col], errors="coerce").min().date() if pd.to_datetime(raw_df[timestamp_col], errors="coerce").notna().any() else datetime.now().date())
-end_filter = setup_cols[3].date_input("End filter", value=pd.to_datetime(raw_df[timestamp_col], errors="coerce").max().date() if pd.to_datetime(raw_df[timestamp_col], errors="coerce").notna().any() else datetime.now().date())
+
+ts_preview = pd.to_datetime(raw_df[timestamp_col], errors="coerce")
+min_date = ts_preview.min().date() if ts_preview.notna().any() else datetime.now().date()
+max_date = ts_preview.max().date() if ts_preview.notna().any() else datetime.now().date()
+start_filter = setup_cols[2].date_input("Start filter", value=min_date)
+end_filter = setup_cols[3].date_input("End filter", value=max_date)
 
 prepared_df, cleaning_report = prepare_timeseries(raw_df, timestamp_col, target_col, resample_rule)
 prepared_df[timestamp_col] = pd.to_datetime(prepared_df[timestamp_col], errors="coerce")
-filtered_df = prepared_df[(prepared_df[timestamp_col].dt.date >= start_filter) & (prepared_df[timestamp_col].dt.date <= end_filter)].copy()
+filtered_df = prepared_df[
+    (prepared_df[timestamp_col].dt.date >= start_filter)
+    & (prepared_df[timestamp_col].dt.date <= end_filter)
+].copy()
 if filtered_df.empty:
     filtered_df = prepared_df.copy()
 
 model_df, feature_cols, weather_features = build_features(prepared_df, timestamp_col, target_col, horizon)
 model_df = model_df.tail(model_rows).copy()
-comparison_df, predictions_df, importance_df, uncertainty_summary, modeling_note = run_models(model_df, feature_cols, timestamp_col, target_col)
+comparison_df, predictions_df, importance_df, uncertainty_summary, modeling_note = run_models(
+    model_df, feature_cols, timestamp_col, target_col
+)
 
-# KPIs
 latest_power = float(filtered_df[target_col].iloc[-1]) if len(filtered_df) else 0.0
 avg_power = float(filtered_df[target_col].mean()) if len(filtered_df) else 0.0
 max_power = float(filtered_df[target_col].max()) if len(filtered_df) else 0.0
 energy_mwh = float(filtered_df[target_col].sum() * 0.25 / 1_000_000) if resample_rule in ["15min", "None"] else float(filtered_df[target_col].sum() / 1_000_000)
-capacity_mwp = max(0.01, max_power / 1000)
+capacity_kwp = max(0.01, max_power / 1000)
 pr_value = 87.6 if "irradiance_wm2" in filtered_df.columns else 82.4
 zero_pct = float((filtered_df[target_col] <= 0).mean() * 100) if len(filtered_df) else 0.0
 
-# -----------------------------------------------------------------------------
-# Hero
-# -----------------------------------------------------------------------------
+
 st.markdown(
     f"""
     <div class="hero">
         <div class="pill">● Live analytics • {site_name}</div>
         <h1 class="hero-title">Solar PV Forecasting Intelligence Dashboard</h1>
         <div class="hero-subtitle">
-            Fully interactive Streamlit dashboard with premium background, system photos, PV diagram, 3D-style visualization,
-            cleaning pipeline, model comparison, uncertainty, and AI/local grading fallback.<br>
+            Fully interactive Streamlit dashboard with premium background, system photos, PV diagram,
+            3D-style visualization, cleaning pipeline, model comparison, uncertainty, and AI/local grading fallback.<br>
             Student: <b>{student_name}</b> • ID: <b>{student_id}</b> • Dataset: <b>{dataset_source}</b>
         </div>
     </div>
@@ -768,10 +806,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# KPI row
 kpi_cols = st.columns(6)
 kpis = [
-    ("Installed Capacity", f"{capacity_mwp:,.2f} kWp", "⚙️", "Configured from max observed output"),
+    ("Installed Capacity", f"{capacity_kwp:,.2f} kWp", "⚙️", "configured from max observed output"),
     ("Selected Energy", f"{energy_mwh:,.2f} MWh", "⚡", "↑ 12.6% vs previous window"),
     ("Latest Power", f"{latest_power:,.0f} W", "📈", "live selected row"),
     ("PR", f"{pr_value:.1f}%", "🔁", "↑ 2.1% estimated"),
@@ -791,11 +828,14 @@ for col, (title, value, icon, delta) in zip(kpi_cols, kpis):
         unsafe_allow_html=True,
     )
 
-
-# -----------------------------------------------------------------------------
-# Main content
-# -----------------------------------------------------------------------------
-tabs = st.tabs(["🏠 Overview", "📊 Forecasting", "🧩 System Photos + Diagrams + 3D", "🧹 Data Pipeline", "🤖 Models & Grader", "📤 Export"])
+tabs = st.tabs([
+    "🏠 Overview",
+    "📊 Forecasting",
+    "🧩 Photos + Diagrams + 3D",
+    "🧹 Data Pipeline",
+    "🤖 Models & Grader",
+    "📤 Export",
+])
 
 with tabs[0]:
     c1, c2, c3 = st.columns([1.15, 1.15, 1.35])
@@ -834,7 +874,7 @@ with tabs[0]:
             """,
             unsafe_allow_html=True,
         )
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     with c3:
         st.markdown(
             """
@@ -864,11 +904,11 @@ with tabs[1]:
     with f1:
         st.markdown('<div class="glass-card"><div class="section-title">Power Forecast with P10–P90 Band</div>', unsafe_allow_html=True)
         st.plotly_chart(make_forecast_chart(filtered_df, timestamp_col, target_col, window=min(384, len(filtered_df))), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     with f2:
         st.markdown('<div class="glass-card"><div class="section-title">Actual vs Predicted with 90% Interval</div>', unsafe_allow_html=True)
         st.plotly_chart(make_prediction_chart(predictions_df, timestamp_col), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     w1, w2, w3 = st.columns([1, 1, 1])
     with w1:
@@ -892,12 +932,12 @@ with tabs[1]:
         st.markdown('<div class="glass-card"><div class="section-title">Insights</div>', unsafe_allow_html=True)
         insights = [
             ("📈", "Generation is higher than the selected-period average."),
-            ("✅", f"Best model status: {modeling_note}"),
+            ("✅", modeling_note),
             ("⚠️", "MAPE may increase during sunrise, sunset, and low-power periods."),
         ]
         for icon, text in insights:
             st.markdown(f'<div class="insight"><div class="insight-icon">{icon}</div><div>{text}</div></div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     with w3:
         st.markdown('<div class="glass-card"><div class="section-title">Forecast Diagnostics</div>', unsafe_allow_html=True)
         if not predictions_df.empty:
@@ -906,7 +946,7 @@ with tabs[1]:
             st.metric("Max absolute error", f"{predictions_df['absolute_error'].max():,.2f}")
         else:
             st.info("No prediction diagnostics available.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 with tabs[2]:
     st.markdown("## System Photos, Diagrams and 3D Visuals")
@@ -914,19 +954,20 @@ with tabs[2]:
     media = [
         ("PV Field Photo", SOLAR_PHOTO_URL, "Solar array visual context."),
         ("Inverter / Electrical Room", INVERTER_PHOTO_URL, "Power electronics and system equipment."),
-        ("Weather Station", WEATHER_STATION_URL, "Environmental sensing for forecast features."),
+        ("Weather Station", WEATHER_PHOTO_URL, "Environmental sensing for forecast features."),
     ]
     for col, (title, url, desc) in zip([m1, m2, m3], media):
         col.markdown(
             f"""
             <div class="glass-card">
                 <div class="media-thumb" style="background-image:url('{url}')"></div>
-                <div style="font-weight:850;margin-top:.75rem">{title}</div>
+                <div style="font-weight:900;margin-top:.75rem">{title}</div>
                 <div class="small-muted">{desc}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
+
     st.markdown("### Technical energy-flow diagram")
     st.graphviz_chart(
         """
@@ -934,11 +975,11 @@ with tabs[2]:
             graph [bgcolor="transparent", rankdir=LR]
             node [shape=box, style="rounded,filled", color="#22d3ee", fillcolor="#101d33", fontcolor="white", penwidth=1.4]
             edge [color="#fbbf24", fontcolor="white"]
-            PV [label="PV Array\nDC Power"]
-            INV [label="Inverter\nDC to AC"]
-            TR [label="Transformer\nVoltage Step-Up"]
+            PV [label="PV Array\\nDC Power"]
+            INV [label="Inverter\\nDC to AC"]
+            TR [label="Transformer\\nVoltage Step-Up"]
             GRID [label="Grid Export"]
-            BESS [label="Battery ESS\nStorage"]
+            BESS [label="Battery ESS\\nStorage"]
             LOAD [label="Local Load"]
             PV -> INV [label="DC"]
             INV -> TR [label="AC"]
@@ -966,7 +1007,7 @@ with tabs[3]:
             f"""
             <div class="workflow-card">
                 <div class="check">✓</div>
-                <div style="font-weight:850">{title}</div>
+                <div style="font-weight:900">{title}</div>
                 <div>{value}</div>
                 <div class="small-muted">{desc}</div>
             </div>
@@ -978,7 +1019,8 @@ with tabs[3]:
     st.markdown("### Cleaning report")
     st.json(cleaning_report)
     st.markdown("### Feature preview")
-    st.dataframe(model_df[[timestamp_col, target_col, "y_target"] + feature_cols[:12]].head(30), use_container_width=True)
+    preview_cols = [timestamp_col, target_col, "y_target"] + feature_cols[:12]
+    st.dataframe(model_df[preview_cols].head(30), use_container_width=True)
 
 with tabs[4]:
     st.markdown("## Model Comparison, Interpretability and Grader")
@@ -1088,7 +1130,6 @@ with tabs[5]:
             st.info("No API key provided. Showing local fallback grade.")
             st.json(local_grader(submission))
 
-# Footer
 st.markdown(
     """
     <div style="text-align:center;color:#9fb0c7;margin-top:2rem;font-size:.85rem;">
