@@ -1,5 +1,5 @@
 """
-app.py — Fully Alive Professional Solar PV Forecasting Website
+app.py — EDA Project B — Time-Series Forecasting Starter
 
 Run:
     streamlit run app.py
