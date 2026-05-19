@@ -445,7 +445,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         .muted {{ color:var(--muted); font-size:.9rem; line-height:1.55; }}
 
         .image-card {{
-            min-height:190px;
+            min-height:240px;
             border-radius:24px;
             background-size:cover;
             background-position:center;
@@ -1063,6 +1063,28 @@ def show_chart(fig, df: pd.DataFrame, timestamp_col: str, columns: list[str], wi
 # -----------------------------------------------------------------------------
 # Rendering helpers
 # -----------------------------------------------------------------------------
+
+def tab_hero(title: str, copy: str, img_url: str, symbol: str, kicker: str = "Section overview"):
+    st.markdown(
+        f"""
+        <div class="tab-hero" style="background-image:url('{img_url}')">
+            <div class="tab-float-grid">
+                <i></i><i></i><i></i>
+                <i></i><i></i><i></i>
+                <i></i><i></i><i></i>
+            </div>
+            <div class="tab-hero-content">
+                <div class="tab-hero-kicker"><span class="live-dot"></span>{kicker}</div>
+                <div class="tab-hero-title">{title}</div>
+                <div class="tab-hero-copy">{copy}</div>
+            </div>
+            <div class="floating-3d-badge"><div class="symbol">{symbol}</div></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def kpi(title: str, value: str, icon: str, detail: str):
     st.markdown(
         f"""
@@ -1442,6 +1464,7 @@ tabs = st.tabs([
 ])
 
 with tabs[0]:
+    tab_hero("🏠 Home", "The main command center of the website with quick status, live production trend, core visuals, and the most important plant signals in one big easy-to-find place.", IMG_SOLAR_1, "☀️", "Home dashboard")
     c1, c2, c3 = st.columns([1.1, 1.1, 1.25])
     with c1:
         st.markdown(
@@ -1473,6 +1496,7 @@ with tabs[0]:
         })
 
 with tabs[1]:
+    tab_hero("📊 Forecasting", "This section focuses on forecasting performance, actual-versus-predicted trends, weather context, and validation signals. Everything here is designed to feel large, clear, and interactive.", IMG_WEATHER, "📈", "Forecast intelligence")
     f1, f2 = st.columns(2)
     with f1:
         st.markdown('<div class="panel"><div class="section-title">Forecast Signal with User-Controlled Band</div>', unsafe_allow_html=True)
@@ -1520,6 +1544,7 @@ with tabs[1]:
         st.markdown("</div>", unsafe_allow_html=True)
 
 with tabs[2]:
+    tab_hero("🧩 Images + 3D", "A visual-first gallery with larger system images, animated PV energy flow, and 3D-style floating digital twin components that make the website feel alive.", IMG_SOLAR_2, "🧩", "Visual experience")
     st.markdown("## Visual System — Images, Diagram and 3D")
     gallery = [
         ("PV Field", IMG_SOLAR_1),
@@ -1566,6 +1591,7 @@ with tabs[2]:
     )
 
 with tabs[3]:
+    tab_hero("🧹 Data Pipeline", "This section explains how the data moves through loading, cleaning, resampling, outlier handling, and feature engineering so everything is transparent and easy to understand.", IMG_CONTROL, "🧹", "Data workflow")
     st.markdown("## Data Pipeline")
     steps = [
         ("1. Load", f"{len(raw_df):,} rows", source_label),
@@ -1592,6 +1618,7 @@ with tabs[3]:
         st.warning("No feature rows available.")
 
 with tabs[4]:
+    tab_hero("🤖 Models", "Model comparison, metrics, feature importance, and uncertainty are displayed here in a bigger and more professional representation for easier interpretation.", IMG_BATTERY, "🤖", "Model evidence")
     st.markdown("## Models and Interpretability")
     if comparison_df.empty:
         st.warning(modeling_note)
@@ -1613,6 +1640,7 @@ with tabs[4]:
         st.json(uncertainty_summary)
 
 with tabs[5]:
+    tab_hero("🧬 Advanced", "Advanced analytics includes anomaly detection, correlations, daily production patterns, and residual behavior to help the user explore the system deeply.", IMG_GRID, "🧬", "Advanced analytics")
     st.markdown("## Advanced Analytics")
     a1, a2, a3, a4 = st.columns(4)
     a1.metric("Features", f"{len(feature_cols):,}")
@@ -1670,6 +1698,7 @@ with tabs[5]:
         st.info("Residual stream appears after prediction rows are available.")
 
 with tabs[6]:
+    tab_hero("🕹️ Simulator", "The simulator lets the user change irradiance, temperature, curtailment, and battery support to see how energy output changes under different what-if scenarios.", IMG_SOLAR_1, "🕹️", "Interactive simulator")
     st.markdown("## What-If Simulator")
     st.write("Change the scenario parameters and see an estimated production impact.")
     s1, s2, s3, s4 = st.columns(4)
@@ -1699,6 +1728,7 @@ with tabs[6]:
         st.info("No data available for simulator.")
 
 with tabs[7]:
+    tab_hero("📤 Export", "All final outputs are organized here: exports, JSON evidence, predictions, metrics, and AI grading fallback. This makes the project easy to review and submit.", IMG_CONTROL, "📤", "Export and grading")
     st.markdown("## Export and AI Grader")
     dashboard_insights = [
         "The website has user-selectable representations and a clear top project title.",
