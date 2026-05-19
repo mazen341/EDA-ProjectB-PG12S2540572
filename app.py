@@ -258,20 +258,20 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         }}
 
         .sticky-title {{
-            position:sticky;
-            top:.35rem;
-            z-index:1000;
+            position:relative;
+            z-index:5;
             border:1px solid var(--border);
-            border-radius:26px;
-            padding:.9rem 1.05rem;
-            margin-bottom:1rem;
-            background:linear-gradient(135deg, rgba(15,23,42,.92), rgba(15,23,42,.70));
-            backdrop-filter:blur(18px);
-            box-shadow:0 16px 48px rgba(0,0,0,.30);
+            border-radius:24px;
+            padding:.85rem 1rem;
+            margin:0 0 1.1rem 0;
+            background:linear-gradient(135deg, rgba(15,23,42,.94), rgba(15,23,42,.78));
+            backdrop-filter:blur(14px);
+            box-shadow:0 12px 34px rgba(0,0,0,.24);
             display:flex;
             justify-content:space-between;
             align-items:center;
             gap:1rem;
+            clear:both;
         }}
         .brand {{
             display:flex;
@@ -279,27 +279,27 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             gap:.9rem;
         }}
         .brand-logo {{
-            width:58px;
-            height:58px;
+            width:48px;
+            height:48px;
             border-radius:20px;
             display:flex;
             align-items:center;
             justify-content:center;
             color:#06121f;
-            font-size:2rem;
+            font-size:1.25rem;
             font-weight:950;
             background:linear-gradient(135deg, var(--gold), var(--green));
             box-shadow:0 14px 42px rgba(251,191,36,.28);
             animation:floatY 5s ease-in-out infinite;
         }}
         .brand-title {{
-            font-size:1.45rem;
+            font-size:1.22rem;
             font-weight:950;
             line-height:1.05;
         }}
         .brand-sub {{
             color:var(--muted);
-            font-size:.88rem;
+            font-size:.8rem;
             margin-top:.22rem;
         }}
         .top-actions {{
@@ -314,7 +314,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             gap:.35rem;
             border:1px solid rgba(34,211,238,.35);
             border-radius:999px;
-            padding:.45rem .72rem;
+            padding:.35rem .58rem;
             background:rgba(59,130,246,.14);
             color:var(--text);
             font-weight:900;
@@ -333,17 +333,17 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
 
         .hero-grid {{
             display:grid;
-            grid-template-columns: 1.15fr .85fr;
+            grid-template-columns: 1.05fr .95fr;
             gap:1rem;
             margin-bottom:1rem;
         }}
         .hero-card {{
             position:relative;
             overflow:hidden;
-            min-height:350px;
-            border-radius:34px;
+            min-height:255px;
+            border-radius:24px;
             border:1px solid rgba(251,191,36,.28);
-            padding:1.35rem;
+            padding:1rem;
             background:
                 linear-gradient(135deg, rgba(15,23,42,.82), rgba(15,23,42,.50)),
                 url('{IMG_SOLAR_1}');
@@ -373,12 +373,12 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         }}
         .hero-copy {{
             color:#DCE9F7;
-            font-size:1.05rem;
+            font-size:.92rem;
             max-width:920px;
             line-height:1.62;
         }}
         .mode-card {{
-            border-radius:34px;
+            border-radius:24px;
             border:1px solid rgba(34,211,238,.28);
             padding:1.15rem;
             background:linear-gradient(145deg, var(--card), rgba(2,6,23,.66));
@@ -426,7 +426,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         }}
 
         .kpi-card, .panel, .visual-card, .flow-card, .image-card, .workflow-card {{
-            animation:floatY 7s ease-in-out infinite;
+            animation:none!important;
         }}
         .kpi-card {{
             min-height:132px;
@@ -697,33 +697,39 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         }}
 
         .stTabs [data-baseweb="tab-list"] {{
-            gap:10px;
+            gap:8px;
             overflow-x:auto;
-            padding:.45rem .1rem .85rem;
+            padding:.25rem .05rem .55rem;
+            margin-top:.35rem;
+            border-bottom:1px solid rgba(14,165,233,.18);
         }}
         .stTabs [data-baseweb="tab"] {{
-            min-height:58px;
-            min-width:138px;
-            font-size:1rem!important;
+            min-height:50px;
+            min-width:122px;
+            font-size:.92rem!important;
             font-weight:950!important;
             color:#ffffff!important;
-            border:1px solid rgba(14,165,233,.34);
-            border-radius:18px 18px 0 0;
+            border:1px solid rgba(14,165,233,.32);
+            border-radius:14px 14px 0 0;
             background:linear-gradient(145deg, rgba(8,30,58,.94), rgba(18,70,116,.86))!important;
-            box-shadow:0 14px 34px rgba(15,23,42,.22);
-            transition:transform .22s ease, border-color .22s ease, background .22s ease, box-shadow .22s ease;
-            padding:.55rem .75rem!important;
+            box-shadow:0 8px 20px rgba(15,23,42,.18);
+            transition:border-color .18s ease, background .18s ease, box-shadow .18s ease;
+            padding:.42rem .62rem!important;
+            position:relative;
+            z-index:2;
         }}
         .stTabs [data-baseweb="tab"]:hover {{
-            transform:translateY(-5px) scale(1.015);
+            transform:none!important;
             border-color:rgba(34,211,238,.60);
-            background:rgba(34,211,238,.15)!important;
+            background:linear-gradient(145deg, rgba(14,84,138,.94), rgba(18,95,150,.86))!important;
+            box-shadow:0 10px 24px rgba(14,165,233,.16);
         }}
         .stTabs [aria-selected="true"] {{
-            border-color:rgba(34,211,238,.72);
-            border-bottom:3px solid var(--cyan);
-            background:linear-gradient(135deg, rgba(59,130,246,.32), rgba(16,185,129,.18))!important;
-            box-shadow:0 18px 46px rgba(34,211,238,.17);
+            transform:none!important;
+            border-color:rgba(34,211,238,.78);
+            border-bottom:3px solid var(--gold);
+            background:linear-gradient(135deg, rgba(14,84,138,.98), rgba(14,132,205,.90))!important;
+            box-shadow:0 10px 24px rgba(34,211,238,.16);
         }}
         div[data-testid="stMetric"] {{
             border:1px solid var(--border);
@@ -818,7 +824,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             background:linear-gradient(90deg, rgba(56,189,248,.16), rgba(16,185,129,.10));
             border:1px solid rgba(56,189,248,.18);
             color:#F8FBFF;
-            font-size:1rem;
+            font-size:.92rem;
             font-weight:1000;
         }}
 
@@ -845,13 +851,16 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
 
         .section-nav {{
             display:grid;
-            grid-template-columns:repeat(4, minmax(160px, 1fr));
-            gap:.75rem;
-            margin:.7rem 0 1rem 0;
+            grid-template-columns:repeat(4, minmax(150px, 1fr));
+            gap:.65rem;
+            margin:.5rem 0 1rem 0;
+            clear:both;
+            position:relative;
+            z-index:3;
         }}
         .section-nav-card {{
-            min-height:128px;
-            border-radius:22px;
+            min-height:112px;
+            border-radius:18px;
             border:1px solid rgba(14,165,233,.26);
             background-size:cover;
             background-position:center;
@@ -1642,7 +1651,16 @@ def render_section_navigation():
             <div class="nav-label">{title}<span class="nav-sub">{subtitle}</span></div>
         </div>
         """
-    st.markdown(f'<div class="section-nav">{cards}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'''
+        <div class="panel" style="margin:.5rem 0 1rem 0;">
+            <div class="section-title">🧭 Clear Section Map</div>
+            <div class="muted">Use the tabs below to open each section. These cards show where every main area is located.</div>
+            <div class="section-nav">{cards}</div>
+        </div>
+        ''',
+        unsafe_allow_html=True,
+    )
 
 
 def render_hourglass_loader(message: str, pct: int):
@@ -2116,6 +2134,8 @@ elif first_view == "Evidence first":
 
 
 # Tabs
+st.markdown("<div style=\"height:.35rem\"></div>", unsafe_allow_html=True)
+
 tabs = st.tabs([
     "🏠 Home",
     "📊 Forecasting",
