@@ -169,10 +169,10 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
     motion_css = "" if motion else """
         *, *::before, *::after { animation: none !important; transition: none !important; }
     """
-    scale = "1.12" if big_mode else "1"
-    hero_size = "3.25rem" if big_mode else "2.65rem"
-    card_pad = "1.25rem" if big_mode else "1rem"
-    tab_size = "1.22rem" if big_mode else "1.08rem"
+    scale = "1.04" if big_mode else "0.98"
+    hero_size = "2.55rem" if big_mode else "2.05rem"
+    card_pad = "1rem" if big_mode else ".82rem"
+    tab_size = "1.05rem" if big_mode else ".95rem"
 
     st.markdown(
         f"""
@@ -475,7 +475,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         .muted {{ color:var(--muted); font-size:.9rem; line-height:1.55; }}
 
         .image-card {{
-            min-height:240px;
+            min-height:180px;
             border-radius:24px;
             background-size:cover;
             background-position:center;
@@ -494,7 +494,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         }}
 
         .flow-card {{
-            min-height:360px;
+            min-height:260px;
             border-radius:28px;
             border:1px solid rgba(34,211,238,.28);
             background:
@@ -520,7 +520,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             background:rgba(255,255,255,.06);
             padding:.85rem .55rem;
         }}
-        .node-icon {{ font-size:2.05rem; }}
+        .node-icon {{ font-size:1.55rem; }}
         .node-label {{ font-weight:1000; font-size:.86rem; }}
         .node-sub {{ color:var(--muted); font-size:.72rem; }}
         .arrow {{
@@ -543,7 +543,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         }}
 
         .visual-card {{
-            min-height:360px;
+            min-height:260px;
             border-radius:28px;
             border:1px solid rgba(59,130,246,.30);
             position:relative;
@@ -697,22 +697,22 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         }}
 
         .stTabs [data-baseweb="tab-list"] {{
-            gap:22px;
+            gap:10px;
             overflow-x:auto;
-            padding:.9rem .25rem 1.45rem;
+            padding:.45rem .1rem .85rem;
         }}
         .stTabs [data-baseweb="tab"] {{
-            min-height:112px;
-            min-width:220px;
-            font-size:1.42rem!important;
-            font-weight:1000!important;
+            min-height:58px;
+            min-width:138px;
+            font-size:1rem!important;
+            font-weight:950!important;
             color:#ffffff!important;
-            border:1px solid rgba(14,165,233,.38);
-            border-radius:28px 28px 0 0;
-            background:linear-gradient(145deg, rgba(8,30,58,.96), rgba(18,70,116,.90))!important;
-            box-shadow:0 28px 70px rgba(15,23,42,.28);
-            transition:transform .25s ease, border-color .25s ease, background .25s ease, box-shadow .25s ease;
-            padding:1rem 1.25rem!important;
+            border:1px solid rgba(14,165,233,.34);
+            border-radius:18px 18px 0 0;
+            background:linear-gradient(145deg, rgba(8,30,58,.94), rgba(18,70,116,.86))!important;
+            box-shadow:0 14px 34px rgba(15,23,42,.22);
+            transition:transform .22s ease, border-color .22s ease, background .22s ease, box-shadow .22s ease;
+            padding:.55rem .75rem!important;
         }}
         .stTabs [data-baseweb="tab"]:hover {{
             transform:translateY(-5px) scale(1.015);
@@ -748,7 +748,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         .sidebar-hero {{
             border:1px solid rgba(56,189,248,.28);
             border-radius:26px;
-            padding:1rem 1rem .95rem 1rem;
+            padding:.75rem .8rem .75rem .8rem;
             margin:.2rem 0 1rem 0;
             background:
                 radial-gradient(circle at top right, rgba(245,158,11,.16), transparent 26%),
@@ -786,7 +786,7 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         }}
         .sidebar-mini-grid {{
             display:grid;
-            grid-template-columns:repeat(2,minmax(90px,1fr));
+            grid-template-columns:repeat(2,minmax(80px,1fr));
             gap:.55rem;
             margin-top:.75rem;
             position:relative;
@@ -842,6 +842,49 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             color:#0f172a!important;
         }}
 
+
+        .section-nav {{
+            display:grid;
+            grid-template-columns:repeat(4, minmax(160px, 1fr));
+            gap:.75rem;
+            margin:.7rem 0 1rem 0;
+        }}
+        .section-nav-card {{
+            min-height:128px;
+            border-radius:22px;
+            border:1px solid rgba(14,165,233,.26);
+            background-size:cover;
+            background-position:center;
+            position:relative;
+            overflow:hidden;
+            box-shadow:0 14px 36px rgba(15,23,42,.18);
+        }}
+        .section-nav-card::before {{
+            content:"";
+            position:absolute;
+            inset:0;
+            background:linear-gradient(135deg, rgba(6,18,34,.18), rgba(6,18,34,.74));
+        }}
+        .section-nav-card .nav-label {{
+            position:absolute;
+            left:.85rem;
+            right:.85rem;
+            bottom:.75rem;
+            color:#fff;
+            font-weight:1000;
+            font-size:1rem;
+            text-shadow:0 2px 10px rgba(0,0,0,.70);
+        }}
+        .section-nav-card .nav-sub {{
+            display:block;
+            color:#dbeafe;
+            font-size:.76rem;
+            font-weight:800;
+            margin-top:.12rem;
+        }}
+        @media (max-width: 1100px) {{
+            .section-nav {{ grid-template-columns:repeat(2, minmax(140px, 1fr)); }}
+        }}
         .hourglass-screen {{
             position:relative;
             min-height:260px;
@@ -1580,6 +1623,28 @@ def kpi(title: str, value: str, icon: str, detail: str):
 
 
 
+
+def render_section_navigation():
+    sections = [
+        ("🏠 Home", "Main status", IMG_SOLAR_1),
+        ("📊 Forecasting", "Forecast charts", IMG_WEATHER),
+        ("🧩 Images + 3D", "Visual system", IMG_SOLAR_2),
+        ("🧹 Data Pipeline", "Cleaning flow", IMG_CONTROL),
+        ("🤖 Models", "Model evidence", IMG_BATTERY),
+        ("🧬 Advanced", "Diagnostics", IMG_GRID),
+        ("🕹️ Simulator", "What-if tools", IMG_SOLAR_1),
+        ("📤 Export", "Downloads", IMG_CONTROL),
+    ]
+    cards = ""
+    for title, subtitle, img in sections:
+        cards += f"""
+        <div class="section-nav-card" style="background-image:url('{img}')">
+            <div class="nav-label">{title}<span class="nav-sub">{subtitle}</span></div>
+        </div>
+        """
+    st.markdown(f'<div class="section-nav">{cards}</div>', unsafe_allow_html=True)
+
+
 def render_hourglass_loader(message: str, pct: int):
     pct = max(0, min(100, int(pct)))
     st.markdown(
@@ -1723,8 +1788,7 @@ with st.sidebar:
         <div class="sidebar-hero">
             <div class="sidebar-hero-title">☀️ Website Controls</div>
             <div class="sidebar-hero-copy">
-                Control the full website experience from here: style, size, motion, data, forecasting, and analysis.
-                Everything is organized to be easy to find and visually clear.
+                Select style, data, forecasting, comparison tools, and export settings.
             </div>
             <div class="sidebar-mini-grid">
                 <div class="sidebar-mini-card"><div class="t1">Experience</div><div class="t2">Interactive</div></div>
@@ -1749,7 +1813,7 @@ with st.sidebar:
         index=0,
     )
     theme = st.selectbox("Color theme", list(THEMES.keys()), index=0)
-    big_dashboard = st.toggle("Big dashboard size", value=True)
+    big_dashboard = st.toggle("Normal comfortable size", value=False, help="Keep off for normal readable size. Turn on only if presenting on a large screen.")
     alive_motion = st.toggle("Keep everything alive / animated", value=True)
     detailed_loading = st.toggle("Show loading timeline", value=True)
     first_view = st.selectbox("First screen priority", ["Balanced", "Charts first", "3D visuals first", "Evidence first"], index=0)
@@ -2024,6 +2088,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+render_section_navigation()
+
 # First screen priority
 if first_view == "Charts first":
     a, b = st.columns(2)
@@ -2068,7 +2134,7 @@ with tabs[0]:
     with c1:
         st.markdown(
             f"""
-            <div class="image-card" style="min-height:360px;background-image:url('{IMG_SOLAR_1}')">
+            <div class="image-card" style="min-height:260px;background-image:url('{IMG_SOLAR_1}')">
                 <span>Solar PV Plant • Live visual context</span>
             </div>
             """,
