@@ -1317,6 +1317,61 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             border-radius:12px !important;
             white-space: normal !important;
         }}
+
+        /* Final clear-background and transparent-output polish */
+        html, body, .stApp {{
+            background:
+                linear-gradient(rgba(3, 12, 24, .82), rgba(6, 18, 34, .84), rgba(8, 27, 48, .86)),
+                radial-gradient(circle at 10% 8%, rgba(56,189,248,.18), transparent 30%),
+                radial-gradient(circle at 86% 10%, rgba(251,191,36,.16), transparent 28%),
+                url('https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=1800&q=80') !important;
+            background-size: cover !important;
+            background-position: center !important;
+            background-attachment: fixed !important;
+            color: #f8fbff !important;
+        }}
+        h1, h2, h3, h4, h5, h6,
+        label, .stMarkdown, .stCaption,
+        .stSelectbox label, .stSlider label, .stRadio label,
+        .stCheckbox label, .stTextInput label, .stFileUploader label {{
+            color:#f8fbff !important;
+        }}
+        .panel, .hero-card, .mode-card, .sticky-title,
+        .kpi-card, .flow-card, .visual-card, .workflow-card,
+        .tab-hero, .hourglass-screen {{
+            background:
+                linear-gradient(145deg, rgba(5,18,38,.78), rgba(8,28,52,.64)) !important;
+            backdrop-filter: blur(14px) !important;
+            border-color: rgba(148, 203, 255, .20) !important;
+            color: #f8fbff !important;
+        }}
+        .stPlotlyChart {{
+            background: rgba(5,18,38,.20) !important;
+            border: 1px solid rgba(148,203,255,.14);
+            border-radius: 18px;
+            padding: .35rem;
+            backdrop-filter: blur(10px);
+        }}
+        [data-testid="stDataFrame"], .stDataFrame {{
+            background: rgba(255,255,255,.96) !important;
+            color: #0f172a !important;
+            border-radius: 14px !important;
+            overflow: hidden !important;
+        }}
+        .muted, .hero-copy, .tab-hero-copy, .brand-sub, .node-sub, .control-label, .nav-help-box {{
+            color:#dbeafe !important;
+        }}
+        .section-title {{
+            color:#fbbf24 !important;
+            text-shadow:0 1px 2px rgba(0,0,0,.5);
+        }}
+        .download-zone {{
+            border: 1px solid rgba(148,203,255,.16);
+            border-radius: 14px;
+            background: rgba(5,18,38,.32);
+            padding: .5rem;
+            margin-top: .35rem;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -1333,6 +1388,74 @@ if "chart_render_counter" not in st.session_state:
 def next_chart_key(prefix: str = "chart") -> str:
     st.session_state.chart_render_counter += 1
     return f"{prefix}_{st.session_state.chart_render_counter}"
+
+
+def make_plot_transparent(fig, height: int | None = None):
+    """Standard transparent, readable Plotly styling."""
+    if fig is None:
+        return None
+    layout_updates = dict(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#f8fbff"),
+        legend=dict(
+            bgcolor="rgba(5,18,38,.35)",
+            bordercolor="rgba(255,255,255,.12)",
+            borderwidth=1,
+        ),
+    )
+    if height is not None:
+        layout_updates["height"] = height
+    fig.update_layout(**layout_updates)
+    fig.update_xaxes(gridcolor="rgba(255,255,255,.13)", zerolinecolor="rgba(255,255,255,.20)")
+    fig.update_yaxes(gridcolor="rgba(255,255,255,.13)", zerolinecolor="rgba(255,255,255,.20)")
+    return fig
+
+
+def render_plotly_chart(fig, name: str = "chart", data: pd.DataFrame | None = None):
+    """Render a Plotly chart with transparent style and download options."""
+    if fig is None:
+        st.info("Chart is unavailable.")
+        return
+
+    fig = make_plot_transparent(fig)
+    chart_key = next_chart_key("plotly")
+    st.plotly_chart(fig, use_container_width=True, key=chart_key)
+
+    d1, d2 = st.columns([1, 1])
+    with d1:
+        st.download_button(
+            f"⬇️ Download {name} chart HTML",
+            data=fig.to_html(full_html=True, include_plotlyjs="cdn"),
+            file_name=f"{name.replace(' ', '_').lower()}_chart.html",
+            mime="text/html",
+            key=next_chart_key("html"),
+            use_container_width=True,
+        )
+    if data is not None and isinstance(data, pd.DataFrame) and not data.empty:
+        with d2:
+            st.download_button(
+                f"⬇️ Download {name} data CSV",
+                data=data.to_csv(index=False),
+                file_name=f"{name.replace(' ', '_').lower()}_data.csv",
+                mime="text/csv",
+                key=next_chart_key("csv"),
+                use_container_width=True,
+            )
+
+
+def render_table_download(df: pd.DataFrame, name: str):
+    """Show a compact data download button for any table."""
+    if isinstance(df, pd.DataFrame) and not df.empty:
+        st.download_button(
+            f"⬇️ Download {name} CSV",
+            data=df.to_csv(index=False),
+            file_name=f"{name.replace(' ', '_').lower()}.csv",
+            mime="text/csv",
+            key=next_chart_key("csv"),
+            use_container_width=True,
+        )
 
 
 # -----------------------------------------------------------------------------
@@ -1676,7 +1799,8 @@ def forecast_fig(df: pd.DataFrame, timestamp_col: str, target_col: str, window: 
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart["low"], mode="lines", fill="tonexty", fillcolor="rgba(251,191,36,.20)", line=dict(width=0), name="Confidence band"))
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart["smooth"], mode="lines", name="Forecast signal", line=dict(color="#FBBF24", width=3)))
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart[target_col], mode="lines", name="Actual", line=dict(color="#22D3EE", width=2)))
-    fig.update_layout(template="plotly_dark", height=390, margin=dict(l=10, r=10, t=32, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", legend=dict(orientation="h"))
+    fig.update_layout(height=390, margin=dict(l=10, r=10, t=32, b=10), legend=dict(orientation="h"))
+    make_plot_transparent(fig, 390)
     return fig
 
 
@@ -1689,17 +1813,22 @@ def prediction_fig(pred_df: pd.DataFrame, timestamp_col: str, window: int):
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart["prediction_lower_90"], mode="lines", fill="tonexty", fillcolor="rgba(59,130,246,.20)", line=dict(width=0), name="90% interval"))
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart["y_target"], mode="lines", name="Actual", line=dict(color="#22D3EE", width=2)))
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart["prediction"], mode="lines", name="Predicted", line=dict(color="#10B981", width=2)))
-    fig.update_layout(template="plotly_dark", height=390, margin=dict(l=10, r=10, t=32, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", legend=dict(orientation="h"))
+    fig.update_layout(height=390, margin=dict(l=10, r=10, t=32, b=10), legend=dict(orientation="h"))
+    make_plot_transparent(fig, 390)
     return fig
 
 
 def show_chart(fig, df: pd.DataFrame, timestamp_col: str, columns: list[str], window: int, key_prefix: str = "chart"):
-    """Render charts with explicit unique keys to avoid StreamlitDuplicateElementId."""
-    chart_key = next_chart_key(key_prefix)
+    """Render charts clearly with transparent styling and download options."""
+    chart_data = pd.DataFrame()
+    if isinstance(df, pd.DataFrame) and not df.empty:
+        chart_data = df[[timestamp_col] + [c for c in columns if c in df.columns]].tail(window).copy()
     if fig is not None:
-        st.plotly_chart(fig, use_container_width=True, key=chart_key)
+        render_plotly_chart(fig, key_prefix, chart_data)
     elif not df.empty:
-        st.line_chart(df.set_index(timestamp_col)[columns].tail(window))
+        line_data = df.set_index(timestamp_col)[columns].tail(window)
+        st.line_chart(line_data)
+        render_table_download(line_data.reset_index(), key_prefix)
     else:
         st.info("No data available for this chart.")
 
@@ -1732,9 +1861,10 @@ def render_metric_bar_chart(comparison_df: pd.DataFrame, metric: str, title: str
             plot_bgcolor="rgba(0,0,0,0)",
             yaxis=dict(autorange="reversed"),
         )
-        st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+        render_plotly_chart(fig, metric, chart_df)
     else:
         st.bar_chart(comparison_df.set_index("model")[metric])
+        render_table_download(comparison_df[["model", metric]], metric)
 
 
 def render_model_radar(comparison_df: pd.DataFrame):
@@ -1760,7 +1890,7 @@ def render_model_radar(comparison_df: pd.DataFrame):
         polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
         title="Normalized model strength radar",
     )
-    st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+    render_plotly_chart(fig, "chart")
 
 
 def render_actual_predicted_scatter(predictions_df: pd.DataFrame):
@@ -1790,7 +1920,7 @@ def render_actual_predicted_scatter(predictions_df: pd.DataFrame):
             xaxis_title="Actual",
             yaxis_title="Predicted",
         )
-        st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+        render_plotly_chart(fig, "chart")
     else:
         st.dataframe(predictions_df[["y_target", "prediction", "absolute_error"]].tail(500), use_container_width=True)
 
@@ -1814,7 +1944,7 @@ def render_error_distribution(predictions_df: pd.DataFrame):
             xaxis_title="Residual",
             yaxis_title="Count",
         )
-        st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+        render_plotly_chart(fig, "chart")
     else:
         st.dataframe(predictions_df[["residual", "absolute_error"]].describe(), use_container_width=True)
 
@@ -1839,17 +1969,19 @@ def render_error_by_time(predictions_df: pd.DataFrame, timestamp_col: str):
         if PLOTLY_AVAILABLE:
             fig = go.Figure(go.Bar(x=by_hour["hour"], y=by_hour["absolute_error"], marker_color="#38bdf8"))
             fig.update_layout(template="plotly_dark", height=330, margin=dict(l=10, r=10, t=25, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+            render_plotly_chart(fig, "chart")
         else:
             st.bar_chart(by_hour.set_index("hour")["absolute_error"])
+            render_table_download(by_hour, "error_by_hour")
     with mcol:
         st.markdown("#### Error by month")
         if PLOTLY_AVAILABLE:
             fig = go.Figure(go.Bar(x=by_month["month"], y=by_month["absolute_error"], marker_color="#10b981"))
             fig.update_layout(template="plotly_dark", height=330, margin=dict(l=10, r=10, t=25, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+            render_plotly_chart(fig, "chart")
         else:
             st.bar_chart(by_month.set_index("month")["absolute_error"])
+            render_table_download(by_month, "error_by_month")
 
 
 def render_feature_correlation_lab(model_df: pd.DataFrame, target_col: str, features: list[str]):
@@ -1870,7 +2002,7 @@ def render_feature_correlation_lab(model_df: pd.DataFrame, target_col: str, feat
         if PLOTLY_AVAILABLE:
             fig = go.Figure(data=go.Heatmap(z=corr.values, x=corr.columns, y=corr.index, colorscale="Viridis"))
             fig.update_layout(template="plotly_dark", height=520, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+            render_plotly_chart(fig, "chart")
         else:
             st.dataframe(corr, use_container_width=True)
     with c2:
@@ -2726,9 +2858,10 @@ if selected_page == "🤖 Models":
             if PLOTLY_AVAILABLE and not importance_df.empty:
                 fig = go.Figure(go.Bar(x=importance_df["importance_mean"], y=importance_df["feature"], orientation="h"))
                 fig.update_layout(template="plotly_dark", height=430, margin=dict(l=10, r=10, t=20, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+                render_plotly_chart(fig, "chart")
             elif not importance_df.empty:
                 st.bar_chart(importance_df.set_index("feature")["importance_mean"])
+                render_table_download(importance_df, "feature_importance")
         st.markdown("### Uncertainty")
         st.json(uncertainty_summary)
         render_comparison_panel(comparison_df, uncertainty_summary)
@@ -2754,9 +2887,10 @@ if selected_page == "🧬 Advanced":
             fig.add_trace(go.Scatter(x=hourly["hour"], y=hourly["mean"], mode="lines+markers", name="Mean"))
             fig.add_trace(go.Scatter(x=hourly["hour"], y=hourly["max"], mode="lines", name="Max"))
             fig.update_layout(template="plotly_dark", height=360, margin=dict(l=10, r=10, t=25, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+            render_plotly_chart(fig, "chart")
         elif not hourly.empty:
             st.line_chart(hourly.set_index("hour")[["mean", "max"]])
+            render_table_download(hourly, "daily_profile")
     with right:
         st.markdown("### Anomaly Scan")
         target_series = filtered_df[target_col].dropna().astype(float)
@@ -2780,7 +2914,7 @@ if selected_page == "🧬 Advanced":
             if PLOTLY_AVAILABLE:
                 fig = go.Figure(data=go.Heatmap(z=corr.values, x=corr.columns, y=corr.index, colorscale="Viridis"))
                 fig.update_layout(template="plotly_dark", height=520, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+                render_plotly_chart(fig, "chart")
         else:
             st.info("Not enough numeric columns for correlation diagnostics.")
 
@@ -2789,6 +2923,7 @@ if selected_page == "🧬 Advanced":
     if not predictions_df.empty:
         residual_view = predictions_df[[timestamp_col, "residual", "absolute_error", "interval_covered"]].tail(chart_window)
         st.line_chart(residual_view.set_index(timestamp_col)[["residual", "absolute_error"]])
+        render_table_download(residual_view, "residual_stream")
         st.dataframe(residual_view.tail(30), use_container_width=True)
     else:
         st.info("Residual stream appears after prediction rows are available.")
@@ -2817,9 +2952,10 @@ if selected_page == "🕹️ Simulator":
             fig.add_trace(go.Scatter(x=simulated[timestamp_col], y=simulated[target_col], mode="lines", name="Actual"))
             fig.add_trace(go.Scatter(x=simulated[timestamp_col], y=simulated["scenario_power"], mode="lines", name="Scenario"))
             fig.update_layout(template="plotly_dark", height=420, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
+            render_plotly_chart(fig, "chart")
         else:
             st.line_chart(simulated.set_index(timestamp_col)[[target_col, "scenario_power"]])
+            render_table_download(simulated, "scenario_simulation")
     else:
         st.info("No data available for simulator.")
 
