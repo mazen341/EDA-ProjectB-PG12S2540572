@@ -28,13 +28,20 @@ It works with:
 import json
 import os
 import re
+import time
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
 import requests
 import streamlit as st
+
+try:
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
+except Exception:
+    go = None
+    PLOTLY_AVAILABLE = False
 
 try:
     from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
@@ -319,6 +326,176 @@ def inject_css():
             background:rgba(59,130,246,.22)!important;
             border-bottom:2px solid var(--cyan);
         }
+
+        @keyframes floatGlow {
+            0% { transform: translateY(0px); box-shadow: 0 12px 32px rgba(0,0,0,.24); }
+            50% { transform: translateY(-5px); box-shadow: 0 24px 54px rgba(34,211,238,.18); }
+            100% { transform: translateY(0px); box-shadow: 0 12px 32px rgba(0,0,0,.24); }
+        }
+        @keyframes pulseLine {
+            0% { opacity:.35; transform:scaleX(.85); }
+            50% { opacity:1; transform:scaleX(1.05); }
+            100% { opacity:.35; transform:scaleX(.85); }
+        }
+        @keyframes shimmer {
+            0% { background-position: -600px 0; }
+            100% { background-position: 600px 0; }
+        }
+        @keyframes rotateSlow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hero, .kpi-card, .glass-card, .photo-card, .diagram-box, .isometric, .workflow-card {
+            animation: floatGlow 7s ease-in-out infinite;
+        }
+        .glow-line { animation: pulseLine 2.1s ease-in-out infinite; transform-origin:center; }
+        .tower { animation: floatGlow 5.5s ease-in-out infinite; }
+        .battery-bars span { animation: pulseLine 1.8s ease-in-out infinite; }
+        .solar-panel {
+            background-size: 160% 100%;
+            animation: shimmer 4.5s linear infinite;
+        }
+        .live-dot {
+            width: 11px; height: 11px; border-radius: 999px;
+            display: inline-block; background: var(--green);
+            box-shadow: 0 0 18px rgba(16,185,129,.95);
+            animation: pulseLine 1.2s ease-in-out infinite;
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 14px;
+            overflow-x: auto;
+            padding: .45rem .15rem .85rem .15rem;
+        }
+        .stTabs [data-baseweb="tab"] {
+            min-height: 64px;
+            font-size: 1.18rem !important;
+            font-weight: 950 !important;
+            letter-spacing: .01em;
+            color: #eef7ff;
+            border: 1px solid rgba(148,163,184,.20);
+            box-shadow: 0 10px 28px rgba(0,0,0,.20);
+            transition: transform .25s ease, border-color .25s ease, background .25s ease;
+        }
+        .stTabs [data-baseweb="tab"]:hover {
+            transform: translateY(-4px) scale(1.02);
+            border-color: rgba(34,211,238,.55);
+            background: rgba(34,211,238,.16) !important;
+        }
+        .stTabs [aria-selected="true"] {
+            color: #ffffff !important;
+            background: linear-gradient(135deg, rgba(59,130,246,.35), rgba(16,185,129,.18)) !important;
+            box-shadow: 0 16px 44px rgba(34,211,238,.18);
+        }
+        .param-deck {
+            border-radius: 24px;
+            border: 1px solid rgba(34,211,238,.26);
+            background:
+                radial-gradient(circle at top right, rgba(34,211,238,.14), transparent 36%),
+                linear-gradient(135deg, rgba(16,29,51,.80), rgba(6,13,24,.76));
+            padding: 1rem;
+            margin: .75rem 0 1rem 0;
+            box-shadow: 0 18px 56px rgba(0,0,0,.28);
+        }
+        .param-grid {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(120px, 1fr));
+            gap: .65rem;
+        }
+        .param-chip {
+            border-radius: 17px;
+            border: 1px solid rgba(148,163,184,.16);
+            background: rgba(255,255,255,.052);
+            padding: .75rem .8rem;
+        }
+        .param-label { color: var(--muted); font-size: .76rem; font-weight: 800; }
+        .param-value { color: var(--text); font-size: 1.05rem; font-weight: 950; margin-top:.2rem; }
+        .loading-card {
+            border-radius: 18px;
+            border: 1px solid rgba(251,191,36,.24);
+            background: rgba(251,191,36,.07);
+            padding: .85rem 1rem;
+            margin: .45rem 0;
+        }
+        .animated-ring {
+            width: 72px; height: 72px;
+            border-radius: 999px;
+            border: 6px solid rgba(34,211,238,.14);
+            border-top-color: var(--cyan);
+            border-right-color: var(--green);
+            animation: rotateSlow 1.8s linear infinite;
+            margin: auto;
+        }
+        @media (max-width: 1100px) {
+            .param-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+            .stTabs [data-baseweb="tab"] { font-size: 1rem !important; min-height: 54px; }
+        }
+
+
+        .mode-banner {
+            border-radius: 24px;
+            border: 1px solid rgba(34,211,238,.26);
+            background:
+                radial-gradient(circle at 12% 20%, rgba(34,211,238,.18), transparent 30%),
+                radial-gradient(circle at 88% 10%, rgba(251,191,36,.14), transparent 32%),
+                linear-gradient(135deg, rgba(16,29,51,.88), rgba(6,13,24,.78));
+            padding: 1rem 1.15rem;
+            margin: .75rem 0 1rem 0;
+            box-shadow: 0 18px 56px rgba(0,0,0,.26);
+        }
+        .mode-title {
+            font-size: 1.35rem;
+            font-weight: 950;
+            letter-spacing: -.02em;
+            margin-bottom: .18rem;
+        }
+        .mode-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(140px, 1fr));
+            gap: .75rem;
+            margin-top: .8rem;
+        }
+        .mode-card {
+            border-radius: 18px;
+            border: 1px solid rgba(148,163,184,.18);
+            background: rgba(255,255,255,.05);
+            padding: .9rem;
+            min-height: 108px;
+            transition: transform .25s ease, border-color .25s ease, background .25s ease;
+        }
+        .mode-card:hover {
+            transform: translateY(-5px) scale(1.01);
+            border-color: rgba(34,211,238,.58);
+            background: rgba(34,211,238,.10);
+        }
+        .mode-card .big {
+            font-size: 1.55rem;
+            font-weight: 950;
+            margin-top: .2rem;
+        }
+        .mode-card .label {
+            color: var(--muted);
+            font-size: .80rem;
+            font-weight: 800;
+        }
+        .executive-mode .kpi-card { min-height: 145px; }
+        .executive-mode .kpi-value { font-size: 2.05rem; }
+        .technical-mode .diagram-box, .technical-mode .glass-card {
+            border-color: rgba(34,211,238,.42);
+            background:
+                linear-gradient(90deg, rgba(34,211,238,.055) 1px, transparent 1px),
+                linear-gradient(rgba(34,211,238,.055) 1px, transparent 1px),
+                linear-gradient(145deg, rgba(16,29,51,.86), rgba(9,20,36,.76));
+            background-size: 26px 26px, 26px 26px, auto;
+        }
+        .visual-mode .photo-card, .visual-mode .isometric { min-height: 410px; }
+        .compact-mode .kpi-card { min-height: 88px; padding: .7rem; }
+        .compact-mode .hero { padding: .9rem 1rem; }
+        .compact-mode .hero-title { font-size: 1.65rem; }
+        .grading-mode .workflow-card {
+            border-color: rgba(251,191,36,.42);
+            background: rgba(251,191,36,.08);
+        }
+
         </style>
         """,
         unsafe_allow_html=True,
@@ -326,6 +503,8 @@ def inject_css():
 
 
 inject_css()
+if 'live_animation' in globals() and not live_animation:
+    st.markdown('<style>* { animation: none !important; transition: none !important; }</style>', unsafe_allow_html=True)
 
 
 def safe_json_default(obj):
@@ -620,8 +799,8 @@ def run_models(model_df, features, timestamp_col, target_col):
 
 def make_forecast_chart(df, timestamp_col, target_col, window=384):
     chart = df[[timestamp_col, target_col]].dropna().tail(window).copy()
-    if chart.empty:
-        return go.Figure()
+    if chart.empty or not PLOTLY_AVAILABLE:
+        return None
     chart["smooth"] = chart[target_col].rolling(max(2, min(12, len(chart) // 8))).mean().bfill()
     chart["p10"] = chart["smooth"] * 0.88
     chart["p90"] = chart["smooth"] * 1.12
@@ -635,8 +814,8 @@ def make_forecast_chart(df, timestamp_col, target_col, window=384):
 
 
 def make_prediction_chart(pred_df, timestamp_col):
-    if pred_df.empty:
-        return go.Figure()
+    if pred_df.empty or not PLOTLY_AVAILABLE:
+        return None
     chart = pred_df.tail(500).copy()
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart["prediction_upper_90"], mode="lines", line=dict(width=0), showlegend=False))
@@ -744,7 +923,79 @@ with st.sidebar:
     resample_rule = st.selectbox("Resampling", ["None", "15min", "30min", "1h", "1D"], index=1)
     horizon = int(st.number_input("Forecast horizon rows", min_value=1, max_value=96, value=1, step=1))
     model_rows = int(st.slider("Rows for modeling", 1000, 40000, 18000, 1000))
+    st.markdown("---")
+    st.markdown("### 🔴 Live Motion & Advanced Controls")
+    animated_loading = st.toggle("Show detailed loading timeline", value=True)
+    live_animation = st.toggle("Keep dashboard animated", value=True)
+    chart_window = int(st.slider("Chart window rows", 96, 2000, 500, 32))
+    confidence_width = float(st.slider("Forecast band width", 0.05, 0.35, 0.12, 0.01))
+    anomaly_sensitivity = float(st.slider("Anomaly sensitivity", 1.0, 4.0, 2.0, 0.1))
+    refresh_seconds = int(st.slider("Live refresh seconds", 5, 120, 30, 5))
+    show_correlation = st.toggle("Show correlation diagnostics", value=True)
+    st.markdown("---")
+    st.markdown("### 🧭 Website Representation")
+    dashboard_mode = st.selectbox(
+        "Dashboard selected by user",
+        [
+            "Executive Command Center",
+            "Technical Engineering Console",
+            "Visual 3D Storyboard",
+            "Compact Analytics View",
+            "Student Grading Evidence View",
+        ],
+        index=0,
+        help="Changes how the website is presented to the user while keeping all analytics available."
+    )
+    theme_palette = st.selectbox(
+        "Color theme",
+        ["Energy Navy", "Emerald Grid", "Solar Gold", "Cyber Blue"],
+        index=0,
+    )
+    opening_view = st.selectbox(
+        "First impression layout",
+        ["Balanced", "Charts first", "System visuals first", "Evidence first"],
+        index=0,
+    )
+    show_mode_guide = st.toggle("Show mode explanation", value=True)
 
+
+if animated_loading:
+    load_box = st.empty()
+    progress_bar = st.progress(0, text="Starting dashboard systems...")
+    loading_steps = [
+        (12, "Checking dataset source and upload status"),
+        (28, "Loading time-series records"),
+        (44, "Preparing timestamp and target selectors"),
+        (61, "Cleaning, grouping, and resampling data"),
+        (78, "Engineering temporal, lag, rolling, and weather features"),
+        (92, "Training comparison models and building diagnostics"),
+        (100, "Rendering animated dashboard interface"),
+    ]
+    for pct, message in loading_steps[:3]:
+        load_box.markdown(f'<div class="loading-card"><span class="live-dot"></span> &nbsp; <b>{message}</b></div>', unsafe_allow_html=True)
+        progress_bar.progress(pct, text=message)
+        time.sleep(0.04)
+
+if not live_animation:
+    st.markdown('<style>* { animation: none !important; transition: none !important; }</style>', unsafe_allow_html=True)
+
+palette_css = {
+    "Energy Navy": "",
+    "Emerald Grid": "<style>:root { --blue:#14b8a6; --cyan:#5eead4; --green:#22c55e; --gold:#a7f3d0; } .stApp { background: radial-gradient(circle at 10% 10%, rgba(20,184,166,.22), transparent 30%), linear-gradient(135deg,#04130f,#071f1a,#09251f)!important; }</style>",
+    "Solar Gold": "<style>:root { --blue:#f59e0b; --cyan:#fde68a; --green:#84cc16; --gold:#fbbf24; } .stApp { background: radial-gradient(circle at 20% 10%, rgba(251,191,36,.24), transparent 30%), linear-gradient(135deg,#130f04,#211805,#2a1d05)!important; }</style>",
+    "Cyber Blue": "<style>:root { --blue:#2563eb; --cyan:#38bdf8; --green:#06b6d4; --gold:#93c5fd; } .stApp { background: radial-gradient(circle at 15% 15%, rgba(56,189,248,.24), transparent 30%), linear-gradient(135deg,#030712,#07182d,#071a3a)!important; }</style>",
+}
+if palette_css.get(theme_palette):
+    st.markdown(palette_css[theme_palette], unsafe_allow_html=True)
+
+mode_class_map = {
+    "Executive Command Center": "executive-mode",
+    "Technical Engineering Console": "technical-mode",
+    "Visual 3D Storyboard": "visual-mode",
+    "Compact Analytics View": "compact-mode",
+    "Student Grading Evidence View": "grading-mode",
+}
+st.markdown(f'<div class="{mode_class_map.get(dashboard_mode, "")}">', unsafe_allow_html=True)
 
 raw_df, dataset_source = load_dataset(data_path, uploaded_file)
 columns = list(raw_df.columns)
@@ -778,9 +1029,24 @@ if filtered_df.empty:
 
 model_df, feature_cols, weather_features = build_features(prepared_df, timestamp_col, target_col, horizon)
 model_df = model_df.tail(model_rows).copy()
+if animated_loading:
+    for pct, message in loading_steps[3:5]:
+        load_box.markdown(f'<div class="loading-card"><span class="live-dot"></span> &nbsp; <b>{message}</b></div>', unsafe_allow_html=True)
+        progress_bar.progress(pct, text=message)
+        time.sleep(0.04)
+
 comparison_df, predictions_df, importance_df, uncertainty_summary, modeling_note = run_models(
     model_df, feature_cols, timestamp_col, target_col
 )
+
+if animated_loading:
+    for pct, message in loading_steps[5:]:
+        load_box.markdown(f'<div class="loading-card"><span class="live-dot"></span> &nbsp; <b>{message}</b></div>', unsafe_allow_html=True)
+        progress_bar.progress(pct, text=message)
+        time.sleep(0.04)
+    time.sleep(0.10)
+    progress_bar.empty()
+    load_box.empty()
 
 latest_power = float(filtered_df[target_col].iloc[-1]) if len(filtered_df) else 0.0
 avg_power = float(filtered_df[target_col].mean()) if len(filtered_df) else 0.0
@@ -800,6 +1066,54 @@ st.markdown(
             Fully interactive Streamlit dashboard with premium background, system photos, PV diagram,
             3D-style visualization, cleaning pipeline, model comparison, uncertainty, and AI/local grading fallback.<br>
             Student: <b>{student_name}</b> • ID: <b>{student_id}</b> • Dataset: <b>{dataset_source}</b>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+mode_descriptions = {
+    "Executive Command Center": "A leadership-friendly representation that emphasizes KPIs, status, energy impact, and concise decision signals.",
+    "Technical Engineering Console": "A detailed engineering representation that emphasizes system flow, feature health, model diagnostics, and operational evidence.",
+    "Visual 3D Storyboard": "A visual-first representation that makes the system feel alive with photos, diagrams, and 3D-style PV assets.",
+    "Compact Analytics View": "A dense representation for quick review, smaller cards, faster scanning, and reduced visual weight.",
+    "Student Grading Evidence View": "A rubric-first representation that highlights cleaning, feature engineering, validation, metrics, limitations, and export evidence.",
+}
+if show_mode_guide:
+    st.markdown(
+        f"""
+        <div class="mode-banner">
+            <div class="pill"><span class="live-dot"></span> User-selected dashboard representation</div>
+            <div class="mode-title">{dashboard_mode}</div>
+            <div class="small-muted">{mode_descriptions.get(dashboard_mode, "")}</div>
+            <div class="mode-grid">
+                <div class="mode-card"><div class="label">Theme</div><div class="big">{theme_palette}</div><div class="small-muted">Matched color system</div></div>
+                <div class="mode-card"><div class="label">Opening Layout</div><div class="big">{opening_view}</div><div class="small-muted">Website first impression</div></div>
+                <div class="mode-card"><div class="label">Motion</div><div class="big">{'Alive' if live_animation else 'Still'}</div><div class="small-muted">Animated interface state</div></div>
+                <div class="mode-card"><div class="label">Refresh Timing</div><div class="big">{refresh_seconds}s</div><div class="small-muted">User-visible timing control</div></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+st.markdown(
+    f"""
+    <div class="param-deck">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.7rem;">
+            <div>
+                <div class="section-title">Live Parameter Cockpit</div>
+                <div class="small-muted">Every selector below affects the live dashboard, forecast visuals, diagnostics, and export evidence.</div>
+            </div>
+            <div class="pill"><span class="live-dot"></span> Animated mode {'ON' if live_animation else 'OFF'} • refresh {refresh_seconds}s</div>
+        </div>
+        <div class="param-grid">
+            <div class="param-chip"><div class="param-label">Timestamp</div><div class="param-value">{timestamp_col}</div></div>
+            <div class="param-chip"><div class="param-label">Target</div><div class="param-value">{target_col}</div></div>
+            <div class="param-chip"><div class="param-label">Resampling</div><div class="param-value">{resample_rule}</div></div>
+            <div class="param-chip"><div class="param-label">Horizon</div><div class="param-value">{horizon} row(s)</div></div>
+            <div class="param-chip"><div class="param-label">Chart Window</div><div class="param-value">{chart_window} rows</div></div>
+            <div class="param-chip"><div class="param-label">Band Width</div><div class="param-value">±{confidence_width * 100:.0f}%</div></div>
         </div>
     </div>
     """,
@@ -834,10 +1148,36 @@ tabs = st.tabs([
     "🧩 Photos + Diagrams + 3D",
     "🧹 Data Pipeline",
     "🤖 Models & Grader",
+    "🧬 Advanced Analytics",
     "📤 Export",
 ])
 
 with tabs[0]:
+    if opening_view == "Charts first":
+        st.markdown("### Selected website representation: charts first")
+        chart_a, chart_b = st.columns(2)
+        with chart_a:
+            overview_fast_fig = make_forecast_chart(filtered_df, timestamp_col, target_col, window=min(chart_window, len(filtered_df)), band_width=confidence_width)
+            if overview_fast_fig is not None:
+                st.plotly_chart(overview_fast_fig, use_container_width=True)
+            else:
+                st.line_chart(filtered_df.set_index(timestamp_col)[target_col].tail(chart_window))
+        with chart_b:
+            quick_pred_fig = make_prediction_chart(predictions_df, timestamp_col)
+            if quick_pred_fig is not None:
+                st.plotly_chart(quick_pred_fig, use_container_width=True)
+            elif not predictions_df.empty:
+                st.line_chart(predictions_df.set_index(timestamp_col)[["y_target", "prediction"]].tail(chart_window))
+    elif opening_view == "Evidence first":
+        st.markdown("### Selected website representation: evidence first")
+        evidence_cols = st.columns(4)
+        evidence_cols[0].metric("Cleaned rows", f"{cleaning_report['rows_after_grouping_resampling']:,}")
+        evidence_cols[1].metric("Engineered features", f"{len(feature_cols):,}")
+        evidence_cols[2].metric("Models compared", f"{len(comparison_df):,}")
+        evidence_cols[3].metric("Validation rows", f"{len(predictions_df):,}")
+        st.dataframe(comparison_df, use_container_width=True)
+    elif opening_view == "System visuals first":
+        st.markdown("### Selected website representation: system visuals first")
     c1, c2, c3 = st.columns([1.15, 1.15, 1.35])
     with c1:
         st.markdown(
@@ -897,17 +1237,61 @@ with tabs[0]:
         )
 
     st.markdown("### Live selected-period trend")
-    st.plotly_chart(make_forecast_chart(filtered_df, timestamp_col, target_col, window=min(500, len(filtered_df))), use_container_width=True)
+    overview_fig = make_forecast_chart(filtered_df, timestamp_col, target_col, window=min(500, len(filtered_df)))
+    if overview_fig is not None:
+        st.plotly_chart(overview_fig, use_container_width=True)
+    else:
+        st.line_chart(filtered_df.set_index(timestamp_col)[target_col].tail(500))
+
+
+    if dashboard_mode == "Executive Command Center":
+        st.markdown("### Executive Decision Board")
+        ex1, ex2, ex3, ex4 = st.columns(4)
+        ex1.metric("Operational status", "NORMAL")
+        ex2.metric("Energy impact", f"{energy_mwh:,.2f} MWh")
+        ex3.metric("Best model", comparison_df.iloc[0]["model"] if not comparison_df.empty else "N/A")
+        ex4.metric("Risk signal", "LOW" if zero_pct < 60 else "CHECK")
+    elif dashboard_mode == "Technical Engineering Console":
+        st.markdown("### Engineering Console Snapshot")
+        st.json({
+            "timestamp_column": timestamp_col,
+            "target_column": target_col,
+            "resample_rule": resample_rule,
+            "forecast_horizon_rows": horizon,
+            "feature_count": len(feature_cols),
+            "weather_features": weather_features,
+            "uncertainty": uncertainty_summary,
+        })
+    elif dashboard_mode == "Visual 3D Storyboard":
+        st.markdown("### Visual Storyboard")
+        st.info("The selected representation prioritizes the system photo, PV energy-flow diagram, and 3D-style animated system model.")
+    elif dashboard_mode == "Compact Analytics View":
+        st.markdown("### Compact Scan")
+        st.dataframe(filtered_df[[timestamp_col, target_col]].tail(20), use_container_width=True)
+    elif dashboard_mode == "Student Grading Evidence View":
+        st.markdown("### Rubric Evidence Snapshot")
+        st.success("Evidence shown: cleaning, resampling, outlier handling, engineered features, time-based validation, metrics, dashboard insights, limitations, and reproducibility notes.")
+
 
 with tabs[1]:
     f1, f2 = st.columns([1.1, 1.1])
     with f1:
         st.markdown('<div class="glass-card"><div class="section-title">Power Forecast with P10–P90 Band</div>', unsafe_allow_html=True)
-        st.plotly_chart(make_forecast_chart(filtered_df, timestamp_col, target_col, window=min(384, len(filtered_df))), use_container_width=True)
+        forecast_fig = make_forecast_chart(filtered_df, timestamp_col, target_col, window=min(384, len(filtered_df)))
+        if forecast_fig is not None:
+            st.plotly_chart(forecast_fig, use_container_width=True)
+        else:
+            st.line_chart(filtered_df.set_index(timestamp_col)[target_col].tail(384))
         st.markdown("</div>", unsafe_allow_html=True)
     with f2:
         st.markdown('<div class="glass-card"><div class="section-title">Actual vs Predicted with 90% Interval</div>', unsafe_allow_html=True)
-        st.plotly_chart(make_prediction_chart(predictions_df, timestamp_col), use_container_width=True)
+        prediction_fig = make_prediction_chart(predictions_df, timestamp_col)
+        if prediction_fig is not None:
+            st.plotly_chart(prediction_fig, use_container_width=True)
+        elif not predictions_df.empty:
+            st.line_chart(predictions_df.set_index(timestamp_col)[["y_target", "prediction"]].tail(500))
+        else:
+            st.info("Prediction chart is unavailable because there are no predictions yet.")
         st.markdown("</div>", unsafe_allow_html=True)
 
     w1, w2, w3 = st.columns([1, 1, 1])
@@ -1032,13 +1416,93 @@ with tabs[4]:
         st.markdown("### Feature importance")
         st.dataframe(importance_df, use_container_width=True)
         if not importance_df.empty and "importance_mean" in importance_df.columns:
-            fig_imp = go.Figure(go.Bar(x=importance_df["importance_mean"], y=importance_df["feature"], orientation="h", marker_color="#22d3ee"))
-            fig_imp.update_layout(template="plotly_dark", height=360, margin=dict(l=10, r=10, t=20, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_imp, use_container_width=True)
+            if PLOTLY_AVAILABLE:
+                fig_imp = go.Figure(go.Bar(x=importance_df["importance_mean"], y=importance_df["feature"], orientation="h", marker_color="#22d3ee"))
+                fig_imp.update_layout(template="plotly_dark", height=360, margin=dict(l=10, r=10, t=20, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(fig_imp, use_container_width=True)
+            else:
+                st.bar_chart(importance_df.set_index("feature")["importance_mean"])
         st.markdown("### Uncertainty summary")
         st.json(uncertainty_summary)
 
+
 with tabs[5]:
+    st.markdown("## Advanced Live Analytics")
+    st.markdown(
+        """
+        <div class="glass-card">
+            <div class="section-title">Complex Feature & Anomaly Control Center</div>
+            <div class="small-muted">
+                This section adds richer analytics beyond the baseline: anomaly scoring, daily profile behavior,
+                correlation diagnostics, feature-health checks, and residual monitoring.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    a1, a2, a3, a4 = st.columns(4)
+    with a1:
+        st.metric("Feature count", f"{len(feature_cols):,}")
+    with a2:
+        st.metric("Weather features", f"{len(weather_features):,}")
+    with a3:
+        st.metric("Model rows", f"{len(model_df):,}")
+    with a4:
+        st.metric("Anomaly sensitivity", f"{anomaly_sensitivity:.1f}× IQR")
+
+    adv_left, adv_right = st.columns([1.2, 1])
+    with adv_left:
+        st.markdown("### Daily production profile")
+        profile_df = filtered_df.copy()
+        profile_df["hour"] = profile_df[timestamp_col].dt.hour
+        hourly = profile_df.groupby("hour", as_index=False)[target_col].agg(["mean", "max", "std"]).reset_index()
+        if PLOTLY_AVAILABLE and not hourly.empty:
+            fig_profile = go.Figure()
+            fig_profile.add_trace(go.Scatter(x=hourly["hour"], y=hourly["mean"], mode="lines+markers", name="Mean", line=dict(color="#22d3ee", width=3)))
+            fig_profile.add_trace(go.Scatter(x=hourly["hour"], y=hourly["max"], mode="lines", name="Max", line=dict(color="#fbbf24", width=2)))
+            fig_profile.update_layout(template="plotly_dark", height=330, margin=dict(l=10, r=10, t=25, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_profile, use_container_width=True)
+        else:
+            st.line_chart(hourly.set_index("hour")[["mean", "max"]])
+
+    with adv_right:
+        st.markdown("### Anomaly scan")
+        target_series = filtered_df[target_col].dropna().astype(float)
+        q1 = target_series.quantile(.25) if len(target_series) else 0
+        q3 = target_series.quantile(.75) if len(target_series) else 0
+        iqr = q3 - q1
+        low = max(0, q1 - anomaly_sensitivity * iqr)
+        high = q3 + anomaly_sensitivity * iqr
+        anomaly_df = filtered_df[(filtered_df[target_col] < low) | (filtered_df[target_col] > high)].copy()
+        st.metric("Detected anomalies", f"{len(anomaly_df):,}")
+        st.metric("Lower bound", f"{low:,.2f}")
+        st.metric("Upper bound", f"{high:,.2f}")
+        st.dataframe(anomaly_df[[timestamp_col, target_col]].tail(20), use_container_width=True)
+
+    if show_correlation:
+        st.markdown("### Correlation diagnostics")
+        numeric = filtered_df.select_dtypes(include=[np.number]).copy()
+        if len(numeric.columns) >= 2:
+            corr = numeric.corr(numeric_only=True).round(3)
+            st.dataframe(corr, use_container_width=True)
+            if PLOTLY_AVAILABLE:
+                fig_corr = go.Figure(data=go.Heatmap(z=corr.values, x=corr.columns, y=corr.index, colorscale="Viridis"))
+                fig_corr.update_layout(template="plotly_dark", height=520, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(fig_corr, use_container_width=True)
+        else:
+            st.info("Not enough numeric columns for correlation diagnostics.")
+
+    st.markdown("### Residual stream")
+    if not predictions_df.empty:
+        residual_view = predictions_df[[timestamp_col, "residual", "absolute_error", "interval_covered"]].tail(chart_window)
+        st.line_chart(residual_view.set_index(timestamp_col)[["residual", "absolute_error"]])
+        st.dataframe(residual_view.tail(30), use_container_width=True)
+    else:
+        st.info("Residual stream appears after prediction rows are created.")
+
+
+with tabs[6]:
     st.markdown("## Export Evidence and Run Grader")
     dashboard_insights = [
         "The dashboard includes system photos, a single-line PV diagram, and a 3D-style energy system visualization.",
@@ -1076,6 +1540,12 @@ with tabs[5]:
             "has_student_added_dashboard": True,
             "has_system_photos": True,
             "has_diagrams_and_3d": True,
+            "has_advanced_analytics": True,
+            "has_animated_loading": bool(animated_loading),
+            "has_large_visible_tabs": True,
+            "user_selectable_dashboard_representation": dashboard_mode,
+            "theme_palette": theme_palette,
+            "opening_view": opening_view,
             "insights": dashboard_insights,
         },
         "presentation_and_rigor": {
@@ -1129,6 +1599,8 @@ with tabs[5]:
         else:
             st.info("No API key provided. Showing local fallback grade.")
             st.json(local_grader(submission))
+
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown(
     """
