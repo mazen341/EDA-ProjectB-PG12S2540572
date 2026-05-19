@@ -1126,6 +1126,143 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             .top-actions {{ justify-content:flex-start; }}
         }}
         {motion_css}
+
+        /* FINAL readability + 3D containment fix */
+        html, body, .stApp {{
+            color:#f8fbff !important;
+            background:
+                linear-gradient(rgba(4, 14, 28, .74), rgba(5, 18, 34, .78), rgba(7, 25, 45, .82)),
+                radial-gradient(circle at 12% 10%, rgba(56,189,248,.22), transparent 30%),
+                radial-gradient(circle at 88% 10%, rgba(251,191,36,.18), transparent 28%),
+                url('https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=1800&q=80') !important;
+            background-size:cover !important;
+            background-position:center !important;
+            background-attachment:fixed !important;
+        }}
+        .stApp::before {{
+            background:
+                linear-gradient(rgba(2,6,23,.14), rgba(2,6,23,.18)),
+                radial-gradient(circle, rgba(255,255,255,.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(34,211,238,.035) 1px, transparent 1px),
+                linear-gradient(rgba(34,211,238,.035) 1px, transparent 1px) !important;
+            background-size:auto, 42px 42px, 92px 92px, 92px 92px !important;
+        }}
+        h1, h2, h3, h4, h5, h6,
+        label, .stMarkdown, .stCaption,
+        .stSelectbox label, .stSlider label, .stRadio label,
+        .stCheckbox label, .stTextInput label, .stFileUploader label {{
+            color:#f8fbff !important;
+        }}
+        .element-container, .stMarkdown p, .stMarkdown li {{
+            color:#eaf3ff !important;
+        }}
+        .stDataFrame, [data-testid="stDataFrame"],
+        .stTable, [data-testid="stTable"] {{
+            color:#0f172a !important;
+            background:rgba(255,255,255,.96) !important;
+        }}
+        .panel, .sticky-title, .hero-card, .mode-card,
+        .kpi-card, .flow-card, .visual-card, .workflow-card,
+        .tab-hero, .hourglass-screen {{
+            background-color:rgba(5,18,38,.88) !important;
+            color:#f8fbff !important;
+        }}
+        .muted, .brand-sub, .hero-copy, .tab-hero-copy,
+        .node-sub, .control-label, .nav-help-box {{
+            color:#dbeafe !important;
+        }}
+        .section-title {{
+            color:#fbbf24 !important;
+            text-shadow:0 1px 2px rgba(0,0,0,.45);
+        }}
+
+        /* Animated 3D-Style Digital Twin containment */
+        .visual-card {{
+            min-height:285px !important;
+            max-height:330px !important;
+            overflow:hidden !important;
+            position:relative !important;
+            border-radius:18px !important;
+            padding:.85rem !important;
+            isolation:isolate !important;
+        }}
+        .visual-card .section-title {{
+            position:relative !important;
+            z-index:6 !important;
+            margin-bottom:.2rem !important;
+            max-width:68% !important;
+        }}
+        .visual-card .muted {{
+            position:relative !important;
+            z-index:6 !important;
+            max-width:68% !important;
+            font-size:.78rem !important;
+            line-height:1.35 !important;
+        }}
+        .sun-orbit {{
+            right:6% !important;
+            top:8% !important;
+            width:66px !important;
+            height:66px !important;
+            z-index:4 !important;
+        }}
+        .sun-orbit::before {{
+            font-size:1.35rem !important;
+            left:-6px !important;
+            top:22px !important;
+        }}
+        .platform {{
+            width:68% !important;
+            height:48% !important;
+            left:10% !important;
+            bottom:8% !important;
+            border-radius:20px !important;
+            z-index:1 !important;
+        }}
+        .panel-grid {{
+            left:10% !important;
+            top:40% !important;
+            grid-template-columns:repeat(5, 30px) !important;
+            gap:5px !important;
+            z-index:3 !important;
+        }}
+        .solar-panel {{
+            height:23px !important;
+            border-radius:5px !important;
+        }}
+        .battery {{
+            right:38% !important;
+            bottom:14% !important;
+            width:72px !important;
+            height:44px !important;
+            z-index:4 !important;
+        }}
+        .battery-bars {{
+            gap:4px !important;
+            padding:8px !important;
+        }}
+        .battery-bars i {{
+            width:9px !important;
+        }}
+        .inverter {{
+            right:20% !important;
+            bottom:18% !important;
+            width:62px !important;
+            height:58px !important;
+            z-index:4 !important;
+        }}
+        .tower {{
+            right:5% !important;
+            top:39% !important;
+            font-size:2.8rem !important;
+            z-index:5 !important;
+        }}
+        .power-line {{
+            right:9% !important;
+            top:57% !important;
+            width:30% !important;
+            z-index:4 !important;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -2320,7 +2457,7 @@ elif first_view == "Evidence first":
 
 
 # Tabs
-st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Main Navigation</div><div class="muted">Open one section at a time using the tabs below. The sidebar stays available for all controls and buttons while each tab provides its own interactive charts, tables, simulator, comparison lab, and exports.</div></div>', unsafe_allow_html=True)
+st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Open Sections</div><div class="muted">Use the tabs below after reviewing the Main Navigation cards above. The sidebar stays available for all controls and buttons while each tab provides its own interactive charts, tables, simulator, comparison lab, and exports.</div></div>', unsafe_allow_html=True)
 
 tabs = st.tabs([
     "🏠 Home",
