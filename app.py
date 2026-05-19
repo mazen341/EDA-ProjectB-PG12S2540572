@@ -124,6 +124,12 @@ st.set_page_config(
 # CSS / visual system
 # -----------------------------------------------------------------------------
 THEMES = {
+    "Pearl PV Light": {
+        "bg0": "#A7D7F5", "bg1": "#DDF3F8", "bg2": "#F7FBFE",
+        "card": "rgba(10, 25, 48, .84)", "card2": "rgba(17, 35, 63, .68)",
+        "text": "#F8FAFC", "muted": "#D7E4F3",
+        "blue": "#2563EB", "cyan": "#38BDF8", "green": "#10B981", "gold": "#FBBF24", "red": "#EF4444",
+    },
     "Midnight Energy": {
         "bg0": "#020617", "bg1": "#07111F", "bg2": "#0B2440",
         "card": "rgba(15, 23, 42, .84)", "card2": "rgba(30, 41, 59, .66)",
@@ -1085,6 +1091,63 @@ def tab_hero(title: str, copy: str, img_url: str, symbol: str, kicker: str = "Se
     )
 
 
+
+def render_comparison_panel(comparison_df: pd.DataFrame, uncertainty_summary: dict[str, Any]):
+    st.markdown("### 📌 Quick Comparison")
+    if comparison_df.empty:
+        st.info("Model comparison appears when there are enough rows after preprocessing.")
+        return
+    comp_cols = st.columns(4)
+    best_row = comparison_df.iloc[0]
+    baseline_row = comparison_df.iloc[-1]
+    with comp_cols[0]:
+        st.metric("Best Model", str(best_row["model"]))
+    with comp_cols[1]:
+        st.metric("Best MAE", f'{best_row["MAE"]:,.2f}')
+    with comp_cols[2]:
+        st.metric("Best RMSE", f'{best_row["RMSE"]:,.2f}')
+    with comp_cols[3]:
+        st.metric("90% Coverage", f'{uncertainty_summary.get("interval_coverage_pct", 0):,.1f}%')
+
+    compare_cards = st.columns(3)
+    entries = [
+        ("Baseline vs Best", f'Baseline: {baseline_row["model"]}\nBest: {best_row["model"]}', "Shows how much stronger the chosen model is compared to the transparent baseline."),
+        ("Forecast Confidence", f'Average interval width: {uncertainty_summary.get("average_interval_width", 0):,.2f}', "Wider bands indicate higher uncertainty. Narrower bands with good coverage are preferred."),
+        ("Evaluation Quality", "Time-based validation", "The split is chronological to reduce leakage and better reflect real forecasting behavior."),
+    ]
+    for col, (title, value, note) in zip(compare_cards, entries):
+        with col:
+            st.markdown(f'<div class="panel"><div class="section-title">{title}</div><div style="font-size:1.1rem;font-weight:1000;white-space:pre-line">{value}</div><div class="muted" style="margin-top:.4rem">{note}</div></div>', unsafe_allow_html=True)
+
+
+def render_tips_panel():
+    st.markdown("### 💡 Practical Tips")
+    tips = [
+        ("Use filtered date ranges", "Narrow the analysis to understand specific performance periods, maintenance windows, or weather events."),
+        ("Watch sunrise and sunset", "MAPE often inflates during low-generation periods. Use MAE, RMSE, and interval coverage together."),
+        ("Check anomalies early", "Anomaly detection helps reveal sensor spikes, outages, dust events, and abnormal clipping or curtailment."),
+        ("Validate chronologically", "Always preserve time order when building train/validation splits for time-series forecasting."),
+    ]
+    cols = st.columns(2)
+    for i, (title, desc) in enumerate(tips):
+        with cols[i % 2]:
+            st.markdown(f'<div class="insight"><div class="insight-icon">💡</div><div><b>{title}</b><br>{desc}</div></div>', unsafe_allow_html=True)
+
+
+def render_strategy_panel():
+    st.markdown("### 🎯 Strategic Actions")
+    cards = [
+        ("Operations Strategy", "Use forecast peaks to plan operations, inverter loading, and battery charging windows."),
+        ("Maintenance Strategy", "Track anomalies and zero-power spikes to identify failures, curtailment, or cleaning needs."),
+        ("Data Strategy", "Expand weather inputs and local telemetry to increase forecast robustness and interpretability."),
+        ("Decision Strategy", "Compare baseline vs best model and monitor uncertainty before making operational commitments."),
+    ]
+    cols = st.columns(4)
+    for col, (title, desc) in zip(cols, cards):
+        with col:
+            st.markdown(f'<div class="workflow-card"><div class="check">★</div><b>{title}</b><div class="muted" style="margin-top:.35rem">{desc}</div></div>', unsafe_allow_html=True)
+
+
 def kpi(title: str, value: str, icon: str, detail: str):
     st.markdown(
         f"""
@@ -1390,7 +1453,7 @@ st.markdown(
                 <span class="pill"><span class="live-dot"></span>{site_name} • {source_label}</span>
                 <div class="hero-title">{dashboard_mode}</div>
                 <div class="hero-copy">{mode_copy}<br><br>
-                Everything is organized into clear areas: Home, Forecasting, Visual System, Data Pipeline, Models, Advanced Analytics, Simulator and Export.</div>
+                Everything is organized into clear areas: Home, Forecasting, Visual System, Data Pipeline, Models, Advanced Analytics, Simulator and Export — with extra comparison blocks, practical tips, flowcharts, and strategy guidance.</div>
             </div>
         </div>
         <div class="mode-card">
@@ -1482,6 +1545,9 @@ with tabs[0]:
 
     st.markdown("### Live Production Trend")
     show_chart(forecast_fig(filtered_df, timestamp_col, target_col, chart_window, confidence_width), filtered_df, timestamp_col, [target_col], chart_window)
+    render_comparison_panel(comparison_df, uncertainty_summary)
+    render_tips_panel()
+    render_strategy_panel()
 
     if dashboard_mode == "Student Evidence Center":
         st.success("Important grading evidence is available in Data Pipeline, Models, Advanced, and Export tabs.")
@@ -1608,6 +1674,25 @@ with tabs[3]:
 
     st.markdown("### Dataset Audit")
     st.dataframe(audit_dataframe(raw_df), use_container_width=True)
+    st.markdown("### Process Flowchart")
+    st.graphviz_chart(
+        """
+        digraph G {
+            graph [bgcolor="transparent", rankdir=LR]
+            node [shape=box, style="rounded,filled", color="#22d3ee", fillcolor="#101d33", fontcolor="white", penwidth=1.4]
+            edge [color="#fbbf24", fontcolor="white"]
+            A [label="Raw Data"]
+            B [label="Timestamp Parsing"]
+            C [label="Cleaning"]
+            D [label="Resampling"]
+            E [label="Outlier Handling"]
+            F [label="Feature Engineering"]
+            G [label="Train / Validation Split"]
+            H [label="Forecast Models"]
+            A -> B -> C -> D -> E -> F -> G -> H
+        }
+        """
+    )
     st.markdown("### Cleaning Report")
     st.json(cleaning_report)
     st.markdown("### Feature Preview")
@@ -1638,6 +1723,8 @@ with tabs[4]:
                 st.bar_chart(importance_df.set_index("feature")["importance_mean"])
         st.markdown("### Uncertainty")
         st.json(uncertainty_summary)
+        render_comparison_panel(comparison_df, uncertainty_summary)
+        render_tips_panel()
 
 with tabs[5]:
     tab_hero("🧬 Advanced", "Advanced analytics includes anomaly detection, correlations, daily production patterns, and residual behavior to help the user explore the system deeply.", IMG_GRID, "🧬", "Advanced analytics")
@@ -1689,6 +1776,7 @@ with tabs[5]:
         else:
             st.info("Not enough numeric columns for correlation diagnostics.")
 
+    render_strategy_panel()
     st.markdown("### Residual Stream")
     if not predictions_df.empty:
         residual_view = predictions_df[[timestamp_col, "residual", "absolute_error", "interval_covered"]].tail(chart_window)
