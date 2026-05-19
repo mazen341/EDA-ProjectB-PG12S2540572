@@ -4823,7 +4823,6 @@ best_model = str(comparison_df.iloc[0]["model"]) if not comparison_df.empty else
 
 # Hero
 mode_copy = {
-    "Live Command Website": "A big, alive command-center website for fast decisions, forecasting, system status, and project evidence.",
     "Visual 3D Experience": "A visual-first website with more images, moving energy flows, and a 3D-style digital twin.",
     "Engineering Workbench": "A technical workspace for data quality, features, models, diagnostics, residuals, and correlations.",
     "Student Evidence Center": "A rubric-friendly representation that makes grading evidence easy to find.",
