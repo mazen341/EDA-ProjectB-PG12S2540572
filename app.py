@@ -95,16 +95,17 @@ IMG_EXPORT = "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=for
 IMG_DIAGRAMS = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1100&q=80"
 SECTION_OPTIONS = [
     "🏠 Home",
-    "🔴 Live Telemetry",
+    "🔴 Live",
     "📊 Forecasting",
-    "🧩 Images + 3D",
-    "🧹 Data Pipeline",
     "🤖 Models",
+    "🔬 Comparison",
     "🧬 Advanced",
-    "🛠️ Technical Diagrams",
+    "🧹 Data",
+    "🧩 Visual",
+    "🛠️ Diagrams",
     "🕹️ Simulator",
-    "🔬 Comparison Lab",
     "📤 Export",
+    "ℹ️ About",
 ]
 
 AI_GRADER_PROMPT_TEMPLATE = """SYSTEM:
@@ -1671,6 +1672,92 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             padding:.4rem .8rem;
             margin:.3rem 0 .6rem;
         }}
+
+        /* ----- Breadcrumb + page section header ----- */
+        .breadcrumb {{
+            display:flex; align-items:center; flex-wrap:wrap; gap:.45rem;
+            margin:.3rem 0 .55rem;
+            font-size:.82rem;
+            color:var(--muted);
+        }}
+        .crumb-home {{ color:var(--cyan); text-decoration:none; font-weight:900; }}
+        .crumb-home:hover {{ text-decoration:underline; }}
+        .crumb-sep {{ color:var(--muted); opacity:.7; }}
+        .crumb-current {{ color:var(--text); font-weight:1000; }}
+        .crumb-sub {{ color:var(--muted); opacity:.85; }}
+
+        .section-hero {{
+            display:flex; gap:1rem; align-items:center;
+            padding:1rem 1.2rem;
+            border:1px solid var(--border);
+            border-radius:22px;
+            background:
+                radial-gradient(circle at 88% 0%, rgba(34,211,238,.18), transparent 50%),
+                linear-gradient(145deg, var(--card), rgba(2,6,23,.74));
+            box-shadow:0 14px 36px rgba(0,0,0,.26);
+            margin:.4rem 0 .9rem;
+            position:relative;
+            overflow:hidden;
+        }}
+        .section-hero-icon {{
+            font-size:2.4rem; line-height:1;
+            display:flex; align-items:center; justify-content:center;
+            width:64px; height:64px;
+            border-radius:18px;
+            background:linear-gradient(135deg, var(--gold), var(--green));
+            color:#06121f;
+            box-shadow:0 12px 30px rgba(251,191,36,.22);
+        }}
+        .section-hero-text h2 {{
+            margin:0; font-size:1.55rem; font-weight:1000; letter-spacing:-.025em;
+            color:var(--text)!important;
+        }}
+        .section-hero-text p {{
+            margin:.2rem 0 0; color:var(--muted); font-size:.92rem; max-width:880px; line-height:1.5;
+        }}
+
+        /* ----- Real-website footer ----- */
+        .site-footer {{
+            margin-top:1.6rem;
+            padding:1.1rem 1.2rem;
+            border-radius:22px;
+            border:1px solid var(--border);
+            background:linear-gradient(145deg, rgba(2,6,23,.85), rgba(8,18,32,.78));
+            color:var(--muted);
+            font-size:.85rem;
+            display:grid;
+            grid-template-columns: 1.4fr 1fr 1fr 1fr;
+            gap:1.1rem;
+            box-shadow:0 14px 36px rgba(0,0,0,.26);
+        }}
+        .site-footer h5 {{
+            margin:0 0 .35rem 0; color:var(--text)!important; font-size:.92rem; font-weight:1000;
+        }}
+        .site-footer a {{ color:var(--cyan); text-decoration:none; font-weight:900; }}
+        .site-footer a:hover {{ text-decoration:underline; }}
+        .footer-bottom {{
+            grid-column: 1 / -1;
+            border-top:1px solid var(--border);
+            margin-top:.7rem; padding-top:.65rem;
+            display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;
+            color:var(--muted); font-size:.78rem;
+        }}
+        @media (max-width: 900px) {{
+            .site-footer {{ grid-template-columns: 1fr 1fr; }}
+        }}
+        @media (max-width: 560px) {{
+            .site-footer {{ grid-template-columns: 1fr; }}
+        }}
+
+        /* ----- Cleaner Streamlit nav buttons (used for the top navbar) ----- */
+        .stApp [data-testid="stHorizontalBlock"] button[kind="secondary"],
+        .stApp [data-testid="stHorizontalBlock"] button[kind="primary"] {{
+            border-radius:14px!important;
+            font-weight:900!important;
+            font-size:.85rem!important;
+            padding:.55rem .35rem!important;
+            min-height:44px;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -2332,6 +2419,29 @@ def render_all_in_one_recommendations(comparison_df: pd.DataFrame, predictions_d
 
 
 def tab_hero(title: str, copy: str, img_url: str, symbol: str, kicker: str = "Section overview"):
+    # Breadcrumb above the hero — real-website pattern.
+    # Strip the leading emoji from the title for the breadcrumb-current label.
+    parts = title.split(maxsplit=1)
+    crumb_label = parts[1] if len(parts) == 2 else title
+    is_home = title.strip().startswith("🏠")
+    if is_home:
+        crumb_html = (
+            f'<div class="breadcrumb">'
+            f'<span class="crumb-current">🏠 Home</span>'
+            f'<span class="crumb-sub"> · {kicker}</span>'
+            f'</div>'
+        )
+    else:
+        crumb_html = (
+            f'<div class="breadcrumb">'
+            f'<span class="crumb-home">🏠 Home</span>'
+            f'<span class="crumb-sep">›</span>'
+            f'<span class="crumb-current">{title}</span>'
+            f'<span class="crumb-sub"> · {kicker}</span>'
+            f'</div>'
+        )
+    st.markdown(crumb_html, unsafe_allow_html=True)
+
     st.markdown(
         f"""
         <div class="tab-hero" style="background-image:url('{img_url}')">
@@ -2665,39 +2775,41 @@ def render_technical_feature_cards():
 
 
 def render_section_navigation():
-    """Fast, compact navigation.
+    """Single, clean horizontal navbar — the only main navigation surface.
 
-    Users can access every section quickly from one button grid.
-    The sidebar also has a dropdown quick-access selector.
+    Renders all section buttons in one row of `st.columns` (wraps responsively on
+    narrow screens because each column is its own button). Sidebar selectbox
+    mirrors this state, so the two stay in sync.
     """
     if "selected_page" not in st.session_state:
         st.session_state["selected_page"] = "🏠 Home"
 
-    st.markdown(
-        """
-        <div class="panel" style="margin:.45rem 0 .7rem 0;">
-            <div class="section-title">⚡ Quick Access</div>
-            <div class="nav-help-box">
-                Choose any section below. This is the only main navigation area, designed for fast access.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    # Compact navbar header — no separate "Quick Access" panel or info banner.
+    n = len(SECTION_OPTIONS)
+    cols = st.columns(n)
+    for col, page in zip(cols, SECTION_OPTIONS):
+        with col:
+            active = page == st.session_state.get("selected_page", "🏠 Home")
+            label = f"● {page}" if active else page
+            btn_type = "primary" if active else "secondary"
+            if st.button(label, key=f"nav_{page}", use_container_width=True, type=btn_type):
+                st.session_state["selected_page"] = page
+
+    return st.session_state.get("selected_page", "🏠 Home")
+
+
+def render_breadcrumb(page_label: str, page_subtitle: str = "") -> None:
+    """Small breadcrumb shown at the very top of each section."""
+    crumb_html = (
+        f'<div class="breadcrumb">'
+        f'<a href="#" onclick="return false;" class="crumb-home">🏠 Home</a>'
+        f'<span class="crumb-sep">›</span>'
+        f'<span class="crumb-current">{page_label}</span>'
     )
-
-    rows = [SECTION_OPTIONS[:5], SECTION_OPTIONS[5:]]
-    for row_i, row in enumerate(rows):
-        cols = st.columns(len(row))
-        for col, page in zip(cols, row):
-            with col:
-                active = page == st.session_state.get("selected_page", "🏠 Home")
-                label = f"✅ {page}" if active else page
-                if st.button(label, key=f"quick_nav_{row_i}_{page}", use_container_width=True):
-                    st.session_state["selected_page"] = page
-
-    selected = st.session_state.get("selected_page", "🏠 Home")
-    st.info(f"Current section: {selected}")
-    return selected
+    if page_subtitle:
+        crumb_html += f'<span class="crumb-sub"> · {page_subtitle}</span>'
+    crumb_html += '</div>'
+    st.markdown(crumb_html, unsafe_allow_html=True)
 
 
 def render_hourglass_loader(message: str, pct: int):
@@ -3844,15 +3956,16 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="sidebar-section">⚡ Quick Access</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-section">🧭 Jump to Section</div>', unsafe_allow_html=True)
     current_page = st.session_state.get("selected_page", "🏠 Home")
     quick_idx = SECTION_OPTIONS.index(current_page) if current_page in SECTION_OPTIONS else 0
     sidebar_page_choice = st.selectbox(
-        "Go to section",
+        "Section",
         SECTION_OPTIONS,
         index=quick_idx,
         key="sidebar_page_choice",
-        help="Fast access to every page section."
+        help="Mirror of the top navbar — use either to switch sections.",
+        label_visibility="collapsed",
     )
     if sidebar_page_choice != st.session_state.get("selected_page", "🏠 Home"):
         st.session_state["selected_page"] = sidebar_page_choice
@@ -3872,7 +3985,6 @@ with st.sidebar:
     big_dashboard = st.toggle("Normal comfortable size", value=False, help="Keep off for normal readable size. Turn on only if presenting on a large screen.")
     alive_motion = st.toggle("Keep everything alive / animated", value=True)
     detailed_loading = st.toggle("Show loading timeline", value=True)
-    first_view = st.selectbox("First screen priority", ["Balanced", "Charts first", "3D visuals first", "Evidence first"], index=0)
 
     st.markdown("---")
     st.markdown('<div class="sidebar-section">🔴 Live Telemetry</div>', unsafe_allow_html=True)
@@ -4136,156 +4248,6 @@ pr_value = 87.6 if "irradiance_wm2" in filtered_df.columns else 82.4
 zero_pct = float((filtered_df[target_col] <= 0).mean() * 100) if len(filtered_df) else 0.0
 best_model = str(comparison_df.iloc[0]["model"]) if not comparison_df.empty else "N/A"
 
-# Sidebar Export and AI Grader tools — only placement changed; theme/CSS is untouched.
-dashboard_insights = [
-    "The website has user-selectable representations and a clear top project title.",
-    "The website includes moving/animated status, energy flow, and 3D-style digital twin elements.",
-    "The project evidence includes cleaning, resampling, outlier handling, features, metrics, model comparison, uncertainty and limitations.",
-]
-submission = {
-    "student": {"name": student_name, "id": student_id, "app_title": project_title},
-    "data_integrity": {
-        "dataset_source": source_label,
-        "rows_loaded": int(len(raw_df)),
-        "timestamp_column": timestamp_col,
-        "target_column": target_col,
-        "cleaning_report": cleaning_report,
-        "resampling_discussed": True,
-        "outliers_discussed": True,
-        "outlier_summary": uncertainty_summary.get("outlier_bounds", {}),
-    },
-    "feature_engineering": {
-        "baseline_features": ["lag_1", "lag_24", "rolling_mean_24", "hour", "weekend", "month"],
-        "student_added_features": feature_cols,
-        "weather_features": weather_features,
-        "feature_table_rows": int(len(model_df)),
-    },
-    "modeling_and_evaluation": {
-        "has_time_based_split": True,
-        "has_metrics_table": not comparison_df.empty,
-        "model_comparison_table": comparison_df.to_dict(orient="records"),
-        "feature_importance_table": importance_df.to_dict(orient="records") if not importance_df.empty else [],
-        "uncertainty_summary": uncertainty_summary,
-        "student_notes": modeling_note,
-    },
-    "dashboard": {
-        "has_baseline_plot": True,
-        "has_student_added_dashboard": True,
-        "has_system_photos": True,
-        "has_diagrams_and_3d": True,
-        "has_advanced_analytics": True,
-        "has_animated_loading": bool(detailed_loading),
-        "has_large_visible_tabs": True,
-        "has_what_if_simulator": True,
-        "has_all_in_one_comparison_lab": True,
-        "model_count": int(len(comparison_df)),
-        "selected_comparison_group": comparison_group,
-        "selected_rank_metric": comparison_metric,
-        "graph_types": ["line", "bar", "radar", "scatter", "histogram", "heatmap", "table", "flowchart", "interactive graphviz diagrams"],
-        "has_interactive_technical_diagrams": True,
-        "user_selectable_dashboard_representation": dashboard_mode,
-        "theme_palette": theme,
-        "insights": dashboard_insights,
-    },
-    "presentation_and_rigor": {
-        "limitations": [
-            "PV generation is sensitive to cloud cover, shading, equipment events and low-light periods.",
-            "Remote images are visual placeholders and should be replaced with original local project photos for final submission.",
-            "The local grader is an estimate when the OpenRouter API is unavailable or rate-limited.",
-        ],
-        "reproducibility_notes": [
-            "The app runs with uploaded data, local data/dataset_sample.csv, or generated demo PV data.",
-            "The model uses a chronological 80/20 split to avoid random leakage.",
-            "Submission JSON, predictions and metrics can be exported from the sidebar.",
-        ],
-    },
-}
-submission_json = json.dumps(submission, indent=2, default=safe_json_default)
-
-with st.sidebar:
-    st.markdown("---")
-    st.markdown('<div class="sidebar-section">📤 Export and AI Grader</div>', unsafe_allow_html=True)
-    with st.expander("Submission JSON + grading tools", expanded=True):
-        sidebar_api_key = ""
-        try:
-            sidebar_api_key = st.secrets.get("OPENROUTER_API_KEY", "")
-        except Exception:
-            sidebar_api_key = ""
-        sidebar_api_key = sidebar_api_key or os.environ.get("OPENROUTER_API_KEY", "")
-        sidebar_api_key = st.text_input(
-            "OpenRouter API key",
-            value=sidebar_api_key,
-            type="password",
-            key="sidebar_openrouter_api_key",
-            help="Optional. If empty or rate-limited, the local fallback grader is used.",
-        )
-
-        st.download_button(
-            "Download submission.json",
-            submission_json,
-            "submission.json",
-            "application/json",
-            use_container_width=True,
-            key="sidebar_download_submission_json",
-        )
-        if not predictions_df.empty:
-            st.download_button(
-                "Download predictions.csv",
-                predictions_df.to_csv(index=False),
-                "predictions.csv",
-                "text/csv",
-                use_container_width=True,
-                key="sidebar_download_predictions_csv",
-            )
-        if not comparison_df.empty:
-            st.download_button(
-                "Download metrics.csv",
-                comparison_df.to_csv(index=False),
-                "metrics.csv",
-                "text/csv",
-                use_container_width=True,
-                key="sidebar_download_metrics_csv",
-            )
-
-        if st.checkbox("Preview submission JSON", value=False, key="sidebar_preview_submission_json"):
-            st.json(submission)
-
-        if st.button("Run AI grader / local fallback", use_container_width=True, key="sidebar_run_ai_grader"):
-            if sidebar_api_key:
-                try:
-                    raw = call_openrouter(sidebar_api_key, submission_json)
-                    parsed = robust_json(raw)
-                    if parsed:
-                        st.session_state["ai_grade_result"] = parsed
-                        st.success("OpenRouter grader returned valid JSON.")
-                    else:
-                        st.session_state["ai_grade_result"] = local_grader(submission)
-                        st.warning("OpenRouter response was not valid JSON. Showing local fallback.")
-                except requests.HTTPError as exc:
-                    st.session_state["ai_grade_result"] = local_grader(submission)
-                    if exc.response is not None and exc.response.status_code == 429:
-                        st.warning("OpenRouter returned 429 Too Many Requests. Showing local fallback.")
-                    else:
-                        st.warning(f"OpenRouter failed: {exc}. Showing local fallback.")
-                except Exception as exc:
-                    st.session_state["ai_grade_result"] = local_grader(submission)
-                    st.warning(f"OpenRouter failed: {exc}. Showing local fallback.")
-            else:
-                st.session_state["ai_grade_result"] = local_grader(submission)
-                st.info("No API key provided. Showing local fallback grade.")
-
-        if "ai_grade_result" in st.session_state:
-            st.markdown("#### Grade result")
-            st.json(st.session_state["ai_grade_result"])
-            st.download_button(
-                "Download grade_result.json",
-                json.dumps(st.session_state["ai_grade_result"], indent=2, default=safe_json_default),
-                "grade_result.json",
-                "application/json",
-                use_container_width=True,
-                key="sidebar_download_grade_result_json",
-            )
-
 # Hero
 mode_copy = {
     "Live Command Website": "A big, alive command-center website for fast decisions, forecasting, system status, and project evidence.",
@@ -4357,103 +4319,82 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-selected_page = render_section_navigation()
-
-# First screen priority
-if first_view == "Charts first":
-    a, b = st.columns(2)
-    with a:
-        st.markdown('<div class="panel"><div class="section-title">First View: Forecast</div>', unsafe_allow_html=True)
-        show_chart(forecast_fig(filtered_df, timestamp_col, target_col, chart_window, confidence_width), filtered_df, timestamp_col, [target_col], chart_window)
-        st.markdown("</div>", unsafe_allow_html=True)
-    with b:
-        st.markdown('<div class="panel"><div class="section-title">First View: Prediction</div>', unsafe_allow_html=True)
-        show_chart(prediction_fig(predictions_df, timestamp_col, chart_window), predictions_df if not predictions_df.empty else filtered_df, timestamp_col, ["y_target", "prediction"] if not predictions_df.empty else [target_col], chart_window)
-        st.markdown("</div>", unsafe_allow_html=True)
-elif first_view == "3D visuals first":
-    a, b = st.columns(2)
-    with a:
-        visual_twin_panel()
-    with b:
-        energy_flow_panel()
-elif first_view == "Evidence first":
-    e1, e2, e3, e4 = st.columns(4)
-    e1.metric("Cleaned rows", f"{cleaning_report['rows_after_grouping_resampling']:,}")
-    e2.metric("Features", f"{len(feature_cols):,}")
-    e3.metric("Models", f"{len(comparison_df):,}")
-    e4.metric("Validation rows", f"{len(predictions_df):,}")
-
-
-# Tabs
-st.markdown('<div class="panel" style="margin:.6rem 0 .45rem 0;"><div class="section-title">📍 Open Sections</div><div class="muted">Use only the Quick Access buttons above to open sections. The sidebar stays available for all controls and buttons while each tab provides its own interactive charts, tables, simulator, comparison lab, and exports.</div></div>', unsafe_allow_html=True)
-
-if st.session_state.get("selected_page") not in SECTION_OPTIONS:
-    st.session_state["selected_page"] = "🏠 Home"
-
-# Navigation is controlled by Quick Access buttons and sidebar selector.
-selected_page = st.session_state.get("selected_page", "🏠 Home")
-
-# Show a continuously-scrolling status ticker just under the top title.
-# (Live readings were already computed earlier — right after filtered_df.)
+# --- Live ticker (always on, beneath the top title) -------------------------
 render_live_ticker(live_readings)
+
+# --- Single main navigation surface -----------------------------------------
+selected_page = render_section_navigation()
+if selected_page not in SECTION_OPTIONS:
+    selected_page = "🏠 Home"
+    st.session_state["selected_page"] = selected_page
 
 
 if selected_page == "🏠 Home":
-    tab_hero("🏠 Home", "The main command center of the website with quick status, live production trend, core visuals, and the most important plant signals in one big easy-to-find place.", IMG_HOME, "☀️", "Home dashboard")
+    tab_hero("🏠 Home", "Welcome to the Solar PV Forecasting Intelligence website. This landing page summarises live plant status and provides quick links to every section.", IMG_HOME, "☀️", "Home dashboard")
 
-    # ---- Live KPI strip (auto-updating values with delta arrows) ----
-    st.markdown(
-        f'<div class="muted" style="margin:.2rem 0 .35rem 0">'
-        f'<b>Live readings</b> · refreshing every <b>{live_interval}s</b> · '
-        f'last update <b>{datetime.now().strftime("%H:%M:%S")}</b> · tick #{live_tick}'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    # Headline live KPIs only — full live detail lives on the 🔴 Live page.
+    st.markdown(f'<div class="muted" style="margin:.2rem 0 .4rem">📡 <b>Last update</b> {datetime.now().strftime("%H:%M:%S")} · refreshing every <b>{live_interval}s</b> · tick #{live_tick}</div>', unsafe_allow_html=True)
     render_live_kpi_strip(live_readings, live_deltas)
-    render_live_secondary_strip(live_readings)
     render_live_alerts(live_readings)
-    render_live_gauges_component(live_readings)
 
-    c1, c2, c3 = st.columns([1.1, 1.1, 1.25])
+    # Two-column overview: live trend on the left, dataset production trend on the right.
+    st.markdown("### 📊 At-a-glance")
+    h1, h2 = st.columns([1, 1])
+    with h1:
+        st.markdown('<div class="muted">Live rolling telemetry (last few minutes)</div>', unsafe_allow_html=True)
+        render_live_history_chart(live_history)
+    with h2:
+        st.markdown('<div class="muted">Historical production trend (from dataset)</div>', unsafe_allow_html=True)
+        show_chart(forecast_fig(filtered_df, timestamp_col, target_col, chart_window, confidence_width), filtered_df, timestamp_col, [target_col], chart_window)
+
+    # Three visual cards row.
+    st.markdown("### 🖼️ Plant View")
+    c1, c2, c3 = st.columns([1, 1, 1.1])
     with c1:
-        st.markdown(
-            f"""
-            <div class="image-card" style="min-height:260px;background-image:url('{IMG_SOLAR_1}')">
-                <span>Solar PV Plant • Live visual context</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        st.markdown(f'<div class="image-card" style="min-height:240px;background-image:url(\'{IMG_SOLAR_1}\')"><span>Solar PV Plant</span></div>', unsafe_allow_html=True)
     with c2:
         energy_flow_panel()
     with c3:
         visual_twin_panel()
 
-    st.markdown("### 📈 Live Rolling Telemetry (last few minutes)")
-    render_live_history_chart(live_history)
+    # Section quick-jump cards — like a real homepage's "explore the site" tiles.
+    st.markdown("### 🧭 Explore the Website")
+    jump_targets = [
+        ("🔴 Live",        "Full live SCADA-style view"),
+        ("📊 Forecasting", "Forecast vs actual, weather context"),
+        ("🤖 Models",      "Leaderboard, importance, uncertainty"),
+        ("🔬 Comparison",  "All-in-one model diagnostics"),
+        ("🧬 Advanced",    "Anomalies, correlations, profiles"),
+        ("📤 Export",      "Submission JSON, predictions, grader"),
+    ]
+    jcols = st.columns(len(jump_targets))
+    for col, (target, caption) in zip(jcols, jump_targets):
+        with col:
+            if st.button(target, key=f"home_jump_{target}", use_container_width=True):
+                st.session_state["selected_page"] = target
+                st.rerun()
+            st.caption(caption)
 
-    st.markdown("### Live Production Trend (from dataset)")
-    show_chart(forecast_fig(filtered_df, timestamp_col, target_col, chart_window, confidence_width), filtered_df, timestamp_col, [target_col], chart_window)
+    # Comparison + tips + strategy roll-up at the bottom (kept brief).
     render_comparison_panel(comparison_df, uncertainty_summary)
-    render_tips_panel()
-    render_strategy_panel()
 
     if dashboard_mode == "Student Evidence Center":
-        st.success("Important grading evidence is available in Data Pipeline, Models, Advanced, and Export tabs.")
+        st.success("Grading evidence is gathered in the Data, Models, Advanced, and Export sections.")
     elif dashboard_mode == "Engineering Workbench":
-        st.json({
-            "timestamp": timestamp_col,
-            "target": target_col,
-            "resampling": resample_rule,
-            "feature_count": len(feature_cols),
-            "weather_features": weather_features,
-            "uncertainty": uncertainty_summary,
-        })
+        with st.expander("Engineering quick-state JSON"):
+            st.json({
+                "timestamp": timestamp_col,
+                "target": target_col,
+                "resampling": resample_rule,
+                "feature_count": len(feature_cols),
+                "weather_features": weather_features,
+                "uncertainty": uncertainty_summary,
+            })
 
-if selected_page == "🔴 Live Telemetry":
+if selected_page == "🔴 Live":
     tab_hero(
         "🔴 Live Telemetry",
-        "Real-time plant signals: power, temperature, irradiance, voltage, current, frequency, battery state of charge, inverter temperature, efficiency and energy yield — all updating continuously with rolling charts and gauges.",
+        "Real-time plant signals updating continuously. Power, weather, electrical, and battery data are split across tabs for easy scanning.",
         IMG_CONTROL,
         "🔴",
         "Live SCADA-style view",
@@ -4472,158 +4413,175 @@ if selected_page == "🔴 Live Telemetry":
         unsafe_allow_html=True,
     )
 
-    st.markdown("## 📡 Primary Plant Signals")
-    render_live_kpi_strip(live_readings, live_deltas)
+    live_tab_overview, live_tab_charts, live_tab_table, live_tab_alerts = st.tabs([
+        "📡 Overview",
+        "📈 Per-Signal Charts",
+        "🧾 Readings Table",
+        "⚠️ Alerts",
+    ])
 
-    st.markdown("## 🌡️ Weather & Electrical Detail")
-    render_live_secondary_strip(live_readings)
+    with live_tab_overview:
+        st.markdown("#### Primary Plant Signals")
+        render_live_kpi_strip(live_readings, live_deltas)
+        st.markdown("#### Weather & Electrical Detail")
+        render_live_secondary_strip(live_readings)
+        st.markdown("#### Live Gauges")
+        render_live_gauges_component(live_readings)
+        st.markdown("#### Rolling Multi-Signal Telemetry")
+        render_live_history_chart(live_history)
 
-    st.markdown("## ⚠️ Active Alerts")
-    render_live_alerts(live_readings)
+    with live_tab_charts:
+        st.markdown("Each signal's own rolling chart. Charts grow as the live buffer fills.")
+        if not live_history.empty and len(live_history) >= 2 and PLOTLY_AVAILABLE:
+            signal_cols = [
+                ("power_kw", "Active Power (kW)", "#fbbf24"),
+                ("temperature_c", "Module Temperature (°C)", "#f87171"),
+                ("irradiance", "Irradiance (W/m²)", "#38bdf8"),
+                ("voltage_v", "DC Voltage (V)", "#22d3ee"),
+                ("frequency_hz", "Grid Frequency (Hz)", "#a78bfa"),
+                ("battery_soc_pct", "Battery SOC (%)", "#10b981"),
+                ("efficiency_pct", "Efficiency (%)", "#06b6d4"),
+            ]
+            for i in range(0, len(signal_cols), 2):
+                cc = st.columns(2)
+                for j, (col, label, color) in enumerate(signal_cols[i:i+2]):
+                    with cc[j]:
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatter(
+                            x=live_history["t"], y=live_history[col],
+                            mode="lines+markers", line=dict(color=color, width=2.5),
+                            marker=dict(size=4, color=color),
+                            fill="tozeroy", fillcolor="rgba(255,255,255,.04)",
+                            name=label,
+                        ))
+                        fig.update_layout(
+                            title=dict(text=label, font=dict(color="#F8FBFF", size=14)),
+                            height=220,
+                            margin=dict(l=8, r=8, t=36, b=8),
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)",
+                            font=dict(color="#F8FBFF", size=11),
+                            showlegend=False,
+                            xaxis=dict(showgrid=False, color="#F8FBFF"),
+                            yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,.07)", color="#F8FBFF"),
+                        )
+                        st.plotly_chart(fig, use_container_width=True, key=next_chart_key(f"livesig_{col}"))
+        else:
+            st.info("Live charts populate after a few refresh cycles. Make sure live updates are ON and wait a moment.")
 
-    st.markdown("## 🎛️ Live Gauges")
-    render_live_gauges_component(live_readings)
+    with live_tab_table:
+        st.markdown("#### Current Snapshot — all 15 live signals")
+        snapshot = pd.DataFrame([
+            {"Signal": "Active Power",          "Value": f"{live_readings['power_kw']:,.3f}",        "Unit": "kW"},
+            {"Signal": "Module Temperature",    "Value": f"{live_readings['temperature_c']:,.2f}",   "Unit": "°C"},
+            {"Signal": "Irradiance",            "Value": f"{live_readings['irradiance']:,.1f}",      "Unit": "W/m²"},
+            {"Signal": "Relative Humidity",     "Value": f"{live_readings['humidity']:,.1f}",        "Unit": "%"},
+            {"Signal": "Wind Speed",            "Value": f"{live_readings['wind_ms']:,.2f}",         "Unit": "m/s"},
+            {"Signal": "Atmospheric Pressure",  "Value": f"{live_readings['pressure_hpa']:,.2f}",    "Unit": "hPa"},
+            {"Signal": "DC Voltage",            "Value": f"{live_readings['voltage_v']:,.2f}",       "Unit": "V"},
+            {"Signal": "Current",               "Value": f"{live_readings['current_a']:,.2f}",       "Unit": "A"},
+            {"Signal": "Grid Frequency",        "Value": f"{live_readings['frequency_hz']:,.4f}",    "Unit": "Hz"},
+            {"Signal": "Power Factor",          "Value": f"{live_readings['power_factor']:.4f}",     "Unit": ""},
+            {"Signal": "Inverter Temperature",  "Value": f"{live_readings['inverter_temp_c']:,.2f}", "Unit": "°C"},
+            {"Signal": "Battery SOC",           "Value": f"{live_readings['battery_soc_pct']:,.2f}", "Unit": "%"},
+            {"Signal": "Conversion Efficiency", "Value": f"{live_readings['efficiency_pct']:,.2f}",  "Unit": "%"},
+            {"Signal": "Daily Energy Yield",    "Value": f"{live_readings['daily_energy_kwh']:,.2f}", "Unit": "kWh"},
+            {"Signal": "CO₂ Avoided (today)",   "Value": f"{live_readings['co2_avoided_kg']:,.2f}",  "Unit": "kg"},
+        ])
+        st.dataframe(snapshot, use_container_width=True, hide_index=True)
 
-    st.markdown("## 📈 Rolling Multi-Signal Telemetry")
-    render_live_history_chart(live_history)
+        st.markdown("#### Buffer Download")
+        st.download_button(
+            "📥 Download live telemetry buffer (CSV)",
+            live_history.to_csv(index=False),
+            file_name="live_telemetry_buffer.csv",
+            mime="text/csv",
+        )
 
-    # Per-signal individual mini panels.
-    st.markdown("## 🔬 Per-Signal Live Charts")
-    if not live_history.empty and len(live_history) >= 2 and PLOTLY_AVAILABLE:
-        signal_cols = [
-            ("power_kw", "Active Power (kW)", "#fbbf24"),
-            ("temperature_c", "Module Temperature (°C)", "#f87171"),
-            ("irradiance", "Irradiance (W/m²)", "#38bdf8"),
-            ("voltage_v", "DC Voltage (V)", "#22d3ee"),
-            ("frequency_hz", "Grid Frequency (Hz)", "#a78bfa"),
-            ("battery_soc_pct", "Battery SOC (%)", "#10b981"),
-            ("efficiency_pct", "Efficiency (%)", "#06b6d4"),
-        ]
-        # Layout: 2 columns × N rows.
-        for i in range(0, len(signal_cols), 2):
-            cc = st.columns(2)
-            for j, (col, label, color) in enumerate(signal_cols[i:i+2]):
-                with cc[j]:
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatter(
-                        x=live_history["t"], y=live_history[col],
-                        mode="lines+markers", line=dict(color=color, width=2.5),
-                        marker=dict(size=4, color=color),
-                        fill="tozeroy", fillcolor=f"rgba(255,255,255,.04)",
-                        name=label,
-                    ))
-                    fig.update_layout(
-                        title=dict(text=label, font=dict(color="#F8FBFF", size=14)),
-                        height=220,
-                        margin=dict(l=8, r=8, t=36, b=8),
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        font=dict(color="#F8FBFF", size=11),
-                        showlegend=False,
-                        xaxis=dict(showgrid=False, color="#F8FBFF"),
-                        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,.07)", color="#F8FBFF"),
-                    )
-                    st.plotly_chart(fig, use_container_width=True, key=next_chart_key(f"livesig_{col}"))
-    else:
-        st.info("Live charts will populate after a few refresh cycles. Make sure live updates are ON and wait a moment.")
+    with live_tab_alerts:
+        st.markdown("#### Active Operational Alerts")
+        render_live_alerts(live_readings)
+        st.markdown("Alerts fire when:")
+        st.markdown(
+            "- Inverter temperature exceeds **55 °C**\n"
+            "- Battery SOC drops below **20 %**\n"
+            "- Grid frequency deviates more than **±0.20 Hz** from 50 Hz\n"
+            "- Conversion efficiency falls below **12 %** while irradiance > 250 W/m²\n"
+            "- Power near zero with daylight irradiance > 200 W/m² (possible fault)"
+        )
 
-    st.markdown("## 🧾 Live Readings Table")
-    snapshot = pd.DataFrame([{
-        "Signal": "Active Power",       "Value": f"{live_readings['power_kw']:,.3f}",   "Unit": "kW",
-    }, {
-        "Signal": "Module Temperature", "Value": f"{live_readings['temperature_c']:,.2f}", "Unit": "°C",
-    }, {
-        "Signal": "Irradiance",         "Value": f"{live_readings['irradiance']:,.1f}", "Unit": "W/m²",
-    }, {
-        "Signal": "Relative Humidity",  "Value": f"{live_readings['humidity']:,.1f}",   "Unit": "%",
-    }, {
-        "Signal": "Wind Speed",         "Value": f"{live_readings['wind_ms']:,.2f}",    "Unit": "m/s",
-    }, {
-        "Signal": "Atmospheric Pressure","Value": f"{live_readings['pressure_hpa']:,.2f}","Unit": "hPa",
-    }, {
-        "Signal": "DC Voltage",         "Value": f"{live_readings['voltage_v']:,.2f}",  "Unit": "V",
-    }, {
-        "Signal": "Current",            "Value": f"{live_readings['current_a']:,.2f}",  "Unit": "A",
-    }, {
-        "Signal": "Grid Frequency",     "Value": f"{live_readings['frequency_hz']:,.4f}","Unit": "Hz",
-    }, {
-        "Signal": "Power Factor",       "Value": f"{live_readings['power_factor']:.4f}","Unit": "",
-    }, {
-        "Signal": "Inverter Temperature","Value": f"{live_readings['inverter_temp_c']:,.2f}","Unit": "°C",
-    }, {
-        "Signal": "Battery SOC",        "Value": f"{live_readings['battery_soc_pct']:,.2f}","Unit": "%",
-    }, {
-        "Signal": "Conversion Efficiency","Value": f"{live_readings['efficiency_pct']:,.2f}","Unit": "%",
-    }, {
-        "Signal": "Daily Energy Yield", "Value": f"{live_readings['daily_energy_kwh']:,.2f}","Unit": "kWh",
-    }, {
-        "Signal": "CO₂ Avoided (today)", "Value": f"{live_readings['co2_avoided_kg']:,.2f}","Unit": "kg",
-    }])
-    st.dataframe(snapshot, use_container_width=True, hide_index=True)
-
-    csv_buf = live_history.to_csv(index=False)
-    st.download_button(
-        "📥 Download live telemetry buffer (CSV)",
-        csv_buf,
-        file_name="live_telemetry_buffer.csv",
-        mime="text/csv",
-    )
 
 if selected_page == "📊 Forecasting":
-    tab_hero("📊 Forecasting", "This section focuses on forecasting performance, actual-versus-predicted trends, weather context, and validation signals. Everything here is designed to feel large, clear, and interactive.", IMG_FORECAST, "📈", "Forecast intelligence")
+    tab_hero("📊 Forecasting", "Forecast vs actual performance, weather context, and validation diagnostics. Adjust the chart window and confidence band from the sidebar.", IMG_FORECAST, "📈", "Forecast intelligence")
 
-    # Live snapshot at the top so forecasts can be compared against current readings.
-    st.markdown("### 🔴 Live Plant Snapshot")
-    render_live_kpi_strip(live_readings, live_deltas)
+    # Top KPIs about the forecast state.
+    fk1, fk2, fk3, fk4 = st.columns(4)
+    fk1.metric("Chart window", f"{chart_window:,} pts")
+    fk2.metric("Confidence band", f"±{confidence_width*100:.0f}%")
+    fk3.metric("Predictions", f"{len(predictions_df):,}")
+    if not predictions_df.empty:
+        fk4.metric("MAE", f"{predictions_df['absolute_error'].mean():,.2f}")
+    else:
+        fk4.metric("MAE", "—")
 
-    f1, f2 = st.columns(2)
-    with f1:
-        st.markdown('<div class="panel"><div class="section-title">Forecast Signal with User-Controlled Band</div>', unsafe_allow_html=True)
-        show_chart(forecast_fig(filtered_df, timestamp_col, target_col, chart_window, confidence_width), filtered_df, timestamp_col, [target_col], chart_window)
-        st.markdown("</div>", unsafe_allow_html=True)
-    with f2:
-        st.markdown('<div class="panel"><div class="section-title">Actual vs Predicted with 90% Interval</div>', unsafe_allow_html=True)
-        show_chart(prediction_fig(predictions_df, timestamp_col, chart_window), predictions_df if not predictions_df.empty else filtered_df, timestamp_col, ["y_target", "prediction"] if not predictions_df.empty else [target_col], chart_window)
-        st.markdown("</div>", unsafe_allow_html=True)
+    fc_tab_chart, fc_tab_weather, fc_tab_diag = st.tabs([
+        "📈 Forecast vs Actual",
+        "🌤️ Weather Context",
+        "✅ Validation Diagnostics",
+    ])
 
-    w1, w2, w3 = st.columns(3)
-    with w1:
+    with fc_tab_chart:
+        f1, f2 = st.columns(2)
+        with f1:
+            st.markdown('<div class="muted">Forecast Signal with user-controlled confidence band</div>', unsafe_allow_html=True)
+            show_chart(forecast_fig(filtered_df, timestamp_col, target_col, chart_window, confidence_width), filtered_df, timestamp_col, [target_col], chart_window)
+        with f2:
+            st.markdown('<div class="muted">Actual vs Predicted with 90% prediction interval</div>', unsafe_allow_html=True)
+            show_chart(prediction_fig(predictions_df, timestamp_col, chart_window), predictions_df if not predictions_df.empty else filtered_df, timestamp_col, ["y_target", "prediction"] if not predictions_df.empty else [target_col], chart_window)
+
+    with fc_tab_weather:
         irradiance = float(filtered_df["irradiance_wm2"].tail(96).mean()) if "irradiance_wm2" in filtered_df.columns else 782
         temperature = float(filtered_df["temperature_c"].tail(96).mean()) if "temperature_c" in filtered_df.columns else 26
         humidity = float(filtered_df["relative_humidity_pct"].tail(96).mean()) if "relative_humidity_pct" in filtered_df.columns else 46
-        st.markdown(
-            f"""
-            <div class="panel">
-                <div class="section-title">Weather Context</div>
-                <div style="font-size:3.2rem">🌤️</div>
-                <div class="kpi-value">{temperature:.1f}°C</div>
-                <div class="muted">Irradiance: {irradiance:.0f} W/m²</div>
-                <div class="muted">Humidity: {humidity:.0f}%</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with w2:
-        st.markdown('<div class="panel"><div class="section-title">Forecast Insights</div>', unsafe_allow_html=True)
+        wind = float(filtered_df["wind_speed_ms"].tail(96).mean()) if "wind_speed_ms" in filtered_df.columns else 3.2
+
+        wk1, wk2, wk3, wk4 = st.columns(4)
+        wk1.metric("🌡️ Avg Temp", f"{temperature:.1f} °C")
+        wk2.metric("☀️ Irradiance", f"{irradiance:.0f} W/m²")
+        wk3.metric("💧 Humidity", f"{humidity:.0f} %")
+        wk4.metric("💨 Wind", f"{wind:.1f} m/s")
+
+        st.markdown("#### Forecast insights")
         for icon, text_item in [
-            ("📈", "The strongest pattern is the daily solar generation cycle."),
+            ("📈", "The strongest pattern is the daily solar generation cycle. Peak production occurs near solar noon."),
             ("✅", modeling_note),
-            ("⚠️", "MAPE can rise during low-power sunrise and sunset periods."),
+            ("⚠️", "MAPE can rise during low-power sunrise and sunset periods because relative errors grow when the actual value is small."),
+            ("🌤️", "Weather features (irradiance, temperature, humidity, wind) are the strongest exogenous predictors after lag features."),
         ]:
             st.markdown(f'<div class="insight"><div class="insight-icon">{icon}</div><div>{text_item}</div></div>', unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-    with w3:
-        st.markdown('<div class="panel"><div class="section-title">Validation Diagnostics</div>', unsafe_allow_html=True)
-        if not predictions_df.empty:
-            st.metric("MAE", f"{predictions_df['absolute_error'].mean():,.2f}")
-            st.metric("Coverage", f"{predictions_df['interval_covered'].mean() * 100:,.1f}%")
-            st.metric("Max Error", f"{predictions_df['absolute_error'].max():,.2f}")
-        else:
-            st.info("Not enough prediction rows.")
-        st.markdown("</div>", unsafe_allow_html=True)
 
-if selected_page == "🧩 Images + 3D":
-    tab_hero("🧩 Images + 3D", "A visual-first gallery with larger system images, animated PV energy flow, and 3D-style floating digital twin components that make the website feel alive.", IMG_3D, "🧩", "Visual experience")
+    with fc_tab_diag:
+        if predictions_df.empty:
+            st.info("Validation diagnostics appear after a model has been trained. Pick a comparison group in the sidebar and click **⌛ Run selected comparison**.")
+        else:
+            d1, d2, d3, d4 = st.columns(4)
+            d1.metric("MAE", f"{predictions_df['absolute_error'].mean():,.2f}")
+            d2.metric("Max Error", f"{predictions_df['absolute_error'].max():,.2f}")
+            d3.metric("Coverage @ 90%", f"{predictions_df['interval_covered'].mean() * 100:,.1f}%")
+            d4.metric("Validation rows", f"{len(predictions_df):,}")
+
+            st.markdown("#### Residuals over time")
+            res_view = predictions_df[[timestamp_col, "residual"]].tail(chart_window)
+            st.line_chart(res_view.set_index(timestamp_col)["residual"])
+
+            st.markdown("#### Recent prediction rows")
+            tail_cols = [c for c in [timestamp_col, "y_target", "prediction", "residual", "absolute_error", "interval_covered"] if c in predictions_df.columns]
+            st.dataframe(predictions_df[tail_cols].tail(25), use_container_width=True, hide_index=True)
+
+
+
+if selected_page == "🧩 Visual":
+    tab_hero("🧩 Visual", "A visual-first gallery with larger system images, animated PV energy flow, and 3D-style floating digital twin components that make the website feel alive.", IMG_3D, "🧩", "Visual experience")
     st.markdown("## Visual System — Images, Diagram and 3D")
     gallery = [
         ("PV Field", IMG_SOLAR_1),
@@ -4672,103 +4630,166 @@ if selected_page == "🧩 Images + 3D":
     st.markdown("### More Interactive Diagrams")
     render_interactive_diagram_lab("images_page")
 
-if selected_page == "🧹 Data Pipeline":
-    tab_hero("🧹 Data Pipeline", "This section explains how the data moves through loading, cleaning, resampling, outlier handling, and feature engineering so everything is transparent and easy to understand.", IMG_PIPELINE, "🧹", "Data workflow")
-    st.markdown("## Data Pipeline")
-    steps = [
-        ("1. Load", f"{len(raw_df):,} rows", source_label),
-        ("2. Clean", f"{cleaning_report['rows_after_invalid_drop']:,} rows", "invalid timestamps and targets removed"),
-        ("3. Resample", resample_rule, cleaning_report["resampling_note"]),
-        ("4. Outliers", "IQR bounds", json.dumps(uncertainty_summary.get("outlier_bounds", {}))),
-        ("5. Features", f"{len(feature_cols)} features", "lag, rolling, time and weather"),
-        ("6. Validate", "80/20 split", "chronological, leakage-resistant"),
-    ]
-    step_cols = st.columns(6)
-    for col, (title, value, desc) in zip(step_cols, steps):
-        with col:
-            st.markdown(f'<div class="workflow-card"><div class="check">✓</div><b>{title}</b><br>{value}<div class="muted">{desc}</div></div>', unsafe_allow_html=True)
+if selected_page == "🧹 Data":
+    tab_hero("🧹 Data", "Data pipeline: loading, cleaning, resampling, outlier handling, feature engineering and validation split. Everything is transparent and inspectable.", IMG_PIPELINE, "🧹", "Data workflow")
 
-    st.markdown("### Dataset Audit")
-    st.dataframe(audit_dataframe(raw_df), use_container_width=True)
-    st.markdown("### Process Flowchart")
-    st.graphviz_chart(
-        """
-        digraph G {
-            graph [bgcolor="transparent", rankdir=LR]
-            node [shape=box, style="rounded,filled", color="#22d3ee", fillcolor="#101d33", fontcolor="white", penwidth=1.4]
-            edge [color="#fbbf24", fontcolor="white"]
-            A [label="Raw Data"]
-            B [label="Timestamp Parsing"]
-            C [label="Cleaning"]
-            D [label="Resampling"]
-            E [label="Outlier Handling"]
-            F [label="Feature Engineering"]
-            G [label="Train / Validation Split"]
-            H [label="Forecast Models"]
-            A -> B -> C -> D -> E -> F -> G -> H
-        }
-        """
-    )
-    st.markdown("### Cleaning Report")
-    st.json(cleaning_report)
-    st.markdown("### Feature Preview")
-    if not model_df.empty:
-        preview_cols = [timestamp_col, target_col, "y_target"] + feature_cols[:14]
-        st.dataframe(model_df[preview_cols].head(40), use_container_width=True)
-    else:
-        st.warning("No feature rows available.")
+    # Top-level KPIs about data state.
+    dk1, dk2, dk3, dk4 = st.columns(4)
+    dk1.metric("Raw rows", f"{len(raw_df):,}")
+    dk2.metric("Cleaned rows", f"{cleaning_report.get('rows_after_grouping_resampling', len(filtered_df)):,}")
+    dk3.metric("Features built", f"{len(feature_cols):,}")
+    dk4.metric("Source", source_label[:18] + ("…" if len(source_label) > 18 else ""))
+
+    data_tab_pipe, data_tab_audit, data_tab_flow, data_tab_features = st.tabs([
+        "🛠️ Pipeline Steps",
+        "🔎 Dataset Audit",
+        "🗺️ Process Flow",
+        "🧬 Feature Preview",
+    ])
+
+    with data_tab_pipe:
+        steps = [
+            ("1. Load", f"{len(raw_df):,} rows", source_label),
+            ("2. Clean", f"{cleaning_report['rows_after_invalid_drop']:,} rows", "invalid timestamps and targets removed"),
+            ("3. Resample", resample_rule, cleaning_report["resampling_note"]),
+            ("4. Outliers", "IQR bounds", json.dumps(uncertainty_summary.get("outlier_bounds", {})) or "—"),
+            ("5. Features", f"{len(feature_cols)} features", "lag, rolling, time and weather"),
+            ("6. Validate", "80/20 split", "chronological, leakage-resistant"),
+        ]
+        step_cols = st.columns(6)
+        for col, (title, value, desc) in zip(step_cols, steps):
+            with col:
+                st.markdown(f'<div class="workflow-card"><div class="check">✓</div><b>{title}</b><br>{value}<div class="muted">{desc}</div></div>', unsafe_allow_html=True)
+        with st.expander("Full cleaning report (JSON)"):
+            st.json(cleaning_report)
+
+    with data_tab_audit:
+        st.markdown("#### Column-level audit")
+        st.dataframe(audit_dataframe(raw_df), use_container_width=True, hide_index=True)
+
+    with data_tab_flow:
+        st.markdown("#### Process flowchart")
+        st.graphviz_chart(
+            """
+            digraph G {
+                graph [bgcolor="transparent", rankdir=LR]
+                node [shape=box, style="rounded,filled", color="#22d3ee", fillcolor="#101d33", fontcolor="white", penwidth=1.4]
+                edge [color="#fbbf24", fontcolor="white"]
+                A [label="Raw Data"]
+                B [label="Timestamp Parsing"]
+                C [label="Cleaning"]
+                D [label="Resampling"]
+                E [label="Outlier Handling"]
+                F [label="Feature Engineering"]
+                G [label="Train / Validation Split"]
+                H [label="Forecast Models"]
+                A -> B -> C -> D -> E -> F -> G -> H
+            }
+            """
+        )
+
+    with data_tab_features:
+        if not model_df.empty:
+            preview_cols = [timestamp_col, target_col, "y_target"] + feature_cols[:14]
+            st.markdown(f"#### First 40 rows · {len(feature_cols)} features total")
+            st.dataframe(model_df[preview_cols].head(40), use_container_width=True, hide_index=True)
+            render_table_download(model_df[preview_cols].head(200), "feature_preview")
+        else:
+            st.warning("No feature rows available — the data may be too short after resampling.")
+
 
 if selected_page == "🤖 Models":
-    tab_hero("🤖 Models", "Model comparison, metrics, feature importance, and uncertainty are displayed here in a bigger and more professional representation for easier interpretation.", IMG_MODEL, "🤖", "Model evidence")
-    st.markdown("## Models and Interpretability")
+    tab_hero("🤖 Models", "Model leaderboard, feature importance, and uncertainty diagnostics — organized into tabs for clean comparison.", IMG_MODEL, "🤖", "Model evidence")
+
     if comparison_df.empty:
         st.warning(modeling_note)
+        st.info("Open the sidebar, pick a comparison group, then click **⌛ Run selected comparison** to populate this section.")
     else:
-        st.markdown("### Full Metrics Table")
-        st.dataframe(comparison_df, use_container_width=True)
-        a, b = st.columns([1, 1])
-        with a:
-            st.markdown("### Feature Importance")
-            st.dataframe(importance_df, use_container_width=True)
-        with b:
-            if PLOTLY_AVAILABLE and not importance_df.empty:
-                fig = go.Figure(go.Bar(x=importance_df["importance_mean"], y=importance_df["feature"], orientation="h"))
-                fig.update_layout(template="plotly_dark", height=430, margin=dict(l=10, r=10, t=20, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                render_plotly_chart(fig, "chart")
-            elif not importance_df.empty:
-                st.bar_chart(importance_df.set_index("feature")["importance_mean"])
-                render_table_download(importance_df, "feature_importance")
-        st.markdown("### Uncertainty")
-        st.json(uncertainty_summary)
-        render_comparison_panel(comparison_df, uncertainty_summary)
-        render_tips_panel()
+        # Top KPIs about the model state.
+        best = comparison_df.iloc[0]
+        mk1, mk2, mk3, mk4 = st.columns(4)
+        mk1.metric("Best model", str(best.get("model", "—")))
+        mk2.metric("Best MAPE", f"{best.get('MAPE_pct', float('nan')):.2f}%" if "MAPE_pct" in best else "—")
+        mk3.metric("Best RMSE", f"{best.get('RMSE', float('nan')):,.2f}" if "RMSE" in best else "—")
+        mk4.metric("Models trained", f"{len(comparison_df):,}")
+
+        models_tab_lb, models_tab_imp, models_tab_unc, models_tab_summary = st.tabs([
+            "🏆 Leaderboard",
+            "🔍 Feature Importance",
+            "📐 Uncertainty",
+            "📝 Summary & Tips",
+        ])
+
+        with models_tab_lb:
+            st.markdown("#### Full Metrics Table")
+            st.dataframe(comparison_df, use_container_width=True)
+            render_table_download(comparison_df, "model_leaderboard")
+
+        with models_tab_imp:
+            if importance_df.empty:
+                st.info("Feature importance is calculated when models with permutation support are trained. Try a richer comparison group.")
+            else:
+                a, b = st.columns([1, 1.2])
+                with a:
+                    st.markdown("#### Importance Table")
+                    st.dataframe(importance_df, use_container_width=True)
+                    render_table_download(importance_df, "feature_importance")
+                with b:
+                    st.markdown("#### Importance Chart")
+                    if PLOTLY_AVAILABLE:
+                        fig = go.Figure(go.Bar(
+                            x=importance_df["importance_mean"], y=importance_df["feature"],
+                            orientation="h", marker=dict(color="#fbbf24"),
+                        ))
+                        fig.update_layout(template="plotly_dark", height=430, margin=dict(l=10, r=10, t=20, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+                        render_plotly_chart(fig, "chart")
+                    else:
+                        st.bar_chart(importance_df.set_index("feature")["importance_mean"])
+
+        with models_tab_unc:
+            st.markdown("#### Uncertainty Summary")
+            st.json(uncertainty_summary)
+            if uncertainty_summary.get("outlier_bounds"):
+                st.caption("Outlier bounds are computed from IQR with the sensitivity you set in the sidebar.")
+
+        with models_tab_summary:
+            render_comparison_panel(comparison_df, uncertainty_summary)
+            render_tips_panel()
+
 
 if selected_page == "🧬 Advanced":
-    tab_hero("🧬 Advanced", "Advanced analytics includes anomaly detection, correlations, daily production patterns, and residual behavior to help the user explore the system deeply.", IMG_ADVANCED, "🧬", "Advanced analytics")
-    st.markdown("## Advanced Analytics")
+    tab_hero("🧬 Advanced", "Advanced analytics: daily production profiles, anomaly scan, correlation diagnostics, and residual behaviour.", IMG_ADVANCED, "🧬", "Advanced analytics")
+
     a1, a2, a3, a4 = st.columns(4)
     a1.metric("Features", f"{len(feature_cols):,}")
     a2.metric("Weather features", f"{len(weather_features):,}")
     a3.metric("Model rows", f"{len(model_df):,}")
     a4.metric("Anomaly sensitivity", f"{anomaly_sensitivity:.1f}× IQR")
 
-    left, right = st.columns([1.2, 1])
-    with left:
-        st.markdown("### Daily Production Profile")
+    adv_tab_profile, adv_tab_anom, adv_tab_corr, adv_tab_res = st.tabs([
+        "🌞 Daily Profile",
+        "🚨 Anomaly Scan",
+        "🔗 Correlations",
+        "📉 Residuals",
+    ])
+
+    with adv_tab_profile:
+        st.markdown("#### Hourly mean and max production")
         profile = filtered_df.copy()
         profile["hour"] = profile[timestamp_col].dt.hour
         hourly = profile.groupby("hour", as_index=False)[target_col].agg(["mean", "max", "std"]).reset_index()
         if PLOTLY_AVAILABLE and not hourly.empty:
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=hourly["hour"], y=hourly["mean"], mode="lines+markers", name="Mean"))
-            fig.add_trace(go.Scatter(x=hourly["hour"], y=hourly["max"], mode="lines", name="Max"))
+            fig.add_trace(go.Scatter(x=hourly["hour"], y=hourly["mean"], mode="lines+markers", name="Mean", line=dict(color="#fbbf24")))
+            fig.add_trace(go.Scatter(x=hourly["hour"], y=hourly["max"], mode="lines", name="Max", line=dict(color="#38bdf8")))
             fig.update_layout(template="plotly_dark", height=360, margin=dict(l=10, r=10, t=25, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
             render_plotly_chart(fig, "chart")
         elif not hourly.empty:
             st.line_chart(hourly.set_index("hour")[["mean", "max"]])
-            render_table_download(hourly, "daily_profile")
-    with right:
-        st.markdown("### Anomaly Scan")
+        render_table_download(hourly, "daily_profile")
+
+    with adv_tab_anom:
+        st.markdown("#### IQR-based anomaly scan")
         target_series = filtered_df[target_col].dropna().astype(float)
         q1 = target_series.quantile(.25) if len(target_series) else 0
         q3 = target_series.quantile(.75) if len(target_series) else 0
@@ -4776,37 +4797,47 @@ if selected_page == "🧬 Advanced":
         low = max(0, q1 - anomaly_sensitivity * iqr)
         high = q3 + anomaly_sensitivity * iqr
         anomaly_df = filtered_df[(filtered_df[target_col] < low) | (filtered_df[target_col] > high)].copy()
-        st.metric("Detected anomalies", f"{len(anomaly_df):,}")
-        st.metric("Lower bound", f"{low:,.2f}")
-        st.metric("Upper bound", f"{high:,.2f}")
-        st.dataframe(anomaly_df[[timestamp_col, target_col]].tail(20), use_container_width=True)
+        an1, an2, an3 = st.columns(3)
+        an1.metric("Detected anomalies", f"{len(anomaly_df):,}")
+        an2.metric("Lower bound", f"{low:,.2f}")
+        an3.metric("Upper bound", f"{high:,.2f}")
+        st.markdown("#### Most recent anomalies")
+        st.dataframe(anomaly_df[[timestamp_col, target_col]].tail(40), use_container_width=True, hide_index=True)
+        render_table_download(anomaly_df[[timestamp_col, target_col]], "anomalies")
 
-    if show_correlation:
-        st.markdown("### Correlation Diagnostics")
-        numeric = filtered_df.select_dtypes(include=[np.number]).copy()
-        if len(numeric.columns) >= 2:
-            corr = numeric.corr(numeric_only=True).round(3)
-            st.dataframe(corr, use_container_width=True)
-            if PLOTLY_AVAILABLE:
-                fig = go.Figure(data=go.Heatmap(z=corr.values, x=corr.columns, y=corr.index, colorscale="Viridis"))
-                fig.update_layout(template="plotly_dark", height=520, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)")
-                render_plotly_chart(fig, "chart")
+    with adv_tab_corr:
+        if not show_correlation:
+            st.info("Correlation diagnostics are turned off. Enable **Show correlation diagnostics** in the sidebar.")
         else:
-            st.info("Not enough numeric columns for correlation diagnostics.")
+            numeric = filtered_df.select_dtypes(include=[np.number]).copy()
+            if len(numeric.columns) >= 2:
+                corr = numeric.corr(numeric_only=True).round(3)
+                st.markdown("#### Correlation matrix")
+                st.dataframe(corr, use_container_width=True)
+                if PLOTLY_AVAILABLE:
+                    fig = go.Figure(data=go.Heatmap(z=corr.values, x=corr.columns, y=corr.index, colorscale="Viridis"))
+                    fig.update_layout(template="plotly_dark", height=520, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)")
+                    render_plotly_chart(fig, "chart")
+            else:
+                st.info("Not enough numeric columns for correlation diagnostics.")
+
+    with adv_tab_res:
+        if predictions_df.empty:
+            st.info("Residual stream appears after prediction rows are available. Train a model first.")
+        else:
+            residual_view = predictions_df[[timestamp_col, "residual", "absolute_error", "interval_covered"]].tail(chart_window)
+            st.markdown("#### Residuals and absolute error")
+            st.line_chart(residual_view.set_index(timestamp_col)[["residual", "absolute_error"]])
+            st.markdown("#### Recent residuals")
+            st.dataframe(residual_view.tail(30), use_container_width=True, hide_index=True)
+            render_table_download(residual_view, "residual_stream")
 
     render_strategy_panel()
-    st.markdown("### Residual Stream")
-    if not predictions_df.empty:
-        residual_view = predictions_df[[timestamp_col, "residual", "absolute_error", "interval_covered"]].tail(chart_window)
-        st.line_chart(residual_view.set_index(timestamp_col)[["residual", "absolute_error"]])
-        render_table_download(residual_view, "residual_stream")
-        st.dataframe(residual_view.tail(30), use_container_width=True)
-    else:
-        st.info("Residual stream appears after prediction rows are available.")
 
 
-if selected_page == "🛠️ Technical Diagrams":
-    tab_hero("🛠️ Technical Diagrams", "Interactive architecture diagrams, data pipelines, model workflows, decision flows, and downloadable flowchart source files for technical explanation.", IMG_DIAGRAMS, "🛠️", "Interactive diagrams")
+
+if selected_page == "🛠️ Diagrams":
+    tab_hero("🛠️ Diagrams", "Interactive architecture diagrams, data pipelines, model workflows, decision flows, and downloadable flowchart source files for technical explanation.", IMG_DIAGRAMS, "🛠️", "Interactive diagrams")
     st.markdown("## Technical Diagrams and Interactive Flowcharts")
     render_technical_feature_cards()
     render_interactive_diagram_lab("technical_page")
@@ -4857,8 +4888,8 @@ if selected_page == "🕹️ Simulator":
         st.info("No data available for simulator.")
 
 
-if selected_page == "🔬 Comparison Lab":
-    tab_hero("🔬 All-in-One Comparison Lab", "Everything needed for model and graph comparison is in one place: leaderboard, metric bars, radar view, actual-vs-predicted scatter, residual distribution, time-based error analysis, feature correlation, and expert recommendations.", IMG_COMPARE, "🔬", "All tools in one")
+if selected_page == "🔬 Comparison":
+    tab_hero("🔬 Comparison", "Everything needed for model and graph comparison is in one place: leaderboard, metric bars, radar view, actual-vs-predicted scatter, residual distribution, time-based error analysis, feature correlation, and expert recommendations.", IMG_COMPARE, "🔬", "All tools in one")
     st.markdown("## All-in-One Model, Graph and Diagnostic Comparison")
 
     lab_mode = st.selectbox(
@@ -4915,22 +4946,234 @@ if selected_page == "🔬 Comparison Lab":
 
 
 if selected_page == "📤 Export":
-    tab_hero("📤 Export", "Export and AI grading controls are now kept in the sidebar so they are accessible from every page.", IMG_EXPORT, "📤", "Export and grading")
+    tab_hero("📤 Export", "All final outputs are organized here: exports, JSON evidence, predictions, metrics, and AI grading fallback. This makes the project easy to review and submit.", IMG_EXPORT, "📤", "Export and grading")
     st.markdown("## Export and AI Grader")
-    st.info("Use the sidebar panel named **Export and AI Grader** to preview the submission JSON, enter the OpenRouter API key, run the AI grader with 429 fallback, and download submission, predictions, metrics, and grade results.")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("Submission JSON", "Sidebar")
-    with c2:
-        st.metric("AI grader", "Sidebar + fallback")
-    with c3:
-        st.metric("Downloads", "Sidebar")
+    dashboard_insights = [
+        "The website has user-selectable representations and a clear top project title.",
+        "The website includes moving/animated status, energy flow, and 3D-style digital twin elements.",
+        "The project evidence includes cleaning, resampling, outlier handling, features, metrics, model comparison, uncertainty and limitations.",
+    ]
+    submission = {
+        "student": {"name": student_name, "id": student_id, "app_title": project_title},
+        "data_integrity": {
+            "dataset_source": source_label,
+            "rows_loaded": int(len(raw_df)),
+            "timestamp_column": timestamp_col,
+            "target_column": target_col,
+            "cleaning_report": cleaning_report,
+            "resampling_discussed": True,
+            "outliers_discussed": True,
+            "outlier_summary": uncertainty_summary.get("outlier_bounds", {}),
+        },
+        "feature_engineering": {
+            "baseline_features": ["lag_1", "lag_24", "rolling_mean_24", "hour", "weekend", "month"],
+            "student_added_features": feature_cols,
+            "weather_features": weather_features,
+            "feature_table_rows": int(len(model_df)),
+        },
+        "modeling_and_evaluation": {
+            "has_time_based_split": True,
+            "has_metrics_table": not comparison_df.empty,
+            "model_comparison_table": comparison_df.to_dict(orient="records"),
+            "feature_importance_table": importance_df.to_dict(orient="records") if not importance_df.empty else [],
+            "uncertainty_summary": uncertainty_summary,
+            "student_notes": modeling_note,
+        },
+        "dashboard": {
+            "has_baseline_plot": True,
+            "has_student_added_dashboard": True,
+            "has_system_photos": True,
+            "has_diagrams_and_3d": True,
+            "has_advanced_analytics": True,
+            "has_animated_loading": bool(detailed_loading),
+            "has_large_visible_tabs": True,
+            "has_what_if_simulator": True,
+            "has_all_in_one_comparison_lab": True,
+            "model_count": int(len(comparison_df)),
+            "selected_comparison_group": comparison_group,
+            "selected_rank_metric": comparison_metric,
+            "graph_types": ["line", "bar", "radar", "scatter", "histogram", "heatmap", "table", "flowchart", "interactive graphviz diagrams"],
+            "has_interactive_technical_diagrams": True,
+            "user_selectable_dashboard_representation": dashboard_mode,
+            "theme_palette": theme,
+            "insights": dashboard_insights,
+        },
+        "presentation_and_rigor": {
+            "limitations": [
+                "PV generation is sensitive to cloud cover, shading, equipment events and low-light periods.",
+                "Remote images are visual placeholders and should be replaced with original local project photos for final submission.",
+                "The local grader is an estimate when the OpenRouter API is unavailable or rate-limited.",
+            ],
+            "reproducibility_notes": [
+                "The app runs with uploaded data, local data/dataset_sample.csv, or generated demo PV data.",
+                "The model uses a chronological 80/20 split to avoid random leakage.",
+                "Submission JSON, predictions and metrics can be exported from this tab.",
+            ],
+        },
+    }
+    submission_json = json.dumps(submission, indent=2, default=safe_json_default)
+    st.download_button("Download submission.json", submission_json, "submission.json", "application/json")
+    st.download_button("Download predictions.csv", predictions_df.to_csv(index=False), "predictions.csv", "text/csv")
+    st.download_button("Download metrics.csv", comparison_df.to_csv(index=False), "metrics.csv", "text/csv")
 
+    with st.expander("Preview submission JSON"):
+        st.json(submission)
+
+    st.markdown("### AI grader with 429 fallback")
+    api_key = ""
+    try:
+        api_key = st.secrets.get("OPENROUTER_API_KEY", "")
+    except Exception:
+        api_key = ""
+    api_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
+    api_key = st.text_input("OpenRouter API key", value=api_key, type="password")
+
+    if st.button("Run AI grader / local fallback"):
+        if api_key:
+            try:
+                raw = call_openrouter(api_key, submission_json)
+                parsed = robust_json(raw)
+                if parsed:
+                    st.success("OpenRouter grader returned valid JSON.")
+                    st.json(parsed)
+                else:
+                    st.warning("OpenRouter response was not valid JSON. Showing local fallback.")
+                    st.json(local_grader(submission))
+            except requests.HTTPError as exc:
+                if exc.response is not None and exc.response.status_code == 429:
+                    st.warning("OpenRouter returned 429 Too Many Requests. Showing local fallback.")
+                else:
+                    st.warning(f"OpenRouter failed: {exc}. Showing local fallback.")
+                st.json(local_grader(submission))
+            except Exception as exc:
+                st.warning(f"OpenRouter failed: {exc}. Showing local fallback.")
+                st.json(local_grader(submission))
+        else:
+            st.info("No API key provided. Showing local fallback grade.")
+            st.json(local_grader(submission))
+
+
+if selected_page == "ℹ️ About":
+    tab_hero(
+        "ℹ️ About",
+        "Project overview, technical stack, credits, and how to use this website. Everything you need to understand and reproduce the work in one place.",
+        IMG_HOME, "ℹ️", "Project information",
+    )
+
+    about_tab_proj, about_tab_stack, about_tab_help, about_tab_credits = st.tabs([
+        "📄 Project",
+        "🧰 Tech Stack",
+        "❓ How to Use",
+        "🏷️ Credits",
+    ])
+
+    with about_tab_proj:
+        ab1, ab2, ab3 = st.columns([1.4, 1, 1])
+        with ab1:
+            st.markdown(f"#### {project_title}")
+            st.markdown(
+                "This website is an interactive Solar PV forecasting intelligence dashboard. "
+                "It loads real or demonstration time-series data, cleans and engineers features, "
+                "trains and compares regression models, and presents the results as a live, "
+                "professional control surface."
+            )
+            st.markdown(
+                "It is also a **live SCADA-style simulation**: power, temperature, irradiance, "
+                "voltage, frequency, battery state of charge and other plant signals refresh "
+                "continuously to give the feel of a real operating control room."
+            )
+        with ab2:
+            st.metric("Student", student_name)
+            st.metric("Student ID", student_id)
+            st.metric("Dataset rows", f"{len(raw_df):,}")
+        with ab3:
+            st.metric("Live signals", "15")
+            st.metric("Sections", str(len(SECTION_OPTIONS)))
+            st.metric("Models trained", f"{len(comparison_df):,}")
+
+    with about_tab_stack:
+        st.markdown("#### Libraries and capabilities")
+        stack_rows = [
+            ("Streamlit",            "Web framework + interactive widgets",                       "✅"),
+            ("Plotly",               "Interactive charts (line, bar, radar, scatter, heatmap)",   "✅" if PLOTLY_AVAILABLE else "⚠️ optional"),
+            ("scikit-learn",         "Regression models, permutation importance, validation",     "✅" if SKLEARN_AVAILABLE else "⚠️ optional"),
+            ("streamlit-autorefresh","Live auto-refresh ticker",                                  "✅" if AUTOREFRESH_AVAILABLE else "⚠️ optional"),
+            ("pandas + numpy",       "Time-series engineering, cleaning, resampling",             "✅"),
+            ("Graphviz",             "Technical flow diagrams (PV → inverter → grid)",            "✅"),
+            ("OpenRouter API",       "AI grader (local fallback included)",                       "ℹ️ optional"),
+        ]
+        st.dataframe(
+            pd.DataFrame(stack_rows, columns=["Library", "Used for", "Status"]),
+            use_container_width=True, hide_index=True,
+        )
+
+    with about_tab_help:
+        st.markdown(
+            "#### Quick start\n"
+            "1. **Pick a section** from the top navbar (Home, Live, Forecasting, Models, etc).\n"
+            "2. **Adjust parameters** in the left sidebar — data path, resampling rule, chart window, refresh interval.\n"
+            "3. **Train models**: in the sidebar choose a comparison group (e.g. *Fast comparison*) then press **⌛ Run selected comparison**.\n"
+            "4. **Explore**: Models → Leaderboard, Comparison → diagnostics, Advanced → anomalies and correlations.\n"
+            "5. **Export**: Export tab gives submission JSON, predictions CSV, metrics CSV, and an AI grader."
+        )
+        st.markdown(
+            "#### Live mode\n"
+            "Toggle **Live updates ON** in the sidebar to auto-refresh the page every N seconds. The animated "
+            "control surface tweens values smoothly between refreshes so the website feels truly real-time."
+        )
+        st.markdown(
+            "#### Loading your own data\n"
+            "Upload a CSV/XLSX/JSON in the sidebar, or place a file at `data/dataset_sample.csv`. The app expects "
+            "a timestamp column and at least one numeric target column. You can choose which columns to use from "
+            "the controls under the top title."
+        )
+
+    with about_tab_credits:
+        st.markdown(
+            f"**Project:** {project_title}\n\n"
+            f"**Student:** {student_name} · **ID:** {student_id}\n\n"
+            "**Built with:** Streamlit, Plotly, scikit-learn, pandas, numpy, Graphviz.\n\n"
+            "**Image credits:** Unsplash (free editorial license) — replace with original project photos before final submission.\n\n"
+            "**Live data simulation:** values are derived from dataset baselines plus tick-driven oscillation and noise for "
+            "demonstration of a SCADA-style real-time interface."
+        )
+
+
+# ============================================================================
+# Footer — real-website-style with columns, credits, last-update and version
+# ============================================================================
+_now = datetime.now()
 st.markdown(
-    """
-    <div style="text-align:center;color:var(--muted);margin-top:2rem;font-size:.9rem;">
-©MAZEN AL-HIMALI 2026
+    f"""
+<div class="site-footer">
+  <div>
+    <h5>☀️ Solar PV Forecasting Intelligence</h5>
+    <div>An interactive, live PV plant intelligence dashboard. Built with Streamlit. {len(SECTION_OPTIONS)} sections, {15} live signals, full ML model comparison.</div>
+  </div>
+  <div>
+    <h5>Quick Links</h5>
+    <div>🏠 Home · 🔴 Live · 📊 Forecasting</div>
+    <div>🤖 Models · 🔬 Comparison · 🧬 Advanced</div>
+    <div>🧹 Data · 🧩 Visual · 🛠️ Diagrams</div>
+    <div>🕹️ Simulator · 📤 Export · ℹ️ About</div>
+  </div>
+  <div>
+    <h5>Project</h5>
+    <div>👤 {student_name}</div>
+    <div>🪪 {student_id}</div>
+    <div>📦 v1.2 · live edition</div>
+  </div>
+  <div>
+    <h5>Status</h5>
+    <div>🕒 {_now.strftime("%Y-%m-%d %H:%M:%S")}</div>
+    <div>🔄 refresh every {live_interval}s</div>
+    <div>🔴 {"live" if live_mode else "paused"} · tick #{live_tick}</div>
+  </div>
+  <div class="footer-bottom">
+    <div>© {_now.year} {student_name} · {project_title}</div>
+    <div>Streamlit · Plotly · scikit-learn · pandas · numpy</div>
+  </div>
 </div>
-    """,
+""",
     unsafe_allow_html=True,
 )
