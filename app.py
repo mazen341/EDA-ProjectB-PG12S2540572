@@ -202,26 +202,43 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         @keyframes orbit {{ from{{transform:rotate(0deg)}} to{{transform:rotate(360deg)}} }}
 
         html, body, .stApp {{
-            color:var(--text);
+            color:#0f172a;
             font-size:calc(16px * {scale});
             background:
-                radial-gradient(circle at 8% 8%, rgba(59,130,246,.22), transparent 30%),
-                radial-gradient(circle at 90% 12%, rgba(16,185,129,.18), transparent 34%),
-                radial-gradient(circle at 55% 105%, rgba(251,191,36,.12), transparent 38%),
-                linear-gradient(135deg, var(--bg0), var(--bg1) 48%, var(--bg2));
+                linear-gradient(rgba(248,252,255,.88), rgba(244,251,255,.86), rgba(255,251,240,.88)),
+                radial-gradient(circle at 10% 8%, rgba(14,165,233,.18), transparent 30%),
+                radial-gradient(circle at 88% 10%, rgba(245,158,11,.16), transparent 28%),
+                url('https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=1800&q=80');
+            background-size:cover;
+            background-position:center;
+            background-attachment:fixed;
         }}
         .stApp::before {{
             content:"";
             position:fixed;
             inset:0;
             pointer-events:none;
-            background-image:
-                radial-gradient(circle, rgba(255,255,255,.14) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(34,211,238,.04) 1px, transparent 1px),
-                linear-gradient(rgba(34,211,238,.04) 1px, transparent 1px);
-            background-size: 42px 42px, 90px 90px, 90px 90px;
-            mask-image: linear-gradient(to bottom, rgba(0,0,0,.75), transparent 85%);
+            background:
+                linear-gradient(rgba(255,255,255,.22), rgba(255,255,255,.10)),
+                radial-gradient(circle, rgba(14,165,233,.12) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(14,165,233,.035) 1px, transparent 1px),
+                linear-gradient(rgba(14,165,233,.035) 1px, transparent 1px);
+            background-size:auto, 42px 42px, 92px 92px, 92px 92px;
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,.60), transparent 90%);
             animation: shimmer 20s linear infinite;
+            z-index:0;
+        }}
+        .stApp::after {{
+            content:"";
+            position:fixed;
+            top:74px;
+            right:74px;
+            width:190px;
+            height:190px;
+            border-radius:50%;
+            pointer-events:none;
+            background:radial-gradient(circle, rgba(251,191,36,.92) 0%, rgba(251,191,36,.40) 38%, rgba(251,191,36,.11) 62%, transparent 74%);
+            box-shadow:0 0 72px rgba(251,191,36,.34), 0 0 140px rgba(251,191,36,.16);
             z-index:0;
         }}
         [data-testid="stHeader"] {{ background: rgba(0,0,0,0); }}
@@ -680,20 +697,22 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         }}
 
         .stTabs [data-baseweb="tab-list"] {{
-            gap:16px;
+            gap:22px;
             overflow-x:auto;
-            padding:.55rem .1rem 1rem;
+            padding:.9rem .25rem 1.45rem;
         }}
         .stTabs [data-baseweb="tab"] {{
-            min-height:72px;
-            font-size:{tab_size}!important;
+            min-height:112px;
+            min-width:220px;
+            font-size:1.42rem!important;
             font-weight:1000!important;
-            color:var(--text)!important;
-            border:1px solid var(--border);
-            border-radius:20px 20px 0 0;
-            background:rgba(255,255,255,.065)!important;
-            box-shadow:0 14px 36px rgba(0,0,0,.24);
-            transition:transform .25s ease, border-color .25s ease, background .25s ease;
+            color:#ffffff!important;
+            border:1px solid rgba(14,165,233,.38);
+            border-radius:28px 28px 0 0;
+            background:linear-gradient(145deg, rgba(8,30,58,.96), rgba(18,70,116,.90))!important;
+            box-shadow:0 28px 70px rgba(15,23,42,.28);
+            transition:transform .25s ease, border-color .25s ease, background .25s ease, box-shadow .25s ease;
+            padding:1rem 1.25rem!important;
         }}
         .stTabs [data-baseweb="tab"]:hover {{
             transform:translateY(-5px) scale(1.015);
@@ -801,6 +820,84 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             color:#F8FBFF;
             font-size:1rem;
             font-weight:1000;
+        }}
+
+        .sticky-title, .hero-card, .mode-card, .kpi-card, .panel, .visual-card, .flow-card, .workflow-card, .tab-hero, .loading-card {{
+            color:#f8fbff!important;
+        }}
+        .sticky-title h1, .sticky-title h2, .hero-card h1, .hero-card h2,
+        .mode-card h1, .mode-card h2, .panel h1, .panel h2, .panel h3,
+        .tab-hero h1, .tab-hero h2, .tab-hero h3 {{
+            color:#f8fbff!important;
+        }}
+        .muted, .hero-copy, .tab-hero-copy, .brand-sub, .node-sub, .control-label {{
+            color:#dbeafe!important;
+        }}
+        .section-title {{
+            color:#fbbf24!important;
+            text-shadow:0 1px 2px rgba(0,0,0,.35);
+        }}
+        .stDataFrame, [data-testid="stDataFrame"] {{
+            background:rgba(255,255,255,.94)!important;
+            color:#0f172a!important;
+        }}
+
+        .hourglass-screen {{
+            position:relative;
+            min-height:260px;
+            border-radius:32px;
+            border:1px solid rgba(14,165,233,.28);
+            background:
+                radial-gradient(circle at top right, rgba(251,191,36,.20), transparent 30%),
+                radial-gradient(circle at top left, rgba(14,165,233,.24), transparent 32%),
+                linear-gradient(145deg, rgba(7,25,48,.96), rgba(10,47,78,.92));
+            box-shadow:0 26px 80px rgba(15,23,42,.30);
+            padding:1.4rem;
+            color:#f8fbff;
+            overflow:hidden;
+            margin:.75rem 0 1rem;
+        }}
+        .hourglass-wrap {{
+            display:flex;
+            align-items:center;
+            gap:1.25rem;
+        }}
+        .hourglass-big {{
+            width:110px;
+            height:110px;
+            border-radius:30px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.04));
+            border:1px solid rgba(255,255,255,.16);
+            font-size:4.2rem;
+            animation:spin 2.4s linear infinite, pulseGlow 1.9s ease-in-out infinite;
+            box-shadow:0 18px 54px rgba(34,211,238,.18);
+        }}
+        .hourglass-title {{
+            font-size:1.9rem;
+            font-weight:1000;
+            letter-spacing:-.04em;
+        }}
+        .hourglass-step {{
+            color:#dbeafe;
+            font-size:1rem;
+            margin-top:.35rem;
+        }}
+        .hourglass-bar {{
+            height:14px;
+            border-radius:999px;
+            background:rgba(255,255,255,.10);
+            overflow:hidden;
+            margin-top:1rem;
+            border:1px solid rgba(255,255,255,.12);
+        }}
+        .hourglass-fill {{
+            height:100%;
+            border-radius:999px;
+            background:linear-gradient(90deg, #38bdf8, #10b981, #fbbf24);
+            animation:energyFlow 2.2s ease-in-out infinite;
         }}
         @media (max-width: 1250px) {{
             .hero-grid {{ grid-template-columns:1fr; }}
@@ -1442,6 +1539,27 @@ def kpi(title: str, value: str, icon: str, detail: str):
     )
 
 
+
+def render_hourglass_loader(message: str, pct: int):
+    pct = max(0, min(100, int(pct)))
+    st.markdown(
+        f"""
+        <div class="hourglass-screen">
+            <div class="hourglass-wrap">
+                <div class="hourglass-big">⌛</div>
+                <div>
+                    <div class="pill"><span class="live-dot"></span>Working on the dashboard</div>
+                    <div class="hourglass-title">Please wait — building the live PV website</div>
+                    <div class="hourglass-step">{message}</div>
+                    <div class="hourglass-bar"><div class="hourglass-fill" style="width:{pct}%"></div></div>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def energy_flow_panel():
     st.markdown('<div class="flow-card"><div class="section-title">Animated PV Energy Flow</div>', unsafe_allow_html=True)
     st.markdown(
@@ -1652,7 +1770,9 @@ if detailed_loading:
         (10, "Preparing animated website shell"),
         (22, "Loading dataset or demo fallback"),
     ]:
-        load_slot.markdown(f'<div class="loading-card"><span class="live-dot"></span> {msg}</div>', unsafe_allow_html=True)
+        load_slot.empty()
+        with load_slot.container():
+            render_hourglass_loader(msg, pct)
         prog.progress(pct, text=msg)
         time.sleep(.04)
 
@@ -1660,7 +1780,9 @@ raw_df, source_label = load_dataset(data_path, uploaded_file)
 
 if detailed_loading:
     for pct, msg in [(34, "Checking columns and selecting target"), (46, "Rendering user controls")]:
-        load_slot.markdown(f'<div class="loading-card"><span class="live-dot"></span> {msg}</div>', unsafe_allow_html=True)
+        load_slot.empty()
+        with load_slot.container():
+            render_hourglass_loader(msg, pct)
         prog.progress(pct, text=msg)
         time.sleep(.04)
 
@@ -1688,7 +1810,9 @@ if detailed_loading:
         (58, "Cleaning, grouping and resampling data"),
         (70, "Engineering lags, rolling features, temporal features and weather features"),
     ]:
-        load_slot.markdown(f'<div class="loading-card"><span class="live-dot"></span> {msg}</div>', unsafe_allow_html=True)
+        load_slot.empty()
+        with load_slot.container():
+            render_hourglass_loader(msg, pct)
         prog.progress(pct, text=msg)
         time.sleep(.04)
 
@@ -1706,7 +1830,9 @@ model_df = model_df.tail(model_rows).copy()
 
 if detailed_loading:
     for pct, msg in [(84, "Training comparison models and uncertainty bands")]:
-        load_slot.markdown(f'<div class="loading-card"><span class="live-dot"></span> {msg}</div>', unsafe_allow_html=True)
+        load_slot.empty()
+        with load_slot.container():
+            render_hourglass_loader(msg, pct)
         prog.progress(pct, text=msg)
         time.sleep(.04)
 
@@ -1716,7 +1842,9 @@ comparison_df, predictions_df, importance_df, uncertainty_summary, modeling_note
 
 if detailed_loading:
     for pct, msg in [(94, "Creating images, diagrams, 3D digital twin and analytics panels"), (100, "Website ready")]:
-        load_slot.markdown(f'<div class="loading-card"><span class="live-dot"></span> {msg}</div>', unsafe_allow_html=True)
+        load_slot.empty()
+        with load_slot.container():
+            render_hourglass_loader(msg, pct)
         prog.progress(pct, text=msg)
         time.sleep(.04)
     prog.empty()
