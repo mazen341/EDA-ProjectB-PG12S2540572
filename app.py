@@ -3579,8 +3579,17 @@ def render_live_kpi_strip(readings: dict[str, float], deltas: dict[str, float] |
     st.markdown("".join(parts), unsafe_allow_html=True)
 
 
-def render_live_secondary_strip(readings: dict[str, float]) -> None:
-    """Smaller second row: derived signals, arranged clearly as 5 cards then 4 cards."""
+def render_live_kpi_strip(readings: dict[str, float], deltas: dict[str, float] | None = None) -> None:
+    """Render a row of large live KPI cards with up/down delta indicators."""
+    deltas = deltas or {}
+
+    def arrow(key: str) -> str:
+        d = deltas.get(key, 0.0)
+        if abs(d) < 1e-6:
+            return "<span style='color:var(--muted)'>● steady</span>"
+        if d > 0:
+            return f"<span style='color:var(--green)'>▲ +{d:,.2f}</span>"
+        return f"<span style='color:var(--red)'>▼ {d:,.2f}</span>"
 
     items = [
         ("💧", "Humidity", f"{readings['humidity']:,.0f}%"),
@@ -3593,22 +3602,20 @@ def render_live_secondary_strip(readings: dict[str, float]) -> None:
         ("📦", "Daily Yield", f"{readings['daily_energy_kwh']:,.1f} kWh"),
         ("🌱", "CO₂ Avoided", f"{readings['co2_avoided_kg']:,.1f} kg"),
     ]
-    rows = [
-        ("live-mini-strip live-mini-strip-four", items[:4]),
-        ("live-mini-strip live-mini-strip-five", items[4:]),
-    ]
-
-    parts = []
-    for row_class, row_items in rows:
-        parts.append(f'<div class="{row_class}">')
-        for icon, label, val in row_items:
-            parts.append(
-                f'<div class="live-mini"><span class="live-mini-icon">{icon}</span>'
-                f'<span class="live-mini-label">{label}</span>'
-                f'<span class="live-mini-val">{val}</span></div>'
-            )
-        parts.append("</div>")
-
+ # Build as a SINGLE LINE with no leading whitespace. Streamlit's markdown parser
+    # treats 4+ leading spaces as a code block — that turned the cards into raw text.
+    parts = ['<div class="live-kpi-strip">']
+    for icon, label, val, delta, color in cards:
+        parts.append(
+            f'<div class="live-kpi">'
+            f'<div class="live-kpi-icon" style="color:{color}">{icon}</div>'
+            f'<div class="live-kpi-label">{label}</div>'
+            f'<div class="live-kpi-value" style="color:{color}">{val}</div>'
+            f'<div class="live-kpi-delta">{delta}</div>'
+            f'<div class="live-kpi-bar"><div class="live-kpi-bar-fill"></div></div>'
+            f'</div>'
+        )
+    parts.append("</div>")
     st.markdown("".join(parts), unsafe_allow_html=True)
 
 
