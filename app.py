@@ -1,4 +1,3 @@
-
 """
 app.py — Fully Alive Professional Solar PV Forecasting Website
 
@@ -1681,13 +1680,21 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
 # -----------------------------------------------------------------------------
 # Unique Streamlit element keys
 # -----------------------------------------------------------------------------
-if "chart_render_counter" not in st.session_state:
-    st.session_state.chart_render_counter = 0
+# Reset the per-run counter at the TOP of every script run. Previously this
+# was inside an `if "chart_render_counter" not in st.session_state` guard, so
+# the counter grew forever across reruns. That caused two real problems:
+#   1. Every download_button and plotly_chart got a fresh key on every rerun,
+#      so their in-DOM widget state was discarded (charts flickered, some
+#      controls behaved like "first click does nothing").
+#   2. Inside this run, ordering shifts could collide with leftover keys from
+#      the previous run.
+# Resetting it here makes the keys deterministic for a given page render.
+st.session_state["chart_render_counter"] = 0
 
 
 def next_chart_key(prefix: str = "chart") -> str:
-    st.session_state.chart_render_counter += 1
-    return f"{prefix}_{st.session_state.chart_render_counter}"
+    st.session_state["chart_render_counter"] += 1
+    return f"{prefix}_{st.session_state['chart_render_counter']}"
 
 
 def make_plot_transparent(fig, height: int | None = None):
@@ -2695,6 +2702,16 @@ def render_section_navigation():
                 label = f"✅ {page}" if active else page
                 if st.button(label, key=f"quick_nav_{row_i}_{page}", use_container_width=True):
                     st.session_state["selected_page"] = page
+                    # Rerun so the sidebar selectbox and the rest of the page
+                    # immediately reflect the new section. Without this the
+                    # active highlight on the button grid lags by one click.
+                    try:
+                        st.rerun()
+                    except Exception:
+                        try:
+                            st.experimental_rerun()
+                        except Exception:
+                            pass
 
     selected = st.session_state.get("selected_page", "🏠 Home")
     st.info(f"Current section: {selected}")
@@ -3846,17 +3863,38 @@ with st.sidebar:
     )
 
     st.markdown('<div class="sidebar-section">⚡ Quick Access</div>', unsafe_allow_html=True)
-    current_page = st.session_state.get("selected_page", "🏠 Home")
-    quick_idx = SECTION_OPTIONS.index(current_page) if current_page in SECTION_OPTIONS else 0
+    # Make sure the page state is valid before we touch the widget.
+    if "selected_page" not in st.session_state or st.session_state["selected_page"] not in SECTION_OPTIONS:
+        st.session_state["selected_page"] = "🏠 Home"
+
+    # The sidebar dropdown and the Quick Access buttons share one source of
+    # truth: st.session_state["selected_page"].
+    #
+    # IMPORTANT FIX: previously, after clicking a Quick Access button, the
+    # sidebar selectbox (which renders before the button grid each rerun) was
+    # still holding its old cached value and would overwrite selected_page back
+    # to "🏠 Home", so every click bounced the user back to the main page.
+    #
+    # We solve it with two pieces:
+    #   1. A callback (on_change) that pushes the dropdown's value into
+    #      selected_page when the user changes the dropdown.
+    #   2. Before rendering the widget, mirror selected_page -> the widget key,
+    #      but ONLY if the widget key isn't already correctly in sync. This
+    #      keeps the dropdown visually in sync with the active page after a
+    #      button click, without clobbering a fresh user choice.
+    def _sidebar_nav_changed():
+        st.session_state["selected_page"] = st.session_state["sidebar_page_choice"]
+
+    if st.session_state.get("sidebar_page_choice") != st.session_state["selected_page"]:
+        st.session_state["sidebar_page_choice"] = st.session_state["selected_page"]
+
     sidebar_page_choice = st.selectbox(
         "Go to section",
         SECTION_OPTIONS,
-        index=quick_idx,
         key="sidebar_page_choice",
+        on_change=_sidebar_nav_changed,
         help="Fast access to every page section."
     )
-    if sidebar_page_choice != st.session_state.get("selected_page", "🏠 Home"):
-        st.session_state["selected_page"] = sidebar_page_choice
 
     dashboard_mode = st.selectbox(
         "Choose dashboard style",
@@ -3944,6 +3982,28 @@ with st.sidebar:
     )
     run_comparison_clicked = st.button("⌛ Run selected comparison", type="primary", use_container_width=True)
     clear_comparison_clicked = st.button("Clear saved model results", use_container_width=True)
+
+    st.markdown("---")
+    st.markdown('<div class="sidebar-section">🤖 OpenRouter (AI Grader)</div>', unsafe_allow_html=True)
+    # Resolve a default value from st.secrets / environment, but only on the
+    # first visit. After that, we trust the user's entry.
+    _default_or_key = ""
+    try:
+        _default_or_key = st.secrets.get("OPENROUTER_API_KEY", "") or ""
+    except Exception:
+        _default_or_key = ""
+    _default_or_key = _default_or_key or os.environ.get("OPENROUTER_API_KEY", "")
+    if "openrouter_api_key" not in st.session_state:
+        st.session_state["openrouter_api_key"] = _default_or_key
+
+    openrouter_api_key = st.text_input(
+        "OpenRouter API key",
+        type="password",
+        key="openrouter_api_key",
+        help="Used by the AI grader on the Export tab. Leave blank to use the local fallback grader.",
+        placeholder="sk-or-...",
+    )
+    st.caption("🔐 Stored only in this session. Used by the AI grader on the Export tab.")
 
 
 inject_css(theme, alive_motion, big_dashboard)
@@ -4418,6 +4478,7 @@ if selected_page == "🔴 Live Telemetry":
         csv_buf,
         file_name="live_telemetry_buffer.csv",
         mime="text/csv",
+        key="dl_live_telemetry_csv",
     )
 
 if selected_page == "📊 Forecasting":
@@ -4832,23 +4893,25 @@ if selected_page == "📤 Export":
         },
     }
     submission_json = json.dumps(submission, indent=2, default=safe_json_default)
-    st.download_button("Download submission.json", submission_json, "submission.json", "application/json")
-    st.download_button("Download predictions.csv", predictions_df.to_csv(index=False), "predictions.csv", "text/csv")
-    st.download_button("Download metrics.csv", comparison_df.to_csv(index=False), "metrics.csv", "text/csv")
+    st.download_button("Download submission.json", submission_json, "submission.json", "application/json", key="dl_submission_json")
+    st.download_button("Download predictions.csv", predictions_df.to_csv(index=False), "predictions.csv", "text/csv", key="dl_predictions_csv")
+    st.download_button("Download metrics.csv", comparison_df.to_csv(index=False), "metrics.csv", "text/csv", key="dl_metrics_csv")
 
     with st.expander("Preview submission JSON"):
         st.json(submission)
 
     st.markdown("### AI grader with 429 fallback")
-    api_key = ""
-    try:
-        api_key = st.secrets.get("OPENROUTER_API_KEY", "")
-    except Exception:
-        api_key = ""
-    api_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
-    api_key = st.text_input("OpenRouter API key", value=api_key, type="password")
+    api_key = st.session_state.get("openrouter_api_key", "") or ""
+    if api_key:
+        st.caption("✅ Using OpenRouter API key from the sidebar.")
+    else:
+        st.info(
+            "ℹ️ No OpenRouter API key set. Add one in the sidebar under "
+            "**🤖 OpenRouter (AI Grader)** to enable live AI grading, or just "
+            "click below to use the offline local fallback grader."
+        )
 
-    if st.button("Run AI grader / local fallback"):
+    if st.button("Run AI grader / local fallback", key="run_ai_grader_btn", type="primary"):
         if api_key:
             try:
                 raw = call_openrouter(api_key, submission_json)
