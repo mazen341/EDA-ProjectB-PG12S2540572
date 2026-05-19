@@ -3102,6 +3102,10 @@ def render_section_navigation():
                     type=("primary" if active else "secondary"),
                 ):
                     st.session_state["selected_page"] = page
+                    # Mark that the next render should scroll the page down to
+                    # the active section's anchor. The scroll script reads
+                    # this flag once and clears it.
+                    st.session_state["_scroll_to_section"] = True
                     try:
                         st.rerun()
                     except Exception:
@@ -3111,6 +3115,48 @@ def render_section_navigation():
                             pass
 
     return st.session_state.get("selected_page", "🏠 Home")
+
+
+def render_section_anchor(page: str):
+    """Emit an invisible anchor at the top of the active section's content.
+
+    The Quick Access OPEN button sets st.session_state['_scroll_to_section']
+    to True. The next render injects a tiny <script> that finds this anchor
+    and smoothly scrolls it into view, then clears the flag so a normal
+    rerun (e.g., live telemetry tick) doesn't keep snapping the page back
+    to the top.
+    """
+    st.markdown(
+        f'<div id="section-anchor" style="position:relative;top:-72px;height:0;visibility:hidden" '
+        f'data-section="{page}"></div>',
+        unsafe_allow_html=True,
+    )
+    if st.session_state.pop("_scroll_to_section", False):
+        # components.html runs JS inside an iframe, but we need to act on the
+        # parent document. We dispatch from inside the iframe to window.parent.
+        components.html(
+            """
+            <script>
+            (function() {
+                // Try parent document first (the Streamlit app); fall back to
+                // this iframe if for some reason we can't reach the parent.
+                var doc = (window.parent && window.parent.document) || document;
+                function tryScroll(attempt) {
+                    var el = doc.getElementById('section-anchor');
+                    if (el) {
+                        el.scrollIntoView({behavior: 'smooth', block: 'start'});
+                    } else if (attempt < 30) {
+                        // The anchor may not be in the DOM yet on the very
+                        // first paint after a rerun; retry briefly.
+                        setTimeout(function(){ tryScroll(attempt + 1); }, 50);
+                    }
+                }
+                tryScroll(0);
+            })();
+            </script>
+            """,
+            height=0,
+        )
 
 
 def render_hourglass_loader(message: str, pct: int):
@@ -4384,6 +4430,9 @@ with st.sidebar:
 
     def _sidebar_nav_changed():
         st.session_state["selected_page"] = st.session_state["sidebar_page_choice"]
+        # Mirror the Quick Access OPEN behavior: scroll the next render down
+        # to the newly-selected section.
+        st.session_state["_scroll_to_section"] = True
 
     if st.session_state.get("sidebar_page_choice") != st.session_state["selected_page"]:
         st.session_state["sidebar_page_choice"] = st.session_state["selected_page"]
@@ -4886,6 +4935,7 @@ render_live_ticker(live_readings)
 
 
 if selected_page == "🏠 Home":
+    render_section_anchor("🏠 Home")
     tab_hero("🏠 Home", "The main command center of the website with quick status, live production trend, core visuals, and the most important plant signals in one big easy-to-find place.", IMG_HOME, "☀️", "Home dashboard")
 
     # ---- Live KPI strip (auto-updating values with delta arrows) ----
@@ -4938,6 +4988,7 @@ if selected_page == "🏠 Home":
         })
 
 if selected_page == "🔴 Live Telemetry":
+    render_section_anchor("🔴 Live Telemetry")
     tab_hero(
         "🔴 Live Telemetry",
         "Real-time plant signals: power, temperature, irradiance, voltage, current, frequency, battery state of charge, inverter temperature, efficiency and energy yield — all updating continuously with rolling charts and gauges.",
@@ -5058,6 +5109,7 @@ if selected_page == "🔴 Live Telemetry":
     )
 
 if selected_page == "📊 Forecasting":
+    render_section_anchor("📊 Forecasting")
     tab_hero("📊 Forecasting", "This section focuses on forecasting performance, actual-versus-predicted trends, weather context, and validation signals. Everything here is designed to feel large, clear, and interactive.", IMG_FORECAST, "📈", "Forecast intelligence")
 
     # Live snapshot at the top so forecasts can be compared against current readings.
@@ -5111,6 +5163,7 @@ if selected_page == "📊 Forecasting":
         st.markdown("</div>", unsafe_allow_html=True)
 
 if selected_page == "🧩 Images + 3D":
+    render_section_anchor("🧩 Images + 3D")
     tab_hero("🧩 Images + 3D", "A visual-first gallery with larger system images, animated PV energy flow, and 3D-style floating digital twin components that make the website feel alive.", IMG_3D, "🧩", "Visual experience")
     st.markdown("## Visual System — Images, Diagram and 3D")
     gallery = [
@@ -5161,6 +5214,7 @@ if selected_page == "🧩 Images + 3D":
     render_interactive_diagram_lab("images_page")
 
 if selected_page == "🧹 Data Pipeline":
+    render_section_anchor("🧹 Data Pipeline")
     tab_hero("🧹 Data Pipeline", "This section explains how the data moves through loading, cleaning, resampling, outlier handling, and feature engineering so everything is transparent and easy to understand.", IMG_PIPELINE, "🧹", "Data workflow")
     st.markdown("## Data Pipeline")
     steps = [
@@ -5207,6 +5261,7 @@ if selected_page == "🧹 Data Pipeline":
         st.warning("No feature rows available.")
 
 if selected_page == "🤖 Models":
+    render_section_anchor("🤖 Models")
     tab_hero("🤖 Models", "Model comparison, metrics, feature importance, and uncertainty are displayed here in a bigger and more professional representation for easier interpretation.", IMG_MODEL, "🤖", "Model evidence")
     st.markdown("## Models and Interpretability")
     if comparison_df.empty:
@@ -5232,6 +5287,7 @@ if selected_page == "🤖 Models":
         render_tips_panel()
 
 if selected_page == "🧬 Advanced":
+    render_section_anchor("🧬 Advanced")
     tab_hero("🧬 Advanced", "Advanced analytics includes anomaly detection, correlations, daily production patterns, and residual behavior to help the user explore the system deeply.", IMG_ADVANCED, "🧬", "Advanced analytics")
     st.markdown("## Advanced Analytics")
     a1, a2, a3, a4 = st.columns(4)
@@ -5294,6 +5350,7 @@ if selected_page == "🧬 Advanced":
 
 
 if selected_page == "🛠️ Technical Diagrams":
+    render_section_anchor("🛠️ Technical Diagrams")
     tab_hero("🛠️ Technical Diagrams", "Interactive architecture diagrams, data pipelines, model workflows, decision flows, and downloadable flowchart source files for technical explanation.", IMG_DIAGRAMS, "🛠️", "Interactive diagrams")
     st.markdown("## Technical Diagrams and Interactive Flowcharts")
     render_technical_feature_cards()
@@ -5314,6 +5371,7 @@ if selected_page == "🛠️ Technical Diagrams":
 
 
 if selected_page == "🕹️ Simulator":
+    render_section_anchor("🕹️ Simulator")
     tab_hero("🕹️ Simulator", "The simulator lets the user change irradiance, temperature, curtailment, and battery support to see how energy output changes under different what-if scenarios.", IMG_SIMULATOR, "🕹️", "Interactive simulator")
     st.markdown("## What-If Simulator")
     st.write("Change the scenario parameters and see an estimated production impact.")
@@ -5346,6 +5404,7 @@ if selected_page == "🕹️ Simulator":
 
 
 if selected_page == "🔬 Comparison Lab":
+    render_section_anchor("🔬 Comparison Lab")
     tab_hero("🔬 All-in-One Comparison Lab", "Everything needed for model and graph comparison is in one place: leaderboard, metric bars, radar view, actual-vs-predicted scatter, residual distribution, time-based error analysis, feature correlation, and expert recommendations.", IMG_COMPARE, "🔬", "All tools in one")
     st.markdown("## All-in-One Model, Graph and Diagnostic Comparison")
 
@@ -5403,6 +5462,7 @@ if selected_page == "🔬 Comparison Lab":
 
 
 if selected_page == "📤 Export":
+    render_section_anchor("📤 Export")
     tab_hero("📤 Export", "All final outputs are organized here: exports, JSON evidence, predictions, metrics, and AI grading fallback. This makes the project easy to review and submit.", IMG_EXPORT, "📤", "Export and grading")
     st.markdown("## Export and AI Grader")
 
