@@ -1,5 +1,5 @@
 """
-app.py — EDA Project B — Time-Series Forecasting Starter
+app.py — Fully Alive Professional Solar PV Forecasting Website
 
 Run:
     streamlit run app.py
@@ -69,7 +69,7 @@ except Exception:
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
-PROJECT_NAME = "EDA Project B — Time-Series Forecasting Starter"
+PROJECT_NAME = "Mini Project B — Solar PV Forecasting Intelligence Website"
 STUDENT_NAME_DEFAULT = "MAZEN AL-HIMALI"
 STUDENT_ID_DEFAULT = "PG12S2540572"
 DEFAULT_DATA_PATH = "data/dataset_sample.csv"
@@ -3579,18 +3579,8 @@ def render_live_kpi_strip(readings: dict[str, float], deltas: dict[str, float] |
     st.markdown("".join(parts), unsafe_allow_html=True)
 
 
-def render_live_kpi_strip(readings: dict[str, float], deltas: dict[str, float] | None = None) -> None:
-    """Render a row of large live KPI cards with up/down delta indicators."""
-    deltas = deltas or {}
-
-    def arrow(key: str) -> str:
-        d = deltas.get(key, 0.0)
-        if abs(d) < 1e-6:
-            return "<span style='color:var(--muted)'>● steady</span>"
-        if d > 0:
-            return f"<span style='color:var(--green)'>▲ +{d:,.2f}</span>"
-        return f"<span style='color:var(--red)'>▼ {d:,.2f}</span>"
-
+def render_live_secondary_strip(readings: dict[str, float]) -> None:
+    """Smaller second row: derived signals."""
     items = [
         ("💧", "Humidity", f"{readings['humidity']:,.0f}%"),
         ("💨", "Wind", f"{readings['wind_ms']:,.1f} m/s"),
@@ -3602,22 +3592,15 @@ def render_live_kpi_strip(readings: dict[str, float], deltas: dict[str, float] |
         ("📦", "Daily Yield", f"{readings['daily_energy_kwh']:,.1f} kWh"),
         ("🌱", "CO₂ Avoided", f"{readings['co2_avoided_kg']:,.1f} kg"),
     ]
- # Build as a SINGLE LINE with no leading whitespace. Streamlit's markdown parser
-    # treats 4+ leading spaces as a code block — that turned the cards into raw text.
-    parts = ['<div class="live-kpi-strip">']
-    for icon, label, val, delta, color in cards:
+    parts = ['<div class="live-mini-strip">']
+    for icon, label, val in items:
         parts.append(
-            f'<div class="live-kpi">'
-            f'<div class="live-kpi-icon" style="color:{color}">{icon}</div>'
-            f'<div class="live-kpi-label">{label}</div>'
-            f'<div class="live-kpi-value" style="color:{color}">{val}</div>'
-            f'<div class="live-kpi-delta">{delta}</div>'
-            f'<div class="live-kpi-bar"><div class="live-kpi-bar-fill"></div></div>'
-            f'</div>'
+            f'<div class="live-mini"><span class="live-mini-icon">{icon}</span>'
+            f'<span class="live-mini-label">{label}</span>'
+            f'<span class="live-mini-val">{val}</span></div>'
         )
     parts.append("</div>")
     st.markdown("".join(parts), unsafe_allow_html=True)
-
 
 
 def render_live_history_chart(history: pd.DataFrame) -> None:
@@ -4474,6 +4457,7 @@ with st.sidebar:
         dashboard_mode = st.selectbox(
             "Dashboard style",
             [
+                "Live Command Website",
                 "Visual 3D Experience",
                 "Engineering Workbench",
                 "Student Evidence Center",
@@ -4629,7 +4613,7 @@ st.markdown(
             <div class="brand-logo">☀️</div>
             <div>
                 <div class="brand-title">{project_title}</div>
-                <div class="brand-sub">Student: <b>{student_name}</b> • ID: <b>{student_id}</b>  Streamlit website</div>
+                <div class="brand-sub">Student: <b>{student_name}</b> • ID: <b>{student_id}</b> • Professional interactive Streamlit website</div>
             </div>
         </div>
         <div class="top-actions">
@@ -4840,6 +4824,7 @@ best_model = str(comparison_df.iloc[0]["model"]) if not comparison_df.empty else
 
 # Hero
 mode_copy = {
+    "Live Command Website": "A big, alive command-center website for fast decisions, forecasting, system status, and project evidence.",
     "Visual 3D Experience": "A visual-first website with more images, moving energy flows, and a 3D-style digital twin.",
     "Engineering Workbench": "A technical workspace for data quality, features, models, diagnostics, residuals, and correlations.",
     "Student Evidence Center": "A rubric-friendly representation that makes grading evidence easy to find.",
