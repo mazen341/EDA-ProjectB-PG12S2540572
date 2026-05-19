@@ -82,6 +82,7 @@ IMG_ADVANCED = "https://images.unsplash.com/photo-1518186285589-2f7649de83e0?aut
 IMG_SIMULATOR = "https://images.unsplash.com/photo-1518779578993-ec3579fee39f?auto=format&fit=crop&w=1100&q=80"
 IMG_COMPARE = "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1100&q=80"
 IMG_EXPORT = "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1100&q=80"
+IMG_DIAGRAMS = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1100&q=80"
 SECTION_OPTIONS = [
     "🏠 Home",
     "📊 Forecasting",
@@ -89,6 +90,7 @@ SECTION_OPTIONS = [
     "🧹 Data Pipeline",
     "🤖 Models",
     "🧬 Advanced",
+    "🛠️ Technical Diagrams",
     "🕹️ Simulator",
     "🔬 Comparison Lab",
     "📤 Export",
@@ -1372,6 +1374,18 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
             padding: .5rem;
             margin-top: .35rem;
         }}
+
+        /* Technical diagram readability */
+        [data-testid="stGraphVizChart"] {{
+            background: rgba(5,18,38,.30) !important;
+            border: 1px solid rgba(148,203,255,.16);
+            border-radius: 18px;
+            padding: .6rem;
+            backdrop-filter: blur(10px);
+        }}
+        .workflow-card {{
+            margin-bottom:.75rem;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -2124,6 +2138,245 @@ def kpi(title: str, value: str, icon: str, detail: str):
 
 
 
+
+def build_diagram_source(diagram_name: str, direction: str = "LR", detail_level: str = "Standard") -> str:
+    """Return Graphviz DOT source for interactive technical diagrams."""
+    detailed = detail_level == "Detailed"
+    node_style = 'node [shape=box, style="rounded,filled", color="#38bdf8", fillcolor="#07182d", fontcolor="white", penwidth=1.5]'
+    edge_style = 'edge [color="#fbbf24", fontcolor="white", penwidth=1.3]'
+
+    if diagram_name == "PV System Architecture":
+        extra = ""
+        if detailed:
+            extra = """
+            INV -> MON [label="Telemetry"]
+            WX -> MODEL [label="Weather inputs"]
+            MODEL -> DASH [label="Forecast API"]
+            MON -> DASH [label="Live status"]
+            """
+        return f"""
+        digraph G {{
+            graph [bgcolor="transparent", rankdir={direction}, splines=ortho]
+            {node_style}
+            {edge_style}
+            PV [label="PV Array\\nDC Generation"]
+            COMB [label="Combiner Box\\nProtection"]
+            INV [label="Inverter\\nDC to AC"]
+            TR [label="Transformer\\nVoltage Step-Up"]
+            GRID [label="Grid Export"]
+            BESS [label="Battery ESS\\nStorage"]
+            LOAD [label="Local Load"]
+            WX [label="Weather Station"]
+            MON [label="Monitoring Gateway"]
+            MODEL [label="Forecast Model"]
+            DASH [label="Dashboard"]
+            PV -> COMB -> INV -> TR -> GRID
+            INV -> LOAD
+            INV -> BESS [label="Charge"]
+            BESS -> INV [label="Discharge"]
+            {extra}
+        }}
+        """
+
+    if diagram_name == "Data Cleaning Pipeline":
+        return f"""
+        digraph G {{
+            graph [bgcolor="transparent", rankdir={direction}]
+            {node_style}
+            {edge_style}
+            RAW [label="Raw Dataset"]
+            SCHEMA [label="Column Detection\\nTimestamp + Target"]
+            TYPES [label="Type Conversion\\nDatetime + Numeric"]
+            MISSING [label="Missing Values\\nDrop / Interpolate"]
+            DUP [label="Duplicate Timestamps\\nGroup by Time"]
+            RESAMPLE [label="Resampling\\n15min / 30min / 1h"]
+            OUTLIER [label="Outlier Bounds\\nIQR / Clipping"]
+            CLEAN [label="Clean Time Series"]
+            RAW -> SCHEMA -> TYPES -> MISSING -> DUP -> RESAMPLE -> OUTLIER -> CLEAN
+        }}
+        """
+
+    if diagram_name == "Feature Engineering Map":
+        extra = ""
+        if detailed:
+            extra = """
+            TEMP -> WXFEAT
+            IRR -> WXFEAT
+            HUM -> WXFEAT
+            RAIN -> WXFEAT
+            """
+        return f"""
+        digraph G {{
+            graph [bgcolor="transparent", rankdir={direction}]
+            {node_style}
+            {edge_style}
+            TS [label="Clean Time Series"]
+            LAG [label="Lag Features\\nlag_1, lag_4, lag_24"]
+            ROLL [label="Rolling Features\\nmean, std, min, max"]
+            TIME [label="Temporal Features\\nhour, day, month"]
+            CYCLIC [label="Cyclic Encoding\\nsin / cos"]
+            WXFEAT [label="Weather Features"]
+            TEMP [label="Temperature"]
+            IRR [label="Irradiance"]
+            HUM [label="Humidity"]
+            RAIN [label="Rainfall"]
+            MATRIX [label="Model Feature Matrix"]
+            TS -> LAG -> MATRIX
+            TS -> ROLL -> MATRIX
+            TS -> TIME -> CYCLIC -> MATRIX
+            WXFEAT -> MATRIX
+            {extra}
+        }}
+        """
+
+    if diagram_name == "Model Comparison Workflow":
+        extra = ""
+        if detailed:
+            extra = """
+            CAL [label="Interval Calibration"]
+            RES -> CAL -> UNC
+            """
+        return f"""
+        digraph G {{
+            graph [bgcolor="transparent", rankdir={direction}]
+            {node_style}
+            {edge_style}
+            FEATURES [label="Feature Matrix"]
+            SPLIT [label="Time-Based Split\\n80% Train / 20% Validation"]
+            BASE [label="Baseline Model"]
+            LIN [label="Linear Models\\nRidge / Lasso / ElasticNet"]
+            TREE [label="Tree Ensembles\\nRF / ExtraTrees / HGB"]
+            DIST [label="Distance Models\\nKNN / SVR"]
+            METRICS [label="Metrics Table\\nMAE RMSE MAPE R²"]
+            RANK [label="Leaderboard"]
+            RES [label="Residual Diagnostics"]
+            UNC [label="Uncertainty Bands"]
+            FEATURES -> SPLIT
+            SPLIT -> BASE -> METRICS
+            SPLIT -> LIN -> METRICS
+            SPLIT -> TREE -> METRICS
+            SPLIT -> DIST -> METRICS
+            METRICS -> RANK
+            METRICS -> RES -> UNC
+            {extra}
+        }}
+        """
+
+    if diagram_name == "Dashboard App Architecture":
+        return f"""
+        digraph G {{
+            graph [bgcolor="transparent", rankdir={direction}]
+            {node_style}
+            {edge_style}
+            USER [label="User Controls\\nSidebar + Quick Access"]
+            DATA [label="Data Layer\\nUpload / Demo / CSV"]
+            PIPE [label="Pipeline Layer\\nClean + Features"]
+            MODEL [label="Model Layer\\nUser-Triggered Training"]
+            VIS [label="Visualization Layer\\nCharts + Diagrams"]
+            EXPORT [label="Export Layer\\nCSV + HTML + JSON"]
+            GRADER [label="AI Grader\\nFallback Safe"]
+            USER -> DATA -> PIPE -> MODEL -> VIS
+            VIS -> EXPORT
+            PIPE -> EXPORT
+            MODEL -> EXPORT
+            EXPORT -> GRADER
+        }}
+        """
+
+    return f"""
+    digraph G {{
+        graph [bgcolor="transparent", rankdir={direction}]
+        {node_style}
+        {edge_style}
+        FORECAST [label="Forecast Output"]
+        INTERVAL [label="Prediction Interval"]
+        ERROR [label="Residual / Error Signal"]
+        ANOM [label="Anomaly Detector"]
+        DECIDE [label="Decision Gate"]
+        NORMAL [label="Normal Operation"]
+        WARN [label="Review Weather / Sensors"]
+        ACTION [label="Maintenance / Curtailment / Battery Strategy"]
+        FORECAST -> INTERVAL -> DECIDE
+        ERROR -> ANOM -> DECIDE
+        DECIDE -> NORMAL [label="Low Risk"]
+        DECIDE -> WARN [label="Medium Risk"]
+        DECIDE -> ACTION [label="High Risk"]
+    }}
+    """
+
+
+def render_interactive_diagram_lab(location: str = "main"):
+    """Interactive diagram and flowchart lab with downloads."""
+    st.markdown("### 🛠️ Interactive Technical Diagram Lab")
+    c1, c2, c3 = st.columns([1.2, .8, .8])
+    with c1:
+        diagram_name = st.selectbox(
+            "Diagram type",
+            [
+                "PV System Architecture",
+                "Data Cleaning Pipeline",
+                "Feature Engineering Map",
+                "Model Comparison Workflow",
+                "Dashboard App Architecture",
+                "Risk & Decision Flow",
+            ],
+            key=f"diagram_type_{location}",
+        )
+    with c2:
+        direction = st.selectbox("Layout direction", ["LR", "TB"], key=f"diagram_direction_{location}")
+    with c3:
+        detail_level = st.selectbox("Detail level", ["Compact", "Standard", "Detailed"], index=1, key=f"diagram_detail_{location}")
+
+    dot = build_diagram_source(diagram_name, direction, detail_level)
+    st.graphviz_chart(dot, use_container_width=True)
+
+    d1, d2 = st.columns(2)
+    with d1:
+        st.download_button(
+            "⬇️ Download diagram DOT",
+            data=dot,
+            file_name=f"{diagram_name.replace(' ', '_').replace('&', 'and').lower()}.dot",
+            mime="text/plain",
+            key=next_chart_key("dot"),
+            use_container_width=True,
+        )
+    with d2:
+        st.download_button(
+            "⬇️ Download diagram notes",
+            data=f"Diagram: {diagram_name}\nLayout: {direction}\nDetail level: {detail_level}\n\nUse this diagram to explain the technical architecture and workflow of the PV forecasting dashboard.",
+            file_name=f"{diagram_name.replace(' ', '_').replace('&', 'and').lower()}_notes.txt",
+            mime="text/plain",
+            key=next_chart_key("notes"),
+            use_container_width=True,
+        )
+
+    notes = {
+        "PV System Architecture": "Shows how physical PV components, storage, weather, monitoring, model, and dashboard connect.",
+        "Data Cleaning Pipeline": "Explains the end-to-end data quality process before modeling.",
+        "Feature Engineering Map": "Shows how raw time series becomes lag, rolling, temporal, cyclic, and weather features.",
+        "Model Comparison Workflow": "Shows user-triggered training, metric comparison, ranking, residuals, and uncertainty.",
+        "Dashboard App Architecture": "Explains user controls, data, pipeline, model, visualization, export, and grader layers.",
+        "Risk & Decision Flow": "Shows how forecasts, intervals, residuals, and anomalies become operational decisions.",
+    }
+    st.info(notes.get(diagram_name, "Interactive technical diagram."))
+
+
+def render_technical_feature_cards():
+    st.markdown("### Added Technical Features")
+    cards = [
+        ("Interactive diagrams", "Switch diagram type, direction, and detail level."),
+        ("Downloadable DOT files", "Export diagram source for documentation or reports."),
+        ("Architecture view", "Explain app, model, data, and PV system layers."),
+        ("Decision flow", "Connect forecasts to operational actions."),
+        ("Model workflow", "Show how models are compared and ranked."),
+        ("Pipeline transparency", "Make cleaning, features, validation, and uncertainty easy to defend."),
+    ]
+    cols = st.columns(3)
+    for i, (title, desc) in enumerate(cards):
+        with cols[i % 3]:
+            st.markdown(f'<div class="workflow-card"><div class="check">✓</div><b>{title}</b><div class="muted" style="margin-top:.35rem">{desc}</div></div>', unsafe_allow_html=True)
+
+
 def render_section_navigation():
     """Fast, compact navigation.
 
@@ -2796,6 +3049,9 @@ if selected_page == "🧩 Images + 3D":
         """
     )
 
+    st.markdown("### More Interactive Diagrams")
+    render_interactive_diagram_lab("images_page")
+
 if selected_page == "🧹 Data Pipeline":
     tab_hero("🧹 Data Pipeline", "This section explains how the data moves through loading, cleaning, resampling, outlier handling, and feature engineering so everything is transparent and easy to understand.", IMG_PIPELINE, "🧹", "Data workflow")
     st.markdown("## Data Pipeline")
@@ -2927,6 +3183,27 @@ if selected_page == "🧬 Advanced":
         st.dataframe(residual_view.tail(30), use_container_width=True)
     else:
         st.info("Residual stream appears after prediction rows are available.")
+
+
+if selected_page == "🛠️ Technical Diagrams":
+    tab_hero("🛠️ Technical Diagrams", "Interactive architecture diagrams, data pipelines, model workflows, decision flows, and downloadable flowchart source files for technical explanation.", IMG_DIAGRAMS, "🛠️", "Interactive diagrams")
+    st.markdown("## Technical Diagrams and Interactive Flowcharts")
+    render_technical_feature_cards()
+    render_interactive_diagram_lab("technical_page")
+    st.markdown(
+        """
+        <div class="panel">
+            <div class="section-title">How to use this page</div>
+            <div class="muted">
+                Use the diagrams in your presentation/report to explain how the PV system, data pipeline, forecasting models,
+                dashboard, uncertainty bands, and operational decisions connect. Download the DOT files if you need to edit
+                the flowcharts in Graphviz-compatible tools.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 if selected_page == "🕹️ Simulator":
     tab_hero("🕹️ Simulator", "The simulator lets the user change irradiance, temperature, curtailment, and battery support to see how energy output changes under different what-if scenarios.", IMG_SIMULATOR, "🕹️", "Interactive simulator")
@@ -3064,7 +3341,8 @@ if selected_page == "📤 Export":
             "model_count": int(len(comparison_df)),
             "selected_comparison_group": comparison_group,
             "selected_rank_metric": comparison_metric,
-            "graph_types": ["line", "bar", "radar", "scatter", "histogram", "heatmap", "table", "flowchart"],
+            "graph_types": ["line", "bar", "radar", "scatter", "histogram", "heatmap", "table", "flowchart", "interactive graphviz diagrams"],
+            "has_interactive_technical_diagrams": True,
             "user_selectable_dashboard_representation": dashboard_mode,
             "theme_palette": theme,
             "insights": dashboard_insights,
