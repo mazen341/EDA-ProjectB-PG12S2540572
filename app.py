@@ -4457,7 +4457,6 @@ with st.sidebar:
         dashboard_mode = st.selectbox(
             "Dashboard style",
             [
-                "Live Command Website",
                 "Visual 3D Experience",
                 "Engineering Workbench",
                 "Student Evidence Center",
