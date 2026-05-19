@@ -726,6 +726,18 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
 
 
 # -----------------------------------------------------------------------------
+# Unique Streamlit element keys
+# -----------------------------------------------------------------------------
+if "chart_render_counter" not in st.session_state:
+    st.session_state.chart_render_counter = 0
+
+
+def next_chart_key(prefix: str = "chart") -> str:
+    st.session_state.chart_render_counter += 1
+    return f"{prefix}_{st.session_state.chart_render_counter}"
+
+
+# -----------------------------------------------------------------------------
 # Data and modeling
 # -----------------------------------------------------------------------------
 @st.cache_data(show_spinner=False)
@@ -1037,11 +1049,13 @@ def prediction_fig(pred_df: pd.DataFrame, timestamp_col: str, window: int):
     return fig
 
 
-def show_chart(fig, df: pd.DataFrame, timestamp_col: str, columns: list[str], window: int):
+def show_chart(fig, df: pd.DataFrame, timestamp_col: str, columns: list[str], window: int, key_prefix: str = "chart"):
+    """Render charts with explicit unique keys to avoid StreamlitDuplicateElementId."""
+    chart_key = next_chart_key(key_prefix)
     if fig is not None:
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=chart_key)
     elif not df.empty:
-        st.line_chart(df.set_index(timestamp_col)[columns].tail(window))
+        st.line_chart(df.set_index(timestamp_col)[columns].tail(window, use_container_width=True, key=next_chart_key("line")), use_container_width=True, key=chart_key)
     else:
         st.info("No data available for this chart.")
 
@@ -1592,7 +1606,7 @@ with tabs[4]:
             if PLOTLY_AVAILABLE and not importance_df.empty:
                 fig = go.Figure(go.Bar(x=importance_df["importance_mean"], y=importance_df["feature"], orientation="h"))
                 fig.update_layout(template="plotly_dark", height=430, margin=dict(l=10, r=10, t=20, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
             elif not importance_df.empty:
                 st.bar_chart(importance_df.set_index("feature")["importance_mean"])
         st.markdown("### Uncertainty")
@@ -1617,9 +1631,9 @@ with tabs[5]:
             fig.add_trace(go.Scatter(x=hourly["hour"], y=hourly["mean"], mode="lines+markers", name="Mean"))
             fig.add_trace(go.Scatter(x=hourly["hour"], y=hourly["max"], mode="lines", name="Max"))
             fig.update_layout(template="plotly_dark", height=360, margin=dict(l=10, r=10, t=25, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
         elif not hourly.empty:
-            st.line_chart(hourly.set_index("hour")[["mean", "max"]])
+            st.line_chart(hourly.set_index("hour", use_container_width=True, key=next_chart_key("line"))[["mean", "max"]])
     with right:
         st.markdown("### Anomaly Scan")
         target_series = filtered_df[target_col].dropna().astype(float)
@@ -1643,14 +1657,14 @@ with tabs[5]:
             if PLOTLY_AVAILABLE:
                 fig = go.Figure(data=go.Heatmap(z=corr.values, x=corr.columns, y=corr.index, colorscale="Viridis"))
                 fig.update_layout(template="plotly_dark", height=520, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
         else:
             st.info("Not enough numeric columns for correlation diagnostics.")
 
     st.markdown("### Residual Stream")
     if not predictions_df.empty:
         residual_view = predictions_df[[timestamp_col, "residual", "absolute_error", "interval_covered"]].tail(chart_window)
-        st.line_chart(residual_view.set_index(timestamp_col)[["residual", "absolute_error"]])
+        st.line_chart(residual_view.set_index(timestamp_col, use_container_width=True, key=next_chart_key("line"))[["residual", "absolute_error"]])
         st.dataframe(residual_view.tail(30), use_container_width=True)
     else:
         st.info("Residual stream appears after prediction rows are available.")
@@ -1678,9 +1692,9 @@ with tabs[6]:
             fig.add_trace(go.Scatter(x=simulated[timestamp_col], y=simulated[target_col], mode="lines", name="Actual"))
             fig.add_trace(go.Scatter(x=simulated[timestamp_col], y=simulated["scenario_power"], mode="lines", name="Scenario"))
             fig.update_layout(template="plotly_dark", height=420, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key=next_chart_key("plotly"))
         else:
-            st.line_chart(simulated.set_index(timestamp_col)[[target_col, "scenario_power"]])
+            st.line_chart(simulated.set_index(timestamp_col, use_container_width=True, key=next_chart_key("line"))[[target_col, "scenario_power"]])
     else:
         st.info("No data available for simulator.")
 
