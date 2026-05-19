@@ -3580,7 +3580,8 @@ def render_live_kpi_strip(readings: dict[str, float], deltas: dict[str, float] |
 
 
 def render_live_secondary_strip(readings: dict[str, float]) -> None:
-    """Smaller second row: derived signals."""
+    """Smaller second row: derived signals, arranged clearly as 5 cards then 4 cards."""
+
     items = [
         ("💧", "Humidity", f"{readings['humidity']:,.0f}%"),
         ("💨", "Wind", f"{readings['wind_ms']:,.1f} m/s"),
@@ -3592,15 +3593,24 @@ def render_live_secondary_strip(readings: dict[str, float]) -> None:
         ("📦", "Daily Yield", f"{readings['daily_energy_kwh']:,.1f} kWh"),
         ("🌱", "CO₂ Avoided", f"{readings['co2_avoided_kg']:,.1f} kg"),
     ]
-    parts = ['<div class="live-mini-strip">']
-    for icon, label, val in items:
-        parts.append(
-            f'<div class="live-mini"><span class="live-mini-icon">{icon}</span>'
-            f'<span class="live-mini-label">{label}</span>'
-            f'<span class="live-mini-val">{val}</span></div>'
-        )
-    parts.append("</div>")
+    rows = [
+        ("live-mini-strip live-mini-strip-four", items[:4]),
+        ("live-mini-strip live-mini-strip-five", items[4:]),
+    ]
+
+    parts = []
+    for row_class, row_items in rows:
+        parts.append(f'<div class="{row_class}">')
+        for icon, label, val in row_items:
+            parts.append(
+                f'<div class="live-mini"><span class="live-mini-icon">{icon}</span>'
+                f'<span class="live-mini-label">{label}</span>'
+                f'<span class="live-mini-val">{val}</span></div>'
+            )
+        parts.append("</div>")
+
     st.markdown("".join(parts), unsafe_allow_html=True)
+
 
 
 def render_live_history_chart(history: pd.DataFrame) -> None:
