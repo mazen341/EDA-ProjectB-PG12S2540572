@@ -3980,12 +3980,22 @@ def energy_flow_panel(readings: dict | None = None):
 
 
 def visual_twin_panel(readings: dict | None = None):
-    """Interactive 3D-style digital twin.
+    """Big interactive 3D-style digital twin of the PV plant.
 
-    Each component (panel array, inverter, battery, grid tower) has an
-    invisible hover-target overlay that shows a tooltip on hover with
-    that component\\'s live value. Battery height reflects live SOC.
-    Click any component to bounce-animate it.
+    Self-contained SVG inside a Streamlit components iframe. Shows:
+      • The sun with a rotating orbit ring
+      • A tilted 3-row solar panel array (18 panels) with a shimmering
+        surface and labels on the active row
+      • A junction box pulling DC current out of the array
+      • A spinning inverter wheel converting DC to AC
+      • A battery whose fill bars match the live SOC
+      • A meter showing real-time amps
+      • A transmission tower / grid link
+
+    Animated power flows along every wire as colored pulses, and the
+    speed of the pulses scales with the live active power. Every
+    labelled component has a hover tooltip with its live reading and a
+    click bounce animation.
     """
     r = readings or {}
     power_kw   = float(r.get("power_kw", 0.0))
@@ -3993,82 +4003,593 @@ def visual_twin_panel(readings: dict | None = None):
     inv_temp_c = float(r.get("inverter_temp_c", 0.0))
     freq_hz    = float(r.get("frequency_hz", 50.0))
     irr_wm2    = float(r.get("irradiance", 0.0))
+    temp_c     = float(r.get("temperature_c", 0.0))
+    voltage_v  = float(r.get("voltage_v", 0.0))
+    current_a  = float(r.get("current_a", 0.0))
+    eff_pct    = float(r.get("efficiency_pct", 0.0))
 
-    # Battery bar fill that follows live SOC.
-    bar_max = max(20.0, min(100.0, soc_pct))
-    b1 = max(15, int(bar_max * 0.40))
-    b2 = max(20, int(bar_max * 0.60))
-    b3 = max(25, int(bar_max * 0.80))
-    b4 = max(30, int(bar_max * 1.00))
+    # Pulse animation speed scales with live power: more power = faster flow.
+    # Clamp so it does not become invisible at very low power.
+    flow_speed = max(0.9, min(3.2, 3.6 - (power_kw / 6.0)))
+    inv_spin_speed = max(0.7, min(4.0, 4.5 - (power_kw / 3.5)))
 
-    st.markdown(
-        f"""
-        <div class="visual-card" style="position:relative;">
-            <div class="section-title">🛰️ Interactive 3D-Style Digital Twin</div>
-            <div class="muted">Live model of the PV array, inverter, battery, and grid link. Hover any component to see its live value.</div>
-            <div class="sun-orbit"></div>
-            <div class="platform"></div>
-            <div class="panel-grid" data-tt="PV Array · {irr_wm2:.0f} W/m² · {power_kw:.2f} kW generating">
-                <div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div>
-                <div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div>
-                <div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div>
+    # Battery fill height (px) — 4 bars step up to match SOC.
+    soc_clamped = max(0.0, min(100.0, soc_pct))
+    b1 = max(8, int(48 * (soc_clamped / 100.0) * 0.55))
+    b2 = max(10, int(48 * (soc_clamped / 100.0) * 0.75))
+    b3 = max(12, int(48 * (soc_clamped / 100.0) * 0.90))
+    b4 = max(14, int(48 * (soc_clamped / 100.0) * 1.00))
+
+    # Battery color shifts from red (low) to gold (mid) to green (high).
+    if soc_clamped < 25:
+        bat_color = "#F87171"
+    elif soc_clamped < 60:
+        bat_color = "#FBBF24"
+    else:
+        bat_color = "#10B981"
+
+    # Build 18 solar panels (3 rows × 6 cols) inside the rotated array.
+    panels_svg = []
+    for row in range(3):
+        for col in range(6):
+            x = 30 + col * 100
+            y = 30 + row * 60
+            # Shimmer animation delay per panel.
+            delay = (row * 6 + col) * 0.08
+            panels_svg.append(
+                f'<rect class="vt-panel" x="{x}" y="{y}" width="88" height="48" rx="6" '
+                f'style="animation-delay:{delay}s"/>'
+            )
+            # Cell grid lines (3×4 inside each panel) for realism.
+            for cc in range(1, 4):
+                panels_svg.append(f'<line x1="{x + cc*22}" y1="{y}" x2="{x + cc*22}" y2="{y+48}" class="vt-cell"/>')
+            for rr in range(1, 4):
+                panels_svg.append(f'<line x1="{x}" y1="{y + rr*12}" x2="{x+88}" y2="{y + rr*12}" class="vt-cell"/>')
+    panels_inner = "\n            ".join(panels_svg)
+
+    html = f"""
+    <!DOCTYPE html><html><head><meta charset="utf-8"/>
+    <style>
+        :root {{
+            --gold: #FBBF24;
+            --cyan: #38BDF8;
+            --green: #10B981;
+            --red: #F87171;
+            --purple: #A78BFA;
+            --teal: #22D3EE;
+            --text: #F8FBFF;
+            --muted: #DBEAFE;
+        }}
+        * {{ box-sizing: border-box; }}
+        html, body {{ margin:0; padding:0; }}
+        body {{
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: var(--text);
+            background: transparent;
+        }}
+        .vt-wrap {{
+            position: relative;
+            width: 100%;
+            border: 1px solid rgba(56,189,248,.32);
+            border-radius: 26px;
+            padding: 22px 26px 18px 26px;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 92% 6%, rgba(251,191,36,.18), transparent 24%),
+                radial-gradient(circle at 8% 100%, rgba(16,185,129,.16), transparent 32%),
+                radial-gradient(circle at 50% 60%, rgba(56,189,248,.12), transparent 50%),
+                linear-gradient(155deg, rgba(5,18,38,.95), rgba(2,6,23,.92));
+            box-shadow: 0 22px 60px rgba(0,0,0,.34);
+        }}
+        .vt-header {{
+            display:flex; align-items:center; justify-content:space-between;
+            flex-wrap:wrap; gap:12px;
+            margin-bottom: 12px;
+        }}
+        .vt-title {{
+            font-weight: 1000;
+            color: var(--cyan);
+            font-size: 26px;
+            letter-spacing:.3px;
+        }}
+        .vt-sub {{
+            color: var(--muted);
+            font-size: 14px;
+            font-weight:600;
+        }}
+        .vt-badges {{
+            display:flex; gap:8px; flex-wrap:wrap;
+        }}
+        .vt-badge {{
+            padding:6px 14px;
+            border-radius:999px;
+            font-size:12px;
+            font-weight:1000;
+            letter-spacing:.05em;
+            text-transform:uppercase;
+        }}
+        .vt-badge.bg-gold  {{ background:rgba(251,191,36,.20); border:1px solid rgba(251,191,36,.45); color:#FBBF24; }}
+        .vt-badge.bg-green {{ background:rgba(16,185,129,.20); border:1px solid rgba(16,185,129,.45); color:#10B981; }}
+        .vt-badge.bg-cyan  {{ background:rgba(56,189,248,.20); border:1px solid rgba(56,189,248,.45); color:#38BDF8; }}
+        .vt-live-dot {{
+            display:inline-block; width:7px; height:7px; border-radius:50%;
+            background:currentColor;
+            margin-right:6px;
+            animation: vt-pulse 1.1s ease-in-out infinite;
+        }}
+        @keyframes vt-pulse {{
+            0%,100% {{ opacity:.45; transform:scale(.8); }}
+            50%    {{ opacity:1;   transform:scale(1.2); }}
+        }}
+
+        .vt-svg {{
+            width: 100%;
+            height: 620px;
+            display: block;
+            overflow: visible;
+        }}
+        @media (max-width: 900px) {{ .vt-svg {{ height: 760px; }} }}
+
+        /* === Sun === */
+        .vt-sun-core {{
+            fill: #FFE873;
+            filter: drop-shadow(0 0 30px #FBBF24) drop-shadow(0 0 60px rgba(251,191,36,.5));
+            animation: vt-sun-pulse 3s ease-in-out infinite;
+        }}
+        @keyframes vt-sun-pulse {{
+            0%,100% {{ filter: drop-shadow(0 0 28px #FBBF24) drop-shadow(0 0 55px rgba(251,191,36,.45)); }}
+            50%    {{ filter: drop-shadow(0 0 44px #FFE873) drop-shadow(0 0 90px rgba(251,191,36,.85)); }}
+        }}
+        .vt-sun-ray {{
+            stroke: rgba(251,191,36,.65);
+            stroke-width: 2;
+            stroke-linecap: round;
+        }}
+        .vt-sun-orbit {{
+            fill: none;
+            stroke: rgba(251,191,36,.32);
+            stroke-width: 1.5;
+            stroke-dasharray: 5 6;
+            transform-origin: 1130px 95px;
+            animation: vt-orbit 20s linear infinite;
+        }}
+        @keyframes vt-orbit {{
+            from {{ transform: rotate(0deg); }}
+            to   {{ transform: rotate(360deg); }}
+        }}
+
+        /* === Solar panel array === */
+        .vt-array-group {{
+            transform: translate(140px, 200px) skewX(-18deg) rotateX(8deg);
+        }}
+        .vt-array-platform {{
+            fill: linear-gradient(135deg, #193957, #09182b);
+            fill: #0F2F54;
+            stroke: rgba(34,211,238,.40);
+            stroke-width: 1.6;
+            filter: drop-shadow(0 24px 48px rgba(34,211,238,.18));
+        }}
+        .vt-panel {{
+            fill: url(#vt-panel-grad);
+            stroke: rgba(191,219,254,.66);
+            stroke-width: 1.2;
+            filter: drop-shadow(0 0 6px rgba(34,211,238,.22));
+            animation: vt-shimmer 4.4s linear infinite;
+        }}
+        @keyframes vt-shimmer {{
+            0%,100% {{ filter: drop-shadow(0 0 4px rgba(34,211,238,.20)); }}
+            50%    {{ filter: drop-shadow(0 0 12px rgba(34,211,238,.55)); }}
+        }}
+        .vt-cell {{
+            stroke: rgba(255,255,255,.18);
+            stroke-width: .6;
+        }}
+
+        /* === Wires (the conduits energy flows along) === */
+        .vt-wire {{
+            stroke: rgba(255,255,255,.18);
+            stroke-width: 6;
+            fill: none;
+            stroke-linecap: round;
+        }}
+        .vt-wire-glow {{
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            fill: none;
+            stroke-dasharray: 10 14;
+            animation: vt-dash 1.8s linear infinite;
+        }}
+        @keyframes vt-dash {{ to {{ stroke-dashoffset: -24; }} }}
+        .vt-wire-glow.gold  {{ stroke: rgba(251,191,36,.85); }}
+        .vt-wire-glow.cyan  {{ stroke: rgba(56,189,248,.85); }}
+        .vt-wire-glow.green {{ stroke: rgba(16,185,129,.85); }}
+
+        /* === Pulses traveling along wires === */
+        .vt-pulse {{ filter: drop-shadow(0 0 10px currentColor); }}
+
+        /* Sun → PV array path: along the diagonal */
+        .vt-flow-sun {{
+            offset-path: path("M 1100 130 L 750 280");
+            animation: vt-flow {flow_speed:.2f}s linear infinite;
+        }}
+        .vt-flow-sun.d1 {{ animation-delay: 0s; }}
+        .vt-flow-sun.d2 {{ animation-delay: .35s; }}
+        .vt-flow-sun.d3 {{ animation-delay: .70s; }}
+
+        /* PV array → Junction (DC) */
+        .vt-flow-dc {{
+            offset-path: path("M 540 460 L 540 540 L 700 540");
+            animation: vt-flow {flow_speed:.2f}s linear infinite;
+        }}
+        .vt-flow-dc.d1 {{ animation-delay: 0s; }}
+        .vt-flow-dc.d2 {{ animation-delay: .4s; }}
+        .vt-flow-dc.d3 {{ animation-delay: .8s; }}
+        .vt-flow-dc.d4 {{ animation-delay: 1.2s; }}
+
+        /* Junction → Inverter */
+        .vt-flow-inv {{
+            offset-path: path("M 780 540 L 880 540");
+            animation: vt-flow {flow_speed:.2f}s linear infinite;
+        }}
+        .vt-flow-inv.d1 {{ animation-delay: 0s; }}
+        .vt-flow-inv.d2 {{ animation-delay: .25s; }}
+        .vt-flow-inv.d3 {{ animation-delay: .50s; }}
+
+        /* Inverter → Battery (down) */
+        .vt-flow-bat {{
+            offset-path: path("M 940 580 L 940 660 L 700 660");
+            animation: vt-flow {flow_speed:.2f}s linear infinite;
+        }}
+        .vt-flow-bat.d1 {{ animation-delay: 0s; }}
+        .vt-flow-bat.d2 {{ animation-delay: .35s; }}
+        .vt-flow-bat.d3 {{ animation-delay: .70s; }}
+
+        /* Inverter → Meter → Tower (AC) */
+        .vt-flow-ac {{
+            offset-path: path("M 1000 540 L 1110 540 L 1230 540");
+            animation: vt-flow {flow_speed:.2f}s linear infinite;
+        }}
+        .vt-flow-ac.d1 {{ animation-delay: 0s; }}
+        .vt-flow-ac.d2 {{ animation-delay: .30s; }}
+        .vt-flow-ac.d3 {{ animation-delay: .60s; }}
+        .vt-flow-ac.d4 {{ animation-delay: .90s; }}
+
+        @keyframes vt-flow {{
+            0%   {{ offset-distance: 0%;   opacity: 0; }}
+            10%  {{ opacity: 1; }}
+            90%  {{ opacity: 1; }}
+            100% {{ offset-distance: 100%; opacity: 0; }}
+        }}
+
+        /* === Inverter (a spinning fan inside a box) === */
+        .vt-inv-box {{
+            fill: #1E293B;
+            stroke: rgba(56,189,248,.5);
+            stroke-width: 2;
+            filter: drop-shadow(0 8px 18px rgba(0,0,0,.5));
+        }}
+        .vt-inv-fan {{
+            transform-origin: 940px 540px;
+            animation: vt-spin {inv_spin_speed:.2f}s linear infinite;
+        }}
+        @keyframes vt-spin {{ from {{ transform: rotate(0deg); }} to {{ transform: rotate(360deg); }} }}
+        .vt-inv-blade {{
+            fill: #38BDF8;
+            opacity: .85;
+        }}
+
+        /* === Battery === */
+        .vt-bat-shell {{
+            fill: #0F172A;
+            stroke: rgba(16,185,129,.55);
+            stroke-width: 2;
+        }}
+        .vt-bat-fill {{
+            fill: {bat_color};
+            filter: drop-shadow(0 0 8px {bat_color});
+            animation: vt-bat-pulse 1.6s ease-in-out infinite;
+        }}
+        @keyframes vt-bat-pulse {{
+            0%,100% {{ opacity: .82; }}
+            50%    {{ opacity: 1; }}
+        }}
+
+        /* === Tower === */
+        .vt-tower {{
+            font-size: 78px;
+            fill: #CBD5E1;
+            filter: drop-shadow(0 0 16px rgba(34,211,238,.55));
+            text-anchor: middle;
+            dominant-baseline: middle;
+            animation: vt-float 4.6s ease-in-out infinite;
+        }}
+        @keyframes vt-float {{
+            0%,100% {{ transform: translateY(0); }}
+            50%    {{ transform: translateY(-6px); }}
+        }}
+
+        /* === Labels and hover targets === */
+        .vt-hover {{
+            cursor: pointer;
+        }}
+        .vt-hover:hover .vt-hover-rect {{
+            stroke: var(--gold) !important;
+            stroke-width: 3 !important;
+            filter: drop-shadow(0 0 12px rgba(251,191,36,.6));
+        }}
+        .vt-label-pill {{
+            fill: rgba(8,22,47,.95);
+            stroke: rgba(56,189,248,.5);
+            stroke-width: 1.2;
+        }}
+        .vt-label-text {{
+            fill: var(--text);
+            font-size: 13px;
+            font-weight: 1000;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }}
+        .vt-label-value {{
+            fill: var(--gold);
+            font-size: 12px;
+            font-weight: 1000;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }}
+
+        /* Tooltip */
+        .vt-tip {{
+            position: absolute;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .15s ease;
+            padding: 9px 13px;
+            border-radius: 12px;
+            background: rgba(8,22,47,.96);
+            border: 1px solid rgba(56,189,248,.55);
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.35;
+            z-index: 30;
+            max-width: 280px;
+            box-shadow: 0 12px 28px rgba(0,0,0,.46);
+        }}
+        .vt-tip.show {{ opacity: 1; }}
+        .vt-tip b {{ color: var(--gold); display:block; margin-bottom:3px; font-size:13px; }}
+
+        /* Bottom KPI strip */
+        .vt-kpis {{
+            display:grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-top: 14px;
+        }}
+        .vt-kpi {{
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: rgba(255,255,255,.05);
+            border: 1px solid rgba(56,189,248,.25);
+            text-align: center;
+        }}
+        .vt-kpi .l {{
+            color: var(--muted);
+            font-size: 10px;
+            font-weight: 1000;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }}
+        .vt-kpi .v {{
+            color: var(--text);
+            font-size: 17px;
+            font-weight: 1000;
+            margin-top: 3px;
+        }}
+        @media (max-width: 900px) {{
+            .vt-kpis {{ grid-template-columns: repeat(2, 1fr); }}
+            .vt-title {{ font-size: 20px; }}
+        }}
+    </style>
+    </head><body>
+    <div class="vt-wrap">
+        <div class="vt-header">
+            <div>
+                <div class="vt-title">🛰️ Interactive 3D-Style Digital Twin</div>
+                <div class="vt-sub">Live plant model with real power flowing through every wire. Hover any component for details.</div>
             </div>
-            <div class="battery" data-tt="Battery · {soc_pct:.1f}% SOC">
-                <div class="battery-bars">
-                    <i style="height:{b1}%"></i><i style="height:{b2}%"></i><i style="height:{b3}%"></i><i style="height:{b4}%"></i>
-                </div>
+            <div class="vt-badges">
+                <div class="vt-badge bg-gold"><span class="vt-live-dot"></span>{power_kw:.2f} kW</div>
+                <div class="vt-badge bg-green"><span class="vt-live-dot"></span>{soc_pct:.1f}% SOC</div>
+                <div class="vt-badge bg-cyan"><span class="vt-live-dot"></span>{irr_wm2:.0f} W/m²</div>
             </div>
-            <div class="inverter" data-tt="Inverter · {inv_temp_c:.1f}°C internal"></div>
-            <div class="tower" data-tt="Grid Link · {freq_hz:.3f} Hz · {power_kw:.2f} kW">🗼</div>
-            <div class="power-line"></div>
-
-            <!-- Live KPI badges floating over the twin -->
-            <div style="position:absolute;top:14px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:5">
-                <div style="padding:6px 12px;border-radius:999px;background:rgba(251,191,36,.20);border:1px solid rgba(251,191,36,.45);color:#FBBF24;font-size:.78rem;font-weight:1000;letter-spacing:.04em">
-                    ⚡ {power_kw:.2f} kW
-                </div>
-                <div style="padding:6px 12px;border-radius:999px;background:rgba(16,185,129,.20);border:1px solid rgba(16,185,129,.45);color:#10B981;font-size:.78rem;font-weight:1000;letter-spacing:.04em">
-                    🔋 {soc_pct:.1f}%
-                </div>
-                <div style="padding:6px 12px;border-radius:999px;background:rgba(56,189,248,.20);border:1px solid rgba(56,189,248,.45);color:#38BDF8;font-size:.78rem;font-weight:1000;letter-spacing:.04em">
-                    ☀️ {irr_wm2:.0f} W/m²
-                </div>
-            </div>
-
-            <!-- Floating tooltip element (driven by JS below) -->
-            <div id="vt-tip" style="position:absolute;pointer-events:none;opacity:0;transition:opacity .15s ease;padding:7px 11px;border-radius:10px;background:rgba(8,22,47,.96);border:1px solid rgba(56,189,248,.5);color:#F8FBFF;font-size:11px;font-weight:800;z-index:30;box-shadow:0 8px 22px rgba(0,0,0,.4);"></div>
         </div>
 
-        <script>
-        (function() {{
-            var card = document.currentScript.previousElementSibling;
-            if (!card) return;
-            var tip = card.querySelector("#vt-tip");
-            if (!tip) return;
-            var targets = card.querySelectorAll("[data-tt]");
-            targets.forEach(function(el) {{
-                el.style.cursor = "pointer";
-                el.addEventListener("mousemove", function(e) {{
-                    var rect = card.getBoundingClientRect();
-                    tip.textContent = el.getAttribute("data-tt");
-                    tip.style.left = (e.clientX - rect.left + 12) + "px";
-                    tip.style.top  = (e.clientY - rect.top  + 12) + "px";
-                    tip.style.opacity = "1";
-                }});
-                el.addEventListener("mouseleave", function() {{ tip.style.opacity = "0"; }});
-                el.addEventListener("click", function() {{
-                    el.style.transition = "transform .3s cubic-bezier(.34,1.56,.64,1)";
-                    el.style.transform = (el.style.transform || "") + " scale(1.08)";
-                    setTimeout(function() {{
-                        el.style.transform = el.style.transform.replace(" scale(1.08)", "");
-                    }}, 320);
-                }});
+        <svg class="vt-svg" viewBox="0 0 1400 700" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <linearGradient id="vt-panel-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%"  stop-color="#1E40AF"/>
+                    <stop offset="55%" stop-color="#1E3A8A"/>
+                    <stop offset="100%" stop-color="#0B1437"/>
+                </linearGradient>
+                <radialGradient id="vt-sun-grad" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%"  stop-color="#FFE873"/>
+                    <stop offset="60%" stop-color="#FBBF24"/>
+                    <stop offset="100%" stop-color="rgba(251,191,36,0)"/>
+                </radialGradient>
+            </defs>
+
+            <!-- ===== SUN (top-right) ===== -->
+            <g class="vt-hover" data-name="Sun" data-detail="Solar irradiance · {irr_wm2:.0f} W/m²<br>Ambient temperature · {temp_c:.1f}°C">
+                <circle class="vt-sun-orbit" cx="1130" cy="95" r="60"/>
+                <circle class="vt-sun-core" cx="1130" cy="95" r="38" fill="url(#vt-sun-grad)"/>
+                <!-- Sun rays -->
+                <line class="vt-sun-ray" x1="1130" y1="40" x2="1130" y2="22"/>
+                <line class="vt-sun-ray" x1="1130" y1="150" x2="1130" y2="168"/>
+                <line class="vt-sun-ray" x1="1075" y1="95" x2="1057" y2="95"/>
+                <line class="vt-sun-ray" x1="1185" y1="95" x2="1203" y2="95"/>
+                <line class="vt-sun-ray" x1="1093" y1="58" x2="1080" y2="45"/>
+                <line class="vt-sun-ray" x1="1167" y1="132" x2="1180" y2="145"/>
+                <line class="vt-sun-ray" x1="1167" y1="58" x2="1180" y2="45"/>
+                <line class="vt-sun-ray" x1="1093" y1="132" x2="1080" y2="145"/>
+            </g>
+
+            <!-- ===== WIRES (drawn first so pulses ride on top) ===== -->
+            <!-- Sun → PV array (light beam) -->
+            <line class="vt-wire" x1="1100" y1="130" x2="750" y2="280" style="stroke:rgba(251,191,36,.18);stroke-dasharray:4 6"/>
+            <line class="vt-wire-glow gold" x1="1100" y1="130" x2="750" y2="280"/>
+
+            <!-- PV array → Junction (DC) -->
+            <path class="vt-wire" d="M 540 460 L 540 540 L 700 540"/>
+            <path class="vt-wire-glow gold" d="M 540 460 L 540 540 L 700 540"/>
+
+            <!-- Junction → Inverter -->
+            <line class="vt-wire" x1="780" y1="540" x2="880" y2="540"/>
+            <line class="vt-wire-glow gold" x1="780" y1="540" x2="880" y2="540"/>
+
+            <!-- Inverter → Battery (down) -->
+            <path class="vt-wire" d="M 940 580 L 940 660 L 700 660"/>
+            <path class="vt-wire-glow green" d="M 940 580 L 940 660 L 700 660"/>
+
+            <!-- Inverter → Meter → Tower (AC) -->
+            <line class="vt-wire" x1="1000" y1="540" x2="1230" y2="540"/>
+            <line class="vt-wire-glow cyan" x1="1000" y1="540" x2="1230" y2="540"/>
+
+            <!-- ===== PULSES (the actual current flowing) ===== -->
+            <circle class="vt-pulse vt-flow-sun d1" r="6" fill="#FBBF24" style="color:#FBBF24"/>
+            <circle class="vt-pulse vt-flow-sun d2" r="6" fill="#FBBF24" style="color:#FBBF24"/>
+            <circle class="vt-pulse vt-flow-sun d3" r="6" fill="#FBBF24" style="color:#FBBF24"/>
+
+            <circle class="vt-pulse vt-flow-dc d1" r="7" fill="#FBBF24" style="color:#FBBF24"/>
+            <circle class="vt-pulse vt-flow-dc d2" r="7" fill="#FBBF24" style="color:#FBBF24"/>
+            <circle class="vt-pulse vt-flow-dc d3" r="7" fill="#FBBF24" style="color:#FBBF24"/>
+            <circle class="vt-pulse vt-flow-dc d4" r="7" fill="#FBBF24" style="color:#FBBF24"/>
+
+            <circle class="vt-pulse vt-flow-inv d1" r="7" fill="#FBBF24" style="color:#FBBF24"/>
+            <circle class="vt-pulse vt-flow-inv d2" r="7" fill="#FBBF24" style="color:#FBBF24"/>
+            <circle class="vt-pulse vt-flow-inv d3" r="7" fill="#FBBF24" style="color:#FBBF24"/>
+
+            <circle class="vt-pulse vt-flow-bat d1" r="7" fill="#10B981" style="color:#10B981"/>
+            <circle class="vt-pulse vt-flow-bat d2" r="7" fill="#10B981" style="color:#10B981"/>
+            <circle class="vt-pulse vt-flow-bat d3" r="7" fill="#10B981" style="color:#10B981"/>
+
+            <circle class="vt-pulse vt-flow-ac d1" r="8" fill="#38BDF8" style="color:#38BDF8"/>
+            <circle class="vt-pulse vt-flow-ac d2" r="8" fill="#38BDF8" style="color:#38BDF8"/>
+            <circle class="vt-pulse vt-flow-ac d3" r="8" fill="#38BDF8" style="color:#38BDF8"/>
+            <circle class="vt-pulse vt-flow-ac d4" r="8" fill="#38BDF8" style="color:#38BDF8"/>
+
+            <!-- ===== SOLAR PANEL ARRAY (tilted) ===== -->
+            <g class="vt-hover" data-name="Solar PV Array" data-detail="18 panels · {voltage_v:.0f} V DC · {power_kw:.2f} kW generating<br>Module temp · {temp_c:.1f}°C">
+                <rect class="vt-hover-rect vt-array-platform" x="130" y="190" width="800" height="280" rx="22"/>
+                <g class="vt-array-group" transform="translate(140, 200) skewX(-18) ">
+                    {panels_inner}
+                </g>
+            </g>
+
+            <!-- ===== JUNCTION BOX ===== -->
+            <g class="vt-hover" data-name="Junction Box" data-detail="DC combiner pulling current from the array.<br>Current · {current_a:.1f} A">
+                <rect class="vt-hover-rect" x="700" y="510" width="80" height="60" rx="10"
+                    fill="#1E293B" stroke="rgba(56,189,248,.5)" stroke-width="2"/>
+                <text x="740" y="538" class="vt-label-text" style="fill:#94A3B8;font-size:11px">JUNC</text>
+                <text x="740" y="555" class="vt-label-value">{current_a:.1f}A</text>
+            </g>
+
+            <!-- ===== INVERTER (spinning fan inside a box) ===== -->
+            <g class="vt-hover" data-name="Inverter" data-detail="Converts DC to grid-synced AC.<br>Internal temp · {inv_temp_c:.1f}°C · Efficiency · {eff_pct:.1f}%">
+                <rect class="vt-hover-rect vt-inv-box" x="880" y="480" width="120" height="120" rx="14"/>
+                <!-- Spinning fan blades centered at (940, 540) -->
+                <g class="vt-inv-fan">
+                    <ellipse class="vt-inv-blade" cx="940" cy="510" rx="6" ry="22"/>
+                    <ellipse class="vt-inv-blade" cx="940" cy="570" rx="6" ry="22"/>
+                    <ellipse class="vt-inv-blade" cx="910" cy="540" rx="22" ry="6"/>
+                    <ellipse class="vt-inv-blade" cx="970" cy="540" rx="22" ry="6"/>
+                </g>
+                <circle cx="940" cy="540" r="6" fill="#F8FBFF"/>
+                <text x="940" y="615" class="vt-label-text" style="font-size:11px;fill:#94A3B8">INVERTER</text>
+            </g>
+
+            <!-- ===== BATTERY (bottom, with live SOC fill) ===== -->
+            <g class="vt-hover" data-name="Battery Storage" data-detail="State of charge · {soc_pct:.1f}%<br>Status · {('Discharging' if soc_pct > 55 else 'Charging')}">
+                <rect class="vt-hover-rect vt-bat-shell" x="580" y="630" width="160" height="60" rx="10"/>
+                <rect x="740" y="648" width="6" height="24" rx="2" fill="#0F172A" stroke="rgba(16,185,129,.55)" stroke-width="1.5"/>
+                <!-- 4 vertical bars matching SOC -->
+                <rect class="vt-bat-fill" x="596" y="{680 - b1}" width="26" height="{b1}" rx="3"/>
+                <rect class="vt-bat-fill" x="628" y="{680 - b2}" width="26" height="{b2}" rx="3"/>
+                <rect class="vt-bat-fill" x="660" y="{680 - b3}" width="26" height="{b3}" rx="3"/>
+                <rect class="vt-bat-fill" x="692" y="{680 - b4}" width="26" height="{b4}" rx="3"/>
+                <text x="658" y="623" class="vt-label-text" style="fill:{bat_color}">🔋 {soc_pct:.1f}%</text>
+            </g>
+
+            <!-- ===== METER ===== -->
+            <g class="vt-hover" data-name="Smart Meter" data-detail="AC line · {voltage_v:.0f} V · {current_a:.1f} A<br>Grid frequency · {freq_hz:.3f} Hz">
+                <rect class="vt-hover-rect" x="1090" y="500" width="80" height="80" rx="12"
+                    fill="#0F172A" stroke="rgba(56,189,248,.55)" stroke-width="2"/>
+                <text x="1130" y="525" class="vt-label-text" style="font-size:10px;fill:#94A3B8">METER</text>
+                <text x="1130" y="552" class="vt-label-value" style="fill:#22D3EE">{freq_hz:.2f}</text>
+                <text x="1130" y="568" class="vt-label-text" style="font-size:9px;fill:#94A3B8">Hz</text>
+            </g>
+
+            <!-- ===== TRANSMISSION TOWER ===== -->
+            <g class="vt-hover" data-name="Grid Connection" data-detail="Power export to grid<br>Frequency · {freq_hz:.3f} Hz · {power_kw:.2f} kW exported">
+                <rect class="vt-hover-rect" x="1210" y="420" width="140" height="200" rx="14"
+                    fill="rgba(255,255,255,.02)" stroke="rgba(56,189,248,.3)" stroke-width="1.5"/>
+                <text class="vt-tower" x="1280" y="510">🗼</text>
+                <text x="1280" y="600" class="vt-label-text">GRID</text>
+                <text x="1280" y="616" class="vt-label-value" style="fill:#38BDF8">{power_kw:.2f} kW</text>
+            </g>
+
+            <!-- ===== LABELS / ARROWS ===== -->
+            <text x="540" y="180" class="vt-label-text" style="font-size:11px;fill:#FBBF24">⚡ PV ARRAY</text>
+            <text x="540" y="500" class="vt-label-text" style="font-size:10px;fill:#94A3B8">DC OUTPUT</text>
+            <text x="840" y="525" class="vt-label-text" style="font-size:10px;fill:#94A3B8">DC</text>
+            <text x="1050" y="525" class="vt-label-text" style="font-size:10px;fill:#38BDF8">AC</text>
+            <text x="820" y="650" class="vt-label-text" style="font-size:10px;fill:#10B981">CHARGE</text>
+        </svg>
+
+        <div class="vt-kpis">
+            <div class="vt-kpi"><div class="l">Power</div><div class="v">{power_kw:.2f} kW</div></div>
+            <div class="vt-kpi"><div class="l">Voltage</div><div class="v">{voltage_v:.0f} V</div></div>
+            <div class="vt-kpi"><div class="l">Current</div><div class="v">{current_a:.1f} A</div></div>
+            <div class="vt-kpi"><div class="l">Freq</div><div class="v">{freq_hz:.2f} Hz</div></div>
+            <div class="vt-kpi"><div class="l">SOC</div><div class="v">{soc_pct:.1f}%</div></div>
+        </div>
+
+        <div class="vt-tip" id="vt-tip"></div>
+    </div>
+
+    <script>
+    (function() {{
+        var tip = document.getElementById("vt-tip");
+        var targets = document.querySelectorAll(".vt-hover");
+        targets.forEach(function(el) {{
+            el.addEventListener("mousemove", function(e) {{
+                var name = el.getAttribute("data-name") || "Component";
+                var detail = el.getAttribute("data-detail") || "";
+                tip.innerHTML = "<b>" + name + "</b>" + detail;
+                tip.style.left = (e.clientX + 16) + "px";
+                tip.style.top  = (e.clientY + 16) + "px";
+                tip.classList.add("show");
             }});
-        }})();
-        </script>
-        """,
-        unsafe_allow_html=True,
-    )
+            el.addEventListener("mouseleave", function() {{
+                tip.classList.remove("show");
+            }});
+            el.addEventListener("click", function() {{
+                // Bounce animation on click — apply to the hover rect (or first child).
+                var rect = el.querySelector(".vt-hover-rect") || el.firstElementChild;
+                if (rect) {{
+                    rect.style.transition = "transform .3s cubic-bezier(.34,1.56,.64,1)";
+                    rect.style.transformOrigin = "center";
+                    rect.style.transform = "scale(1.05)";
+                    setTimeout(function() {{ rect.style.transform = ""; }}, 320);
+                }}
+            }});
+        }});
+    }})();
+    </script>
+    </body></html>
+    """
+    components.html(html, height=830, scrolling=False)
 
 
 # -----------------------------------------------------------------------------
@@ -5684,22 +6205,19 @@ if selected_page == "🏠 Home":
     render_live_gauges_component(live_readings, live_history)
 
     # Energy flow is now a full-width hero. It's big enough that it deserves
-    # its own row. Then the static visual context image and the 3D twin sit
-    # side-by-side below it.
+    # its own row. The 3D twin gets its own full-width row too — both have
+    # become much bigger and more interactive than they were originally.
     energy_flow_panel(live_readings)
+    visual_twin_panel(live_readings)
 
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        st.markdown(
-            f"""
-            <div class="image-card" style="min-height:320px;background-image:url('{IMG_SOLAR_1}')">
-                <span>Solar PV Plant • Live visual context</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with c2:
-        visual_twin_panel(live_readings)
+    st.markdown(
+        f"""
+        <div class="image-card" style="min-height:240px;background-image:url('{IMG_SOLAR_1}')">
+            <span>Solar PV Plant • Live visual context</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.markdown("### 📈 Live Rolling Telemetry (last few minutes)")
     render_live_history_chart(live_history)
