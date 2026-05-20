@@ -21,7 +21,7 @@ import json
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import numpy as np
@@ -4674,14 +4674,66 @@ def _compute_live_readings(filtered_df: pd.DataFrame, target_col: str, tick: int
     }
 
 
-def _push_live_history(readings: dict[str, float], max_points: int = 120) -> pd.DataFrame:
-    """Maintain a rolling per-session history buffer of live readings."""
+def _push_live_history(
+    readings: dict[str, float],
+    max_points: int = 120,
+    *,
+    filtered_df: pd.DataFrame | None = None,
+    target_col: str | None = None,
+) -> pd.DataFrame:
+    """Maintain a rolling per-session history buffer of live readings.
+
+    On the very first call of the session we backfill the buffer with a
+    plausible recent history so the rolling-telemetry chart is fully
+    populated immediately, instead of showing "Collecting live data points…"
+    until enough real ticks have accumulated. Subsequent calls append the
+    latest reading and trim the buffer to `max_points`.
+    """
     hist = st.session_state.get("live_history")
-    if hist is None:
-        hist = pd.DataFrame(columns=[
-            "t", "power_kw", "temperature_c", "irradiance",
-            "voltage_v", "frequency_hz", "battery_soc_pct", "efficiency_pct",
-        ])
+    cols = [
+        "t", "power_kw", "temperature_c", "irradiance",
+        "voltage_v", "frequency_hz", "battery_soc_pct", "efficiency_pct",
+    ]
+    if hist is None or hist.empty:
+        # ------------------------------------------------------------------
+        # First-load backfill — generate 60 synthetic points using the same
+        # phase-driven oscillator as _compute_live_readings but for the
+        # "previous" 60 ticks. This makes the chart usable from the very
+        # first paint, even when streamlit-autorefresh is not installed.
+        # ------------------------------------------------------------------
+        n_backfill = 60
+        now = datetime.now()
+        rng = np.random.default_rng(0)
+
+        # Try to use real recent data from the dataset if available, otherwise
+        # fall back to the current reading as the centerline.
+        base_power = float(readings.get("power_kw", 4.2))
+        base_temp  = float(readings.get("temperature_c", 28.0))
+        base_irr   = float(readings.get("irradiance", 740.0))
+        base_volt  = float(readings.get("voltage_v", 400.0))
+        base_freq  = float(readings.get("frequency_hz", 50.0))
+        base_soc   = float(readings.get("battery_soc_pct", 62.0))
+        base_eff   = float(readings.get("efficiency_pct", 80.0))
+
+        rows = []
+        for i in range(n_backfill, 0, -1):
+            # Each synthetic tick is 1 second before the next; phase ramps so
+            # the sinusoid varies smoothly across the buffer.
+            t = now - timedelta(seconds=i)
+            phase = (n_backfill - i) / 18.0
+            rows.append({
+                "t": t,
+                "power_kw":        max(0.0, base_power      + base_power * 0.05 * np.sin(phase)      + rng.normal(0, base_power * 0.015)),
+                "temperature_c":   base_temp                + 0.6 * np.sin(phase * 0.7)              + rng.normal(0, 0.18),
+                "irradiance":      max(0.0, base_irr        + base_irr * 0.06 * np.sin(phase * 0.9)  + rng.normal(0, 14)),
+                "voltage_v":       base_volt                + 4.0 * np.sin(phase * 1.1)              + rng.normal(0, 0.6),
+                "frequency_hz":    base_freq                + 0.06 * np.sin(phase * 1.7)             + rng.normal(0, 0.012),
+                "battery_soc_pct": float(np.clip(base_soc   + 1.8 * np.sin(phase * 0.18)             + rng.normal(0, 0.4), 5, 99)),
+                "efficiency_pct":  float(np.clip(base_eff   + 1.2 * np.sin(phase * 0.5)              + rng.normal(0, 0.6), 0, 99.5)),
+            })
+        hist = pd.DataFrame(rows, columns=cols)
+
+    # Append the latest live reading.
     row = {
         "t": datetime.now(),
         "power_kw": readings["power_kw"],
@@ -4803,10 +4855,53 @@ def render_live_secondary_strip(readings: dict[str, float]) -> None:
 
 
 def render_live_history_chart(history: pd.DataFrame) -> None:
-    """Render a multi-line live chart showing the recent history buffer."""
-    if history.empty or len(history) < 2:
-        st.info("Collecting live data points… the chart will fill in within a few seconds.")
+    """Render a multi-line live chart showing the recent history buffer.
+
+    We never show a "collecting points…" placeholder anymore — the buffer
+    is backfilled on first load so the chart is always populated. The only
+    fallback is the very rare case where Plotly is unavailable.
+    """
+    if history is None or history.empty:
+        # Defensive only — _push_live_history backfills on first call.
+        st.info("Live buffer is empty. Toggle 'Live updates ON' in the sidebar.")
         return
+
+    # ── Status bar above the chart ────────────────────────────────────────
+    n = len(history)
+    try:
+        t_first = pd.to_datetime(history["t"].iloc[0])
+        t_last  = pd.to_datetime(history["t"].iloc[-1])
+        span = max(0, int((t_last - t_first).total_seconds()))
+    except Exception:
+        span = 0
+    mode_text = (
+        "🟢 Live · auto-refreshing"
+        if AUTOREFRESH_AVAILABLE
+        else "🟡 Live · using fallback refresh (install `streamlit-autorefresh` for smoother updates)"
+    )
+
+    status_col, btn_col = st.columns([3, 1])
+    with status_col:
+        st.markdown(
+            f"<div style='display:flex;gap:14px;align-items:center;flex-wrap:wrap;"
+            f"padding:.5rem .85rem;border-radius:12px;"
+            f"background:rgba(8,22,47,.55);border:1px solid rgba(56,189,248,.22);"
+            f"color:#DBEAFE;font-size:.86rem;font-weight:700'>"
+            f"<span>{mode_text}</span>"
+            f"<span style='color:#FBBF24'>● {n} points buffered</span>"
+            f"<span style='color:#94A3B8'>span ≈ {span}s</span>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    with btn_col:
+        if st.button("🔄 Refresh now", key=next_chart_key("live_refresh_btn"), use_container_width=True):
+            try:
+                st.rerun()
+            except Exception:
+                try:
+                    st.experimental_rerun()
+                except Exception:
+                    pass
 
     if PLOTLY_AVAILABLE:
         fig = go.Figure()
@@ -4814,20 +4909,23 @@ def render_live_history_chart(history: pd.DataFrame) -> None:
             x=history["t"], y=history["power_kw"], name="Active Power (kW)",
             mode="lines", line=dict(color="#FBBF24", width=3),
             fill="tozeroy", fillcolor="rgba(251,191,36,.15)",
+            hovertemplate="<b>%{x|%H:%M:%S}</b><br>Power: %{y:.2f} kW<extra></extra>",
         ))
         fig.add_trace(go.Scatter(
             x=history["t"], y=history["irradiance"] / 100.0, name="Irradiance (×100 W/m²)",
             mode="lines", line=dict(color="#38BDF8", width=2, dash="dot"), yaxis="y",
+            hovertemplate="<b>%{x|%H:%M:%S}</b><br>Irradiance ×100: %{y:.2f}<extra></extra>",
         ))
         fig.add_trace(go.Scatter(
             x=history["t"], y=history["temperature_c"], name="Module Temp (°C)",
             mode="lines", line=dict(color="#F87171", width=2), yaxis="y2",
+            hovertemplate="<b>%{x|%H:%M:%S}</b><br>Temp: %{y:.1f}°C<extra></extra>",
         ))
         fig.update_layout(
             height=360,
             margin=dict(l=70, r=70, t=50, b=70),
             legend=dict(orientation="h", y=1.13, x=0),
-            xaxis=dict(title="Tick time", showgrid=False),
+            xaxis=dict(title="Time", showgrid=False),
             yaxis=dict(title="Power (kW)  /  Irradiance ×100 W/m²", showgrid=True),
             yaxis2=dict(title="Module Temperature (°C)", overlaying="y", side="right", showgrid=False),
         )
@@ -5067,10 +5165,32 @@ def render_live_alerts(readings: dict[str, float]) -> None:
 
 
 def maybe_autorefresh(seconds: int, key: str) -> int:
-    """Trigger periodic page reruns. Returns the current tick count."""
+    """Trigger periodic page reruns. Returns the current tick count.
+
+    Behavior:
+      • If `streamlit-autorefresh` is installed → use it (clean reruns,
+        no full reload, scroll position preserved).
+      • Otherwise → do NOT force a hard reload (that would destroy session
+        state like the active section, OpenRouter key, and model results
+        every N seconds). Instead, the live chart now backfills its buffer
+        on first load and exposes a "🔄 Refresh now" button so the user
+        can advance the buffer on demand.
+    """
+    counter_key = f"_tick_{key}"
+    last_seen = st.session_state.get(counter_key, 0)
+    now_tick = int(time.time())
+    st.session_state[counter_key] = now_tick
+
     if AUTOREFRESH_AVAILABLE:
-        return int(st_autorefresh(interval=max(1, seconds) * 1000, key=key))
-    return st.session_state.get(f"_tick_{key}", 0)
+        try:
+            return int(st_autorefresh(interval=max(1, seconds) * 1000, key=key))
+        except Exception:
+            pass
+
+    # No safe automatic refresh available. Return the wall-clock tick so
+    # callers still see a number that changes over time when the user does
+    # rerun manually.
+    return now_tick
 
 
 def render_live_control_surface(
