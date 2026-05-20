@@ -2982,7 +2982,7 @@ def render_feature_correlation_lab(model_df: pd.DataFrame, target_col: str, feat
 
 
 def render_all_in_one_recommendations(comparison_df: pd.DataFrame, predictions_df: pd.DataFrame):
-    st.markdown("### 🧠 Expert Recommendations")
+    st.markdown("### 🧠 Recommendations")
     if comparison_df.empty:
         st.info("Recommendations will be stronger once model comparison is available.")
         return
