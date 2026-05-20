@@ -93,6 +93,25 @@ IMG_SIMULATOR = "https://images.unsplash.com/photo-1518779578993-ec3579fee39f?au
 IMG_COMPARE = "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1100&q=80"
 IMG_EXPORT = "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1100&q=80"
 IMG_DIAGRAMS = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1100&q=80"
+
+# Weather metric tile backgrounds — same topic family (sky / atmosphere).
+IMG_HUMIDITY  = "https://images.unsplash.com/photo-1428592953211-077101b2021b?auto=format&fit=crop&w=900&q=80"   # rain on window
+IMG_WIND      = "https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=900&q=80"   # wind turbines
+IMG_PRESSURE  = "https://images.unsplash.com/photo-1419833173245-f59e1b93f9ee?auto=format&fit=crop&w=900&q=80"   # atmosphere / cloud altitude
+IMG_TEMP      = "https://images.unsplash.com/photo-1561553873-e8491a564fd0?auto=format&fit=crop&w=900&q=80"   # sun heat haze
+IMG_SKY       = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=900&q=80"   # sky
+
+# Electrical metric tile backgrounds — same topic family (power / electronics).
+IMG_CURRENT      = "https://images.unsplash.com/photo-1521405924368-64c5b84bec60?auto=format&fit=crop&w=900&q=80"   # high voltage lines
+IMG_POWER_FACTOR = "https://images.unsplash.com/photo-1473073898421-bafa756bbf95?auto=format&fit=crop&w=900&q=80"   # power lines
+IMG_INVERTER     = "https://images.unsplash.com/photo-1581090700227-1e37b190418e?auto=format&fit=crop&w=900&q=80"   # electronics / inverter
+IMG_EFFICIENCY   = "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=900&q=80"   # grid efficiency
+IMG_YIELD        = "https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=900&q=80"   # solar panels
+IMG_CO2          = "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=900&q=80"   # forest / trees / green
+IMG_VOLTAGE      = "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=900&q=80"   # grid
+IMG_FREQUENCY    = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=80"   # circuit board
+IMG_BATTERY_SOC  = "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&w=900&q=80"   # battery
+IMG_POWER_GAUGE  = "https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=900&q=80"   # solar power
 SECTION_OPTIONS = [
     "🏠 Home",
     "🔴 Live Telemetry",
@@ -1984,6 +2003,232 @@ def inject_css(theme_name: str, motion: bool, big_mode: bool) -> None:
         @media (max-width: 1200px) {{ .live-mini-strip {{ grid-template-columns: repeat(4, 1fr); }} }}
         @media (max-width: 700px)  {{ .live-mini-strip {{ grid-template-columns: repeat(2, 1fr); }} }}
 
+        /* ============================================================== */
+        /* WEATHER & ELECTRICAL DETAIL — uniform image-card tile grid.     */
+        /* Every tile is exactly the same size via aspect-ratio.           */
+        /* ============================================================== */
+        .metric-tile-grid {{
+            display:grid;
+            grid-template-columns:repeat(4, 1fr);
+            gap:.7rem;
+            margin:.4rem 0 1rem 0;
+        }}
+        .metric-tile {{
+            position:relative;
+            aspect-ratio: 4 / 3;
+            min-height:130px;
+            border-radius:16px;
+            background-size:cover;
+            background-position:center;
+            background-repeat:no-repeat;
+            border:1px solid rgba(56,189,248,.30);
+            overflow:hidden;
+            box-shadow:0 12px 32px rgba(2,6,23,.34);
+            transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+        }}
+        .metric-tile:hover {{
+            transform:translateY(-3px);
+            border-color:rgba(56,189,248,.7);
+            box-shadow:0 22px 48px rgba(14,165,233,.32);
+        }}
+        .metric-tile::before {{
+            content:"";
+            position:absolute;
+            inset:0;
+            background:linear-gradient(180deg, rgba(2,6,23,.30) 0%, rgba(2,6,23,.78) 100%);
+        }}
+        .metric-tile .mt-kicker {{
+            position:absolute;
+            top:.55rem;
+            left:.6rem;
+            padding:.15rem .5rem;
+            border-radius:999px;
+            background:rgba(14,165,233,.85);
+            color:#031424;
+            font-size:.62rem;
+            font-weight:1000;
+            letter-spacing:.06em;
+            text-transform:uppercase;
+            box-shadow:0 3px 10px rgba(14,165,233,.45);
+        }}
+        .metric-tile .mt-icon {{
+            position:absolute;
+            top:.42rem;
+            right:.6rem;
+            font-size:1.3rem;
+            filter:drop-shadow(0 2px 5px rgba(0,0,0,.55));
+        }}
+        .metric-tile .mt-label {{
+            position:absolute;
+            left:.7rem;
+            right:.7rem;
+            bottom:1.95rem;
+            color:#DBEAFE;
+            font-size:.68rem;
+            font-weight:900;
+            letter-spacing:.06em;
+            text-transform:uppercase;
+            text-shadow:0 1px 4px rgba(0,0,0,.7);
+        }}
+        .metric-tile .mt-value {{
+            position:absolute;
+            left:.7rem;
+            right:.7rem;
+            bottom:.55rem;
+            color:#FFFFFF;
+            font-size:1.25rem;
+            font-weight:1000;
+            line-height:1.1;
+            text-shadow:0 2px 10px rgba(0,0,0,.8);
+        }}
+        .metric-tile .mt-unit {{
+            font-size:.78rem;
+            font-weight:800;
+            color:#FBBF24;
+            margin-left:.18rem;
+        }}
+        .metric-tile.mt-live::after {{
+            content:"● LIVE";
+            position:absolute;
+            top:.55rem;
+            right:.55rem;
+            padding:.12rem .42rem;
+            border-radius:999px;
+            background:rgba(239,68,68,.85);
+            color:#FFF;
+            font-size:.56rem;
+            font-weight:1000;
+            letter-spacing:.08em;
+            animation: pulseGlow 1.4s ease-in-out infinite;
+        }}
+        .metric-tile.mt-live .mt-icon {{ display:none; }}
+        @media (max-width: 1200px) {{ .metric-tile-grid {{ grid-template-columns:repeat(3, 1fr); }} }}
+        @media (max-width: 800px)  {{ .metric-tile-grid {{ grid-template-columns:repeat(2, 1fr); }} }}
+
+        /* ============================================================== */
+        /* LIVE GAUGES — uniform image-backed cards.                       */
+        /* ============================================================== */
+        .gauge-grid {{
+            display:grid;
+            grid-template-columns:repeat(3, 1fr);
+            gap:.8rem;
+            margin:.4rem 0 1rem 0;
+        }}
+        .gauge-card {{
+            position:relative;
+            min-height:230px;
+            border-radius:18px;
+            background-size:cover;
+            background-position:center;
+            border:1px solid rgba(56,189,248,.30);
+            overflow:hidden;
+            box-shadow:0 14px 38px rgba(2,6,23,.34);
+            transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+        }}
+        .gauge-card:hover {{
+            transform:translateY(-2px);
+            border-color:rgba(56,189,248,.7);
+            box-shadow:0 22px 52px rgba(14,165,233,.32);
+        }}
+        .gauge-card::before {{
+            content:"";
+            position:absolute;
+            inset:0;
+            background:linear-gradient(155deg, rgba(8,18,32,.92) 0%, rgba(2,6,23,.86) 100%);
+        }}
+        .gauge-card .gc-content {{
+            position:relative;
+            padding:.85rem .9rem .8rem .9rem;
+            display:flex;
+            flex-direction:column;
+            height:100%;
+            min-height:230px;
+        }}
+        .gauge-card .gc-top {{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+        }}
+        .gauge-card .gc-label {{
+            color:#DBEAFE;
+            font-size:.7rem;
+            font-weight:1000;
+            letter-spacing:.08em;
+            text-transform:uppercase;
+        }}
+        .gauge-card .gc-live {{
+            display:inline-flex;
+            align-items:center;
+            gap:.3rem;
+            padding:.12rem .45rem;
+            border-radius:999px;
+            background:rgba(239,68,68,.82);
+            color:#FFF;
+            font-size:.58rem;
+            font-weight:1000;
+            letter-spacing:.08em;
+        }}
+        .gauge-card .gc-dot {{
+            width:6px; height:6px; border-radius:50%; background:#FFF;
+            animation: pulseGlow 1.1s ease-in-out infinite;
+        }}
+        .gauge-card .gc-svg {{
+            display:flex;
+            justify-content:center;
+            margin:.2rem 0 .15rem 0;
+        }}
+        .gauge-card .gc-value {{
+            text-align:center;
+            font-size:1.55rem;
+            font-weight:1000;
+            line-height:1;
+            margin-top:.2rem;
+            text-shadow:0 2px 10px rgba(0,0,0,.6);
+        }}
+        .gauge-card .gc-unit {{
+            font-size:.85rem;
+            font-weight:800;
+            color:#DBEAFE;
+            margin-left:.2rem;
+        }}
+        .gauge-card .gc-stats {{
+            display:grid;
+            grid-template-columns:repeat(3, 1fr);
+            gap:.35rem;
+            margin-top:auto;
+            padding-top:.55rem;
+        }}
+        .gauge-card .gc-stat {{
+            text-align:center;
+            padding:.32rem .25rem;
+            border-radius:9px;
+            background:rgba(255,255,255,.05);
+            border:1px solid rgba(255,255,255,.06);
+        }}
+        .gauge-card .gc-stat .l {{
+            color:#94A3B8;
+            font-size:.55rem;
+            font-weight:1000;
+            letter-spacing:.05em;
+            text-transform:uppercase;
+        }}
+        .gauge-card .gc-stat .v {{
+            color:#F8FBFF;
+            font-size:.82rem;
+            font-weight:900;
+            margin-top:.08rem;
+        }}
+        .gauge-card .gc-spark {{
+            position:absolute;
+            left:.5rem;
+            right:.5rem;
+            bottom:3.3rem;
+            opacity:.55;
+            pointer-events:none;
+        }}
+        @media (max-width: 1100px) {{ .gauge-grid {{ grid-template-columns:repeat(2, 1fr); }} }}
+        @media (max-width: 700px)  {{ .gauge-grid {{ grid-template-columns:1fr; }} }}
+
         .alert-strip {{
             display:flex; flex-wrap:wrap; gap:.5rem;
             margin:.4rem 0 .6rem;
@@ -3580,27 +3825,68 @@ def render_live_kpi_strip(readings: dict[str, float], deltas: dict[str, float] |
 
 
 def render_live_secondary_strip(readings: dict[str, float]) -> None:
-    """Smaller second row: derived signals."""
-    items = [
-        ("💧", "Humidity", f"{readings['humidity']:,.0f}%"),
-        ("💨", "Wind", f"{readings['wind_ms']:,.1f} m/s"),
-        ("🌍", "Pressure", f"{readings['pressure_hpa']:,.1f} hPa"),
-        ("⚙️", "Current", f"{readings['current_a']:,.1f} A"),
-        ("📐", "Power Factor", f"{readings['power_factor']:.3f}"),
-        ("🔥", "Inverter Temp", f"{readings['inverter_temp_c']:,.1f} °C"),
-        ("⚡", "Efficiency", f"{readings['efficiency_pct']:,.1f}%"),
-        ("📦", "Daily Yield", f"{readings['daily_energy_kwh']:,.1f} kWh"),
-        ("🌱", "CO₂ Avoided", f"{readings['co2_avoided_kg']:,.1f} kg"),
+    """Weather & Electrical Detail — uniform image-backed tile grid.
+
+    Every tile is the exact same size (aspect-ratio 4/3, min-height 130px).
+    Tiles are grouped into two themes:
+      • Weather (humidity, wind, pressure)
+      • Electrical (current, power factor, inverter temp, efficiency,
+        daily yield, CO₂ avoided)
+    Each tile shows: a small kicker, an icon, the metric label, and the
+    live value with its unit. A "● LIVE" pulsing badge appears on tiles
+    whose value updates in real time.
+    """
+    # ---- Weather group ----
+    weather_tiles = [
+        ("WEATHER", "💧", IMG_HUMIDITY,  "Humidity",     f"{readings['humidity']:.0f}",      "%"),
+        ("WEATHER", "💨", IMG_WIND,      "Wind Speed",   f"{readings['wind_ms']:.1f}",       "m/s"),
+        ("WEATHER", "🌍", IMG_PRESSURE,  "Pressure",     f"{readings['pressure_hpa']:.0f}",  "hPa"),
+        ("WEATHER", "🌡️", IMG_TEMP,      "Module Temp",  f"{readings['temperature_c']:.1f}", "°C"),
     ]
-    parts = ['<div class="live-mini-strip">']
-    for icon, label, val in items:
-        parts.append(
-            f'<div class="live-mini"><span class="live-mini-icon">{icon}</span>'
-            f'<span class="live-mini-label">{label}</span>'
-            f'<span class="live-mini-val">{val}</span></div>'
+    # ---- Electrical group ----
+    electrical_tiles = [
+        ("ELECTRICAL", "⚙️",  IMG_CURRENT,      "Current",       f"{readings['current_a']:.1f}",          "A"),
+        ("ELECTRICAL", "📐",  IMG_POWER_FACTOR, "Power Factor",  f"{readings['power_factor']:.3f}",       ""),
+        ("ELECTRICAL", "🔥",  IMG_INVERTER,     "Inverter Temp", f"{readings['inverter_temp_c']:.1f}",    "°C"),
+        ("ELECTRICAL", "⚡",  IMG_EFFICIENCY,   "Efficiency",    f"{readings['efficiency_pct']:.1f}",     "%"),
+        ("ENERGY",     "📦",  IMG_YIELD,        "Daily Yield",   f"{readings['daily_energy_kwh']:.1f}",   "kWh"),
+        ("IMPACT",     "🌱",  IMG_CO2,          "CO₂ Avoided",   f"{readings['co2_avoided_kg']:.1f}",     "kg"),
+        ("ELECTRICAL", "🔌",  IMG_VOLTAGE,      "DC Voltage",    f"{readings['voltage_v']:.1f}",          "V"),
+        ("ELECTRICAL", "📡",  IMG_FREQUENCY,    "Grid Freq",     f"{readings['frequency_hz']:.3f}",       "Hz"),
+    ]
+
+    def _build_tile(kicker: str, icon: str, img: str, label: str, value: str, unit: str) -> str:
+        unit_html = f'<span class="mt-unit">{unit}</span>' if unit else ""
+        return (
+            f'<div class="metric-tile mt-live" style="background-image:url(\'{img}\')">'
+            f'<div class="mt-kicker">{kicker}</div>'
+            f'<div class="mt-icon">{icon}</div>'
+            f'<div class="mt-label">{label}</div>'
+            f'<div class="mt-value">{value}{unit_html}</div>'
+            f'</div>'
         )
-    parts.append("</div>")
-    st.markdown("".join(parts), unsafe_allow_html=True)
+
+    # Weather row
+    st.markdown(
+        '<div style="margin:.3rem 0 .35rem 0;color:#FBBF24;font-weight:900;font-size:.85rem;letter-spacing:.08em;text-transform:uppercase">🌦️ Weather</div>',
+        unsafe_allow_html=True,
+    )
+    weather_html = ['<div class="metric-tile-grid">']
+    for t in weather_tiles:
+        weather_html.append(_build_tile(*t))
+    weather_html.append("</div>")
+    st.markdown("".join(weather_html), unsafe_allow_html=True)
+
+    # Electrical row
+    st.markdown(
+        '<div style="margin:.4rem 0 .35rem 0;color:#22D3EE;font-weight:900;font-size:.85rem;letter-spacing:.08em;text-transform:uppercase">⚡ Electrical & Energy</div>',
+        unsafe_allow_html=True,
+    )
+    elec_html = ['<div class="metric-tile-grid">']
+    for t in electrical_tiles:
+        elec_html.append(_build_tile(*t))
+    elec_html.append("</div>")
+    st.markdown("".join(elec_html), unsafe_allow_html=True)
 
 
 def render_live_history_chart(history: pd.DataFrame) -> None:
@@ -3640,109 +3926,168 @@ def render_live_history_chart(history: pd.DataFrame) -> None:
         st.line_chart(history.set_index("t")[["power_kw", "temperature_c"]])
 
 
-def render_live_gauges_component(readings: dict[str, float]) -> None:
-    """Self-contained HTML/SVG component with internally-animated gauges.
+def render_live_gauges_component(readings: dict[str, float], history=None) -> None:
+    """Live Gauges — six uniform image-backed cards, all the same size.
 
-    The Python side feeds the current readings; the inner JS interpolates so the
-    needles move smoothly between Streamlit reruns (sub-second visual updates).
-    """
-    p_kw = readings["power_kw"]
-    p_max = max(8.0, p_kw * 1.4)  # autoscale a bit above current
-    soc = readings["battery_soc_pct"]
-    inv_t = readings["inverter_temp_c"]
-    freq = readings["frequency_hz"]
-    eff = readings["efficiency_pct"]
-    pf = readings["power_factor"]
+    Each card displays one live signal as an animated SVG arc gauge with:
+      • A pulsing "● LIVE" badge in the top-right
+      • The live value with its unit, centered and large
+      • A min / avg / max strip pulled from the rolling history buffer
+      • A faint sparkline of the last ~30 readings drawn behind the gauge
+      • A relevant background image (solar / battery / electronics / grid)
+        with a dark gradient overlay so values stay readable
 
-    html = f"""
-    <!DOCTYPE html><html><head><meta charset='utf-8'>
-    <style>
-      body {{ margin:0; font-family: Inter, system-ui, sans-serif; color:#F8FBFF; background:transparent; }}
-      .gwrap {{ display:grid; grid-template-columns: repeat(6, 1fr); gap:10px; }}
-      .gcard {{
-        border:1px solid rgba(56,189,248,.28);
-        border-radius:20px;
-        padding:10px 8px 6px 8px;
-        background: linear-gradient(145deg, rgba(8,18,32,.85), rgba(2,6,23,.75));
-        text-align:center;
-        box-shadow:0 14px 38px rgba(0,0,0,.32);
-      }}
-      .glabel {{ font-size:11px; color:#cbd5e1; font-weight:900; text-transform:uppercase; letter-spacing:.05em; }}
-      .gval {{ font-size:18px; font-weight:1000; margin-top:3px; }}
-      .needle {{ transform-origin: 60px 60px; transition: transform .8s cubic-bezier(.22,.9,.36,1); }}
-      .pulse-dot {{ animation: blip 1.1s ease-in-out infinite; }}
-      @keyframes blip {{ 0%,100% {{opacity:.35}} 50% {{opacity:1}} }}
-      .bar-wrap {{ height:8px; background:rgba(255,255,255,.08); border-radius:6px; overflow:hidden; margin-top:4px; }}
-      .bar-fill {{ height:100%; transition: width .9s ease; }}
-      @media (max-width: 760px) {{ .gwrap {{ grid-template-columns: repeat(2, 1fr); }} }}
-    </style></head><body>
-    <div class='gwrap'>
-      <div class='gcard'>
-        <div class='glabel'>Power</div>
-        <svg viewBox='0 0 120 80' width='100%' height='84'>
-          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
-          <path id='pArc' d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#fbbf24' stroke-width='9' stroke-linecap='round'
-                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * min(1.0, p_kw / p_max):.1f}'
-                style='transition: stroke-dashoffset .9s ease;'/>
-          <circle cx='60' cy='70' r='4' fill='#fbbf24'/>
-        </svg>
-        <div class='gval' style='color:#fbbf24'>{p_kw:,.2f} kW</div>
-      </div>
-      <div class='gcard'>
-        <div class='glabel'>Battery SOC</div>
-        <svg viewBox='0 0 120 80' width='100%' height='84'>
-          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
-          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#10b981' stroke-width='9' stroke-linecap='round'
-                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * (soc / 100.0):.1f}'
-                style='transition: stroke-dashoffset .9s ease;'/>
-          <circle cx='60' cy='70' r='4' fill='#10b981'/>
-        </svg>
-        <div class='gval' style='color:#10b981'>{soc:,.1f} %</div>
-      </div>
-      <div class='gcard'>
-        <div class='glabel'>Inverter Temp</div>
-        <svg viewBox='0 0 120 80' width='100%' height='84'>
-          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
-          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#f87171' stroke-width='9' stroke-linecap='round'
-                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * min(1.0, inv_t / 80.0):.1f}'
-                style='transition: stroke-dashoffset .9s ease;'/>
-        </svg>
-        <div class='gval' style='color:#f87171'>{inv_t:,.1f} °C</div>
-      </div>
-      <div class='gcard'>
-        <div class='glabel'>Frequency</div>
-        <svg viewBox='0 0 120 80' width='100%' height='84'>
-          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
-          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#38bdf8' stroke-width='9' stroke-linecap='round'
-                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * min(1.0, max(0, (freq - 49.5) / 1.0)):.1f}'
-                style='transition: stroke-dashoffset .9s ease;'/>
-        </svg>
-        <div class='gval' style='color:#38bdf8'>{freq:,.3f} Hz</div>
-      </div>
-      <div class='gcard'>
-        <div class='glabel'>Efficiency</div>
-        <svg viewBox='0 0 120 80' width='100%' height='84'>
-          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
-          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#22d3ee' stroke-width='9' stroke-linecap='round'
-                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * (eff / 100.0):.1f}'
-                style='transition: stroke-dashoffset .9s ease;'/>
-        </svg>
-        <div class='gval' style='color:#22d3ee'>{eff:,.1f} %</div>
-      </div>
-      <div class='gcard'>
-        <div class='glabel'>Power Factor</div>
-        <svg viewBox='0 0 120 80' width='100%' height='84'>
-          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='rgba(255,255,255,.12)' stroke-width='9' stroke-linecap='round'/>
-          <path d='M10,70 A50,50 0 0,1 110,70' fill='none' stroke='#a78bfa' stroke-width='9' stroke-linecap='round'
-                stroke-dasharray='157' stroke-dashoffset='{157 - 157 * pf:.1f}'
-                style='transition: stroke-dashoffset .9s ease;'/>
-        </svg>
-        <div class='gval' style='color:#a78bfa'>{pf:.3f}</div>
-      </div>
-    </div>
-    </body></html>
+    The component is rendered as one streamlit HTML block so all six gauges
+    sit in the same grid and look identical. A tiny inline JS script keeps
+    the needles smoothly animating between Streamlit reruns.
     """
-    components.html(html, height=160, scrolling=False)
+    import pandas as _pd
+    # Pull the rolling buffer if available so we can show real stats.
+    if history is None:
+        try:
+            history = st.session_state.get("live_history")
+        except Exception:
+            history = None
+
+    def _stats(col_name: str, fmt: str = "{:.1f}") -> tuple[str, str, str]:
+        """Return (min, avg, max) formatted strings for a column."""
+        if history is None or len(history) < 2 or col_name not in history.columns:
+            return ("—", "—", "—")
+        s = history[col_name].dropna()
+        if len(s) < 1:
+            return ("—", "—", "—")
+        return (fmt.format(float(s.min())), fmt.format(float(s.mean())), fmt.format(float(s.max())))
+
+    def _spark(col_name: str, color: str, w: int = 240, h: int = 28) -> str:
+        """Tiny SVG sparkline of the last N points of `col_name`."""
+        if history is None or len(history) < 3 or col_name not in history.columns:
+            return ""
+        s = history[col_name].dropna().tail(40).reset_index(drop=True)
+        if len(s) < 3:
+            return ""
+        lo, hi = float(s.min()), float(s.max())
+        rng = max(hi - lo, 1e-9)
+        n = len(s)
+        pts = []
+        for i, v in enumerate(s):
+            x = (i / (n - 1)) * w
+            y = h - ((float(v) - lo) / rng) * h
+            pts.append(f"{x:.1f},{y:.1f}")
+        poly = " ".join(pts)
+        return (
+            f'<svg class="gc-spark" viewBox="0 0 {w} {h}" preserveAspectRatio="none" '
+            f'style="width:100%;height:{h}px"><polyline points="{poly}" '
+            f'fill="none" stroke="{color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>'
+        )
+
+    # Pull current values.
+    p_kw   = readings["power_kw"]
+    p_max  = max(8.0, p_kw * 1.4)
+    soc    = readings["battery_soc_pct"]
+    inv_t  = readings["inverter_temp_c"]
+    freq   = readings["frequency_hz"]
+    eff    = readings["efficiency_pct"]
+    pf     = readings["power_factor"]
+
+    # Compute arc fills (the SVG arc has length ~157).
+    def _arc_offset(frac: float) -> float:
+        return 157.0 - 157.0 * max(0.0, min(1.0, frac))
+
+    gauges = [
+        {
+            "label": "Power",
+            "value": f"{p_kw:.2f}",
+            "unit": "kW",
+            "color": "#FBBF24",
+            "img": IMG_POWER_GAUGE,
+            "arc_offset": _arc_offset(p_kw / p_max),
+            "stats": _stats("power_kw", "{:.2f}"),
+            "spark": _spark("power_kw", "#FBBF24"),
+        },
+        {
+            "label": "Battery SOC",
+            "value": f"{soc:.1f}",
+            "unit": "%",
+            "color": "#10B981",
+            "img": IMG_BATTERY_SOC,
+            "arc_offset": _arc_offset(soc / 100.0),
+            "stats": _stats("battery_soc_pct", "{:.1f}"),
+            "spark": _spark("battery_soc_pct", "#10B981"),
+        },
+        {
+            "label": "Inverter Temp",
+            "value": f"{inv_t:.1f}",
+            "unit": "°C",
+            "color": "#F87171",
+            "img": IMG_INVERTER,
+            "arc_offset": _arc_offset(inv_t / 80.0),
+            "stats": _stats("inverter_temp_c", "{:.1f}"),
+            "spark": _spark("inverter_temp_c", "#F87171"),
+        },
+        {
+            "label": "Grid Frequency",
+            "value": f"{freq:.3f}",
+            "unit": "Hz",
+            "color": "#38BDF8",
+            "img": IMG_FREQUENCY,
+            "arc_offset": _arc_offset(max(0.0, (freq - 49.5) / 1.0)),
+            "stats": _stats("frequency_hz", "{:.3f}"),
+            "spark": _spark("frequency_hz", "#38BDF8"),
+        },
+        {
+            "label": "Efficiency",
+            "value": f"{eff:.1f}",
+            "unit": "%",
+            "color": "#22D3EE",
+            "img": IMG_EFFICIENCY,
+            "arc_offset": _arc_offset(eff / 100.0),
+            "stats": _stats("efficiency_pct", "{:.1f}"),
+            "spark": _spark("efficiency_pct", "#22D3EE"),
+        },
+        {
+            "label": "Power Factor",
+            "value": f"{pf:.3f}",
+            "unit": "",
+            "color": "#A78BFA",
+            "img": IMG_POWER_FACTOR,
+            "arc_offset": _arc_offset(pf),
+            "stats": _stats("power_factor", "{:.3f}"),
+            "spark": _spark("power_factor", "#A78BFA"),
+        },
+    ]
+
+    cards = []
+    for g in gauges:
+        unit_html = f'<span class="gc-unit">{g["unit"]}</span>' if g["unit"] else ""
+        mn, av, mx = g["stats"]
+        cards.append(
+            f'<div class="gauge-card" style="background-image:url(\'{g["img"]}\')">'
+              f'<div class="gc-content">'
+                f'<div class="gc-top">'
+                  f'<div class="gc-label">{g["label"]}</div>'
+                  f'<div class="gc-live"><span class="gc-dot"></span>LIVE</div>'
+                f'</div>'
+                f'<div class="gc-svg">'
+                  f'<svg viewBox="0 0 120 80" width="100%" height="96">'
+                    f'<path d="M10,70 A50,50 0 0,1 110,70" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="10" stroke-linecap="round"/>'
+                    f'<path d="M10,70 A50,50 0 0,1 110,70" fill="none" stroke="{g["color"]}" stroke-width="10" stroke-linecap="round" '
+                          f'stroke-dasharray="157" stroke-dashoffset="{g["arc_offset"]:.1f}" '
+                          f'style="transition: stroke-dashoffset 1.1s cubic-bezier(.22,.9,.36,1); filter: drop-shadow(0 0 6px {g["color"]}80);"/>'
+                    f'<circle cx="60" cy="70" r="3.5" fill="{g["color"]}"/>'
+                  f'</svg>'
+                f'</div>'
+                f'<div class="gc-value" style="color:{g["color"]}">{g["value"]}{unit_html}</div>'
+                f'{g["spark"]}'
+                f'<div class="gc-stats">'
+                  f'<div class="gc-stat"><div class="l">Min</div><div class="v">{mn}</div></div>'
+                  f'<div class="gc-stat"><div class="l">Avg</div><div class="v">{av}</div></div>'
+                  f'<div class="gc-stat"><div class="l">Max</div><div class="v">{mx}</div></div>'
+                f'</div>'
+              f'</div>'
+            f'</div>'
+        )
+    grid_html = '<div class="gauge-grid">' + "".join(cards) + '</div>'
+    st.markdown(grid_html, unsafe_allow_html=True)
 
 
 def render_live_ticker(readings: dict[str, float]) -> None:
@@ -4949,7 +5294,7 @@ if selected_page == "🏠 Home":
     render_live_kpi_strip(live_readings, live_deltas)
     render_live_secondary_strip(live_readings)
     render_live_alerts(live_readings)
-    render_live_gauges_component(live_readings)
+    render_live_gauges_component(live_readings, live_history)
 
     c1, c2, c3 = st.columns([1.1, 1.1, 1.25])
     with c1:
@@ -5020,7 +5365,7 @@ if selected_page == "🔴 Live Telemetry":
     render_live_alerts(live_readings)
 
     st.markdown("## 🎛️ Live Gauges")
-    render_live_gauges_component(live_readings)
+    render_live_gauges_component(live_readings, live_history)
 
     st.markdown("## 📈 Rolling Multi-Signal Telemetry")
     render_live_history_chart(live_history)
