@@ -2279,25 +2279,94 @@ def next_chart_key(prefix: str = "chart") -> str:
 
 
 def make_plot_transparent(fig, height: int | None = None):
-    """Standard transparent, readable Plotly styling."""
+    """Transparent background + forcibly-visible labels for every chart.
+
+    Some chart builders set per-trace fonts/colors that wash out against the
+    dark transparent background (axis titles disappearing, tick labels too
+    small, legend in a low-contrast color). This wrapper forces every text
+    element on the figure to use a bright readable color and a sensible
+    minimum size, so chart labels never go missing.
+
+    Important: we do NOT force a fixed margin here. Instead we rely on
+    `automargin=True` on the axes, so a chart that has long axis titles
+    grows its margins automatically while a chart with no axis titles
+    stays compact. This avoids stripping labels that callers explicitly
+    set, and also avoids wasting whitespace on small inline charts.
+    """
     if fig is None:
         return None
+
+    LABEL_COLOR = "#F8FBFF"
+    LABEL_COLOR_DIM = "#DBEAFE"
+    GRID_COLOR = "rgba(255,255,255,.16)"
+    ZERO_COLOR = "rgba(255,255,255,.30)"
+
     layout_updates = dict(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#f8fbff"),
+        font=dict(color=LABEL_COLOR, size=13, family="Inter, ui-sans-serif, system-ui, -apple-system"),
+        title=dict(font=dict(color=LABEL_COLOR, size=16)),
         legend=dict(
-            bgcolor="rgba(5,18,38,.35)",
-            bordercolor="rgba(255,255,255,.12)",
+            bgcolor="rgba(5,18,38,.65)",
+            bordercolor="rgba(56,189,248,.32)",
             borderwidth=1,
+            font=dict(color=LABEL_COLOR, size=12),
+        ),
+        hoverlabel=dict(
+            bgcolor="rgba(8,22,47,.95)",
+            bordercolor="rgba(56,189,248,.5)",
+            font=dict(color=LABEL_COLOR, size=12),
         ),
     )
     if height is not None:
         layout_updates["height"] = height
     fig.update_layout(**layout_updates)
-    fig.update_xaxes(gridcolor="rgba(255,255,255,.13)", zerolinecolor="rgba(255,255,255,.20)")
-    fig.update_yaxes(gridcolor="rgba(255,255,255,.13)", zerolinecolor="rgba(255,255,255,.20)")
+
+    # Force every x-axis and every y-axis (including secondary y2, y3, …)
+    # to have visible titles, ticks, and grid lines. `automargin=True`
+    # makes Plotly enlarge the margin only when there are labels that
+    # would otherwise be clipped, so we don't waste whitespace on
+    # compact charts that have no axis titles.
+    fig.update_xaxes(
+        title_font=dict(color=LABEL_COLOR, size=13),
+        tickfont=dict(color=LABEL_COLOR_DIM, size=11),
+        color=LABEL_COLOR_DIM,
+        gridcolor=GRID_COLOR,
+        zerolinecolor=ZERO_COLOR,
+        showline=True,
+        linecolor="rgba(255,255,255,.20)",
+        automargin=True,
+    )
+    fig.update_yaxes(
+        title_font=dict(color=LABEL_COLOR, size=13),
+        tickfont=dict(color=LABEL_COLOR_DIM, size=11),
+        color=LABEL_COLOR_DIM,
+        gridcolor=GRID_COLOR,
+        zerolinecolor=ZERO_COLOR,
+        showline=True,
+        linecolor="rgba(255,255,255,.20)",
+        automargin=True,
+    )
+    # Also catch any annotations and color-bars (heatmaps etc.).
+    try:
+        for ann in (fig.layout.annotations or []):
+            ann.font.color = LABEL_COLOR
+            if ann.font.size is None or ann.font.size < 11:
+                ann.font.size = 12
+    except Exception:
+        pass
+    try:
+        for tr in fig.data:
+            if hasattr(tr, "colorbar") and tr.colorbar is not None:
+                tr.colorbar.tickfont = dict(color=LABEL_COLOR_DIM, size=11)
+                tr.colorbar.title = dict(
+                    text=getattr(tr.colorbar.title, "text", "") if tr.colorbar.title else "",
+                    font=dict(color=LABEL_COLOR, size=12),
+                )
+    except Exception:
+        pass
+
     return fig
 
 
@@ -2689,8 +2758,14 @@ def forecast_fig(df: pd.DataFrame, timestamp_col: str, target_col: str, window: 
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart["low"], mode="lines", fill="tonexty", fillcolor="rgba(251,191,36,.20)", line=dict(width=0), name="Confidence band"))
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart["smooth"], mode="lines", name="Forecast signal", line=dict(color="#FBBF24", width=3)))
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart[target_col], mode="lines", name="Actual", line=dict(color="#22D3EE", width=2)))
-    fig.update_layout(height=390, margin=dict(l=10, r=10, t=32, b=10), legend=dict(orientation="h"))
-    make_plot_transparent(fig, 390)
+    fig.update_layout(
+        height=420,
+        margin=dict(l=70, r=30, t=40, b=60),
+        legend=dict(orientation="h", y=1.10, x=0),
+        xaxis_title="Time",
+        yaxis_title=f"{target_col} (active power)",
+    )
+    make_plot_transparent(fig, 420)
     return fig
 
 
@@ -2703,8 +2778,14 @@ def prediction_fig(pred_df: pd.DataFrame, timestamp_col: str, window: int):
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart["prediction_lower_90"], mode="lines", fill="tonexty", fillcolor="rgba(59,130,246,.20)", line=dict(width=0), name="90% interval"))
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart["y_target"], mode="lines", name="Actual", line=dict(color="#22D3EE", width=2)))
     fig.add_trace(go.Scatter(x=chart[timestamp_col], y=chart["prediction"], mode="lines", name="Predicted", line=dict(color="#10B981", width=2)))
-    fig.update_layout(height=390, margin=dict(l=10, r=10, t=32, b=10), legend=dict(orientation="h"))
-    make_plot_transparent(fig, 390)
+    fig.update_layout(
+        height=420,
+        margin=dict(l=70, r=30, t=40, b=60),
+        legend=dict(orientation="h", y=1.10, x=0),
+        xaxis_title="Time",
+        yaxis_title="Active power (predicted vs actual)",
+    )
+    make_plot_transparent(fig, 420)
     return fig
 
 
@@ -3424,256 +3505,567 @@ def render_hourglass_loader(message: str, pct: int):
     )
 
 
-def energy_flow_panel():
-    """Self-contained animated PV energy flow.
+def energy_flow_panel(readings: dict | None = None):
+    """Big, interactive Animated PV Energy Flow.
 
-    This uses Streamlit components so the animation is isolated from the app's global CSS.
+    A full-width panel showing the live power flow from Sun → PV Array →
+    Inverter → Grid (main row) and Weather → Model → Battery → Load
+    (forecast/secondary row). Each node:
+      • Displays its live measured value (kW, V, A, SOC %, °C, etc.).
+      • Highlights on hover with a glowing border and reveals a tooltip.
+      • Is clickable; clicking opens that node\'s "deep-dive" panel below.
+
+    Multiple energy pulses travel along each link continuously so the
+    movement is impossible to miss. Pulse colors match the node colors
+    of their source.
     """
-    html = """
+    # Default values used when no readings dict is passed (e.g. in 3D-only
+    # preview mode). Keeps the panel visually populated.
+    r = readings or {}
+    power_kw      = float(r.get("power_kw", 0.0))
+    voltage_v     = float(r.get("voltage_v", 0.0))
+    current_a     = float(r.get("current_a", 0.0))
+    inv_temp_c    = float(r.get("inverter_temp_c", 0.0))
+    freq_hz       = float(r.get("frequency_hz", 50.0))
+    irr_wm2       = float(r.get("irradiance", 0.0))
+    temp_c        = float(r.get("temperature_c", 0.0))
+    humidity_pct  = float(r.get("humidity", 0.0))
+    soc_pct       = float(r.get("battery_soc_pct", 0.0))
+    eff_pct       = float(r.get("efficiency_pct", 0.0))
+    daily_kwh     = float(r.get("daily_energy_kwh", 0.0))
+    co2_kg        = float(r.get("co2_avoided_kg", 0.0))
+
+    html = f"""
     <!DOCTYPE html>
     <html>
     <head>
     <meta charset="utf-8" />
     <style>
-        :root {
-            --bg1: rgba(5,18,38,.95);
-            --bg2: rgba(8,28,52,.82);
-            --cyan: #38bdf8;
-            --gold: #fbbf24;
-            --green: #10b981;
-            --text: #f8fbff;
-            --muted: #dbeafe;
-        }
-        * { box-sizing: border-box; }
-        body {
-            margin:0;
+        :root {{
+            --bg1: rgba(5,18,38,.92);
+            --bg2: rgba(8,28,52,.78);
+            --cyan: #38BDF8;
+            --gold: #FBBF24;
+            --green: #10B981;
+            --pink: #F472B6;
+            --red: #F87171;
+            --purple: #A78BFA;
+            --teal: #22D3EE;
+            --text: #F8FBFF;
+            --muted: #DBEAFE;
+        }}
+        * {{ box-sizing: border-box; }}
+        html, body {{ margin:0; padding:0; }}
+        body {{
             font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            color:var(--text);
+            color: var(--text);
             background: transparent;
-        }
-        .wrap {
-            width:100%;
-            min-height:360px;
-            border:1px solid rgba(56,189,248,.28);
-            border-radius:24px;
-            padding:18px;
-            overflow:hidden;
-            position:relative;
+        }}
+        .ef-wrap {{
+            width: 100%;
+            border: 1px solid rgba(56,189,248,.32);
+            border-radius: 26px;
+            padding: 22px 26px 18px 26px;
+            position: relative;
+            overflow: hidden;
             background:
-                radial-gradient(circle at 8% 12%, rgba(251,191,36,.16), transparent 24%),
-                radial-gradient(circle at 92% 10%, rgba(56,189,248,.18), transparent 28%),
-                linear-gradient(145deg, var(--bg1), var(--bg2));
-            box-shadow:0 18px 54px rgba(0,0,0,.26);
-        }
-        .title {
-            font-weight:1000;
-            color:var(--gold);
-            font-size:20px;
-            margin-bottom:4px;
-        }
-        .sub {
-            color:var(--muted);
-            font-size:13px;
-            margin-bottom:12px;
-        }
-        .system {
-            width:100%;
-            height:235px;
-            display:block;
-            overflow:visible;
-        }
-        .node {
-            fill: rgba(255,255,255,.07);
-            stroke: rgba(148,203,255,.28);
-            stroke-width: 1.6;
-            filter: drop-shadow(0 6px 12px rgba(0,0,0,.25));
-        }
-        .nodeText {
-            fill: var(--text);
-            font-size: 13px;
-            font-weight: 900;
-            text-anchor: middle;
-        }
-        .nodeSub {
-            fill: var(--muted);
-            font-size: 10px;
-            text-anchor: middle;
-        }
-        .icon {
+                radial-gradient(circle at 6% 10%, rgba(251,191,36,.18), transparent 24%),
+                radial-gradient(circle at 94% 8%, rgba(56,189,248,.20), transparent 28%),
+                radial-gradient(circle at 50% 100%, rgba(16,185,129,.14), transparent 36%),
+                linear-gradient(150deg, var(--bg1), var(--bg2));
+            box-shadow: 0 22px 60px rgba(0,0,0,.34);
+        }}
+        .ef-header {{
+            display:flex; align-items:center; justify-content:space-between;
+            flex-wrap:wrap; gap:12px;
+            margin-bottom: 14px;
+        }}
+        .ef-title {{
+            font-weight: 1000;
+            color: var(--gold);
             font-size: 26px;
+            letter-spacing:.3px;
+        }}
+        .ef-sub {{
+            color: var(--muted);
+            font-size: 14px;
+            font-weight:600;
+        }}
+        .ef-live {{
+            display:inline-flex; align-items:center; gap:8px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(239,68,68,.5);
+            background: rgba(239,68,68,.15);
+            color: #FECACA;
+            font-size: 12px;
+            font-weight: 1000;
+            letter-spacing:.08em;
+            text-transform: uppercase;
+        }}
+        .ef-live .dot {{
+            width:8px; height:8px; border-radius:50%;
+            background:#F87171;
+            box-shadow:0 0 14px rgba(248,113,113,.95);
+            animation:blink 1.2s ease-in-out infinite;
+        }}
+        @keyframes blink {{
+            0%,100% {{ opacity:.4; transform:scale(.8); }}
+            50% {{ opacity:1; transform:scale(1.2); }}
+        }}
+
+        .ef-svg {{
+            width: 100%;
+            height: 520px;
+            display: block;
+            overflow: visible;
+        }}
+        @media (max-width: 900px) {{
+            .ef-svg {{ height: 700px; }}
+        }}
+
+        /* Nodes */
+        .ef-node-rect {{
+            fill: rgba(255,255,255,.06);
+            stroke: rgba(148,203,255,.32);
+            stroke-width: 1.8;
+            filter: drop-shadow(0 8px 16px rgba(0,0,0,.32));
+            transition: fill .25s ease, stroke .25s ease, stroke-width .25s ease, filter .25s ease;
+            cursor: pointer;
+        }}
+        .ef-node:hover .ef-node-rect {{
+            fill: rgba(56,189,248,.16);
+            stroke: var(--gold);
+            stroke-width: 2.6;
+            filter: drop-shadow(0 14px 26px rgba(251,191,36,.45));
+        }}
+        .ef-node-icon {{
+            font-size: 34px;
             text-anchor: middle;
             dominant-baseline: middle;
-        }
-        .track {
-            stroke: rgba(56,189,248,.28);
-            stroke-width: 7;
+            pointer-events: none;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,.5));
+        }}
+        .ef-node-title {{
+            fill: var(--text);
+            font-size: 15px;
+            font-weight: 1000;
+            text-anchor: middle;
+            pointer-events: none;
+        }}
+        .ef-node-sub {{
+            fill: var(--muted);
+            font-size: 11px;
+            font-weight: 700;
+            text-anchor: middle;
+            pointer-events: none;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }}
+        .ef-node-value {{
+            fill: var(--gold);
+            font-size: 18px;
+            font-weight: 1000;
+            text-anchor: middle;
+            pointer-events: none;
+            filter: drop-shadow(0 0 5px rgba(251,191,36,.6));
+        }}
+        .ef-node-unit {{
+            fill: var(--muted);
+            font-size: 10px;
+            font-weight: 700;
+            text-anchor: middle;
+            pointer-events: none;
+        }}
+
+        /* Tracks (the paths the energy travels along) */
+        .ef-track {{
+            stroke: rgba(56,189,248,.32);
+            stroke-width: 9;
             stroke-linecap: round;
-        }
-        .trackGlow {
-            stroke: rgba(251,191,36,.45);
-            stroke-width: 3;
+            fill: none;
+        }}
+        .ef-track-glow {{
+            stroke-width: 4;
             stroke-linecap: round;
-            stroke-dasharray: 14 20;
-            animation: dash 1.4s linear infinite;
-        }
-        @keyframes dash {
-            to { stroke-dashoffset: -34; }
-        }
-        .pulse {
-            filter: drop-shadow(0 0 8px rgba(251,191,36,.95));
-        }
-        .pulse1 { animation: moveA 3.0s linear infinite; }
-        .pulse2 { animation: moveA 3.0s linear infinite .8s; }
-        .pulse3 { animation: moveA 3.0s linear infinite 1.6s; }
-        .pulseB1 { animation: moveB 3.2s linear infinite; }
-        .pulseB2 { animation: moveB 3.2s linear infinite 1.05s; }
-        .pulseB3 { animation: moveB 3.2s linear infinite 2.1s; }
-        @keyframes moveA {
-            0% { transform: translate(118px,72px); opacity:0; }
-            8% { opacity:1; }
-            30% { transform: translate(270px,72px); opacity:1; }
-            58% { transform: translate(425px,72px); opacity:1; }
-            88% { transform: translate(585px,72px); opacity:1; }
-            100% { transform: translate(675px,72px); opacity:0; }
-        }
-        @keyframes moveB {
-            0% { transform: translate(118px,174px); opacity:0; }
-            10% { opacity:1; }
-            34% { transform: translate(270px,174px); opacity:1; }
-            62% { transform: translate(425px,174px); opacity:1; }
-            90% { transform: translate(585px,174px); opacity:1; }
-            100% { transform: translate(675px,174px); opacity:0; }
-        }
-        .status {
-            display:inline-flex;
-            align-items:center;
-            gap:8px;
-            border:1px solid rgba(16,185,129,.32);
-            background:rgba(16,185,129,.10);
-            border-radius:999px;
-            padding:8px 12px;
-            color:#ecfeff;
-            font-weight:900;
-            font-size:13px;
-            margin-top:4px;
-        }
-        .dot {
-            width:10px;
-            height:10px;
-            border-radius:50%;
-            background:var(--green);
-            box-shadow:0 0 16px rgba(16,185,129,.95);
-            animation:blink 1.2s ease-in-out infinite;
-        }
-        @keyframes blink {
-            0%,100% { opacity:.4; transform:scale(.8); }
-            50% { opacity:1; transform:scale(1.2); }
-        }
-        @media (max-width: 760px) {
-            .wrap { min-height: 520px; }
-            .system { height: 390px; }
-        }
+            stroke-dasharray: 16 22;
+            fill: none;
+            animation: ef-dash 1.6s linear infinite;
+        }}
+        @keyframes ef-dash {{
+            to {{ stroke-dashoffset: -38; }}
+        }}
+        .ef-track-glow.gold {{ stroke: rgba(251,191,36,.55); }}
+        .ef-track-glow.cyan {{ stroke: rgba(56,189,248,.55); }}
+        .ef-track-glow.green {{ stroke: rgba(16,185,129,.55); }}
+
+        /* Energy pulse dots */
+        .ef-pulse {{
+            filter: drop-shadow(0 0 10px currentColor);
+        }}
+        .ef-pulse-track {{ offset-rotate: 0deg; }}
+
+        /* Animations: 8 pulses on each row stagger across the full row width */
+        .pa1 {{ offset-path: path('M170,150 L470,150 L770,150 L1070,150 L1230,150'); animation: pflow 3.4s linear infinite; }}
+        .pa2 {{ offset-path: path('M170,150 L470,150 L770,150 L1070,150 L1230,150'); animation: pflow 3.4s linear infinite .6s; }}
+        .pa3 {{ offset-path: path('M170,150 L470,150 L770,150 L1070,150 L1230,150'); animation: pflow 3.4s linear infinite 1.2s; }}
+        .pa4 {{ offset-path: path('M170,150 L470,150 L770,150 L1070,150 L1230,150'); animation: pflow 3.4s linear infinite 1.8s; }}
+        .pa5 {{ offset-path: path('M170,150 L470,150 L770,150 L1070,150 L1230,150'); animation: pflow 3.4s linear infinite 2.4s; }}
+
+        .pb1 {{ offset-path: path('M170,400 L470,400 L770,400 L1070,400 L1230,400'); animation: pflow 3.8s linear infinite; }}
+        .pb2 {{ offset-path: path('M170,400 L470,400 L770,400 L1070,400 L1230,400'); animation: pflow 3.8s linear infinite .65s; }}
+        .pb3 {{ offset-path: path('M170,400 L470,400 L770,400 L1070,400 L1230,400'); animation: pflow 3.8s linear infinite 1.3s; }}
+        .pb4 {{ offset-path: path('M170,400 L470,400 L770,400 L1070,400 L1230,400'); animation: pflow 3.8s linear infinite 1.95s; }}
+        .pb5 {{ offset-path: path('M170,400 L470,400 L770,400 L1070,400 L1230,400'); animation: pflow 3.8s linear infinite 2.6s; }}
+
+        /* Vertical cross-links from main row to secondary row (battery feeds) */
+        .pv1 {{ offset-path: path('M920,210 L920,360'); animation: pflowSlow 2.6s linear infinite; }}
+        .pv2 {{ offset-path: path('M920,210 L920,360'); animation: pflowSlow 2.6s linear infinite 1.3s; }}
+
+        @keyframes pflow {{
+            0%   {{ offset-distance: -2%; opacity: 0; }}
+            8%   {{ opacity: 1; }}
+            92%  {{ opacity: 1; }}
+            100% {{ offset-distance: 102%; opacity: 0; }}
+        }}
+        @keyframes pflowSlow {{
+            0%   {{ offset-distance: -5%; opacity: 0; }}
+            15%  {{ opacity: 1; }}
+            85%  {{ opacity: 1; }}
+            100% {{ offset-distance: 105%; opacity: 0; }}
+        }}
+
+        /* Tooltip */
+        .ef-tip {{
+            position: absolute;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .15s ease;
+            padding: 8px 12px;
+            border-radius: 12px;
+            background: rgba(8,22,47,.95);
+            border: 1px solid rgba(56,189,248,.5);
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 700;
+            z-index: 20;
+            max-width: 260px;
+            box-shadow: 0 10px 24px rgba(0,0,0,.4);
+        }}
+        .ef-tip.show {{ opacity: 1; }}
+        .ef-tip b {{ color: var(--gold); font-weight: 1000; }}
+
+        /* Footer summary cards */
+        .ef-summary {{
+            display:grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 14px;
+        }}
+        .ef-sumcard {{
+            padding: 10px 14px;
+            border-radius: 14px;
+            background: rgba(255,255,255,.05);
+            border: 1px solid rgba(56,189,248,.24);
+            text-align:center;
+        }}
+        .ef-sumcard .l {{
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 1000;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }}
+        .ef-sumcard .v {{
+            color: var(--text);
+            font-size: 18px;
+            font-weight: 1000;
+            margin-top: 3px;
+        }}
+        @media (max-width: 900px) {{
+            .ef-summary {{ grid-template-columns: repeat(2, 1fr); }}
+            .ef-title {{ font-size: 20px; }}
+        }}
     </style>
     </head>
     <body>
-    <div class="wrap">
-        <div class="title">Animated PV Energy Flow</div>
-        <div class="sub">Visible moving energy pulses from generation to grid, model, battery, and load.</div>
+    <div class="ef-wrap">
+        <div class="ef-header">
+            <div>
+                <div class="ef-title">⚡ Animated PV Energy Flow</div>
+                <div class="ef-sub">Power moves left-to-right from Sun to Grid. Hover any node to see its live reading.</div>
+            </div>
+            <div class="ef-live"><span class="dot"></span>Live · {power_kw:.2f} kW flowing</div>
+        </div>
 
-        <svg class="system" viewBox="0 0 720 235" preserveAspectRatio="xMidYMid meet">
-            <!-- Main row tracks -->
-            <line class="track" x1="118" y1="72" x2="205" y2="72"></line>
-            <line class="trackGlow" x1="118" y1="72" x2="205" y2="72"></line>
-            <line class="track" x1="280" y1="72" x2="365" y2="72"></line>
-            <line class="trackGlow" x1="280" y1="72" x2="365" y2="72"></line>
-            <line class="track" x1="440" y1="72" x2="525" y2="72"></line>
-            <line class="trackGlow" x1="440" y1="72" x2="525" y2="72"></line>
+        <svg class="ef-svg" viewBox="0 0 1400 520" preserveAspectRatio="xMidYMid meet">
+            <!-- Main row tracks (Sun -> PV -> Inverter -> Grid) -->
+            <line class="ef-track" x1="170" y1="150" x2="320" y2="150"/>
+            <line class="ef-track-glow gold" x1="170" y1="150" x2="320" y2="150"/>
+            <line class="ef-track" x1="470" y1="150" x2="620" y2="150"/>
+            <line class="ef-track-glow gold" x1="470" y1="150" x2="620" y2="150"/>
+            <line class="ef-track" x1="770" y1="150" x2="920" y2="150"/>
+            <line class="ef-track-glow cyan" x1="770" y1="150" x2="920" y2="150"/>
+            <line class="ef-track" x1="1070" y1="150" x2="1220" y2="150"/>
+            <line class="ef-track-glow cyan" x1="1070" y1="150" x2="1220" y2="150"/>
 
-            <!-- Secondary row tracks -->
-            <line class="track" x1="118" y1="174" x2="205" y2="174"></line>
-            <line class="trackGlow" x1="118" y1="174" x2="205" y2="174"></line>
-            <line class="track" x1="280" y1="174" x2="365" y2="174"></line>
-            <line class="trackGlow" x1="280" y1="174" x2="365" y2="174"></line>
-            <line class="track" x1="440" y1="174" x2="525" y2="174"></line>
-            <line class="trackGlow" x1="440" y1="174" x2="525" y2="174"></line>
+            <!-- Secondary row tracks (Weather -> Model -> Battery -> Load) -->
+            <line class="ef-track" x1="170" y1="400" x2="320" y2="400"/>
+            <line class="ef-track-glow green" x1="170" y1="400" x2="320" y2="400"/>
+            <line class="ef-track" x1="470" y1="400" x2="620" y2="400"/>
+            <line class="ef-track-glow green" x1="470" y1="400" x2="620" y2="400"/>
+            <line class="ef-track" x1="770" y1="400" x2="920" y2="400"/>
+            <line class="ef-track-glow green" x1="770" y1="400" x2="920" y2="400"/>
+            <line class="ef-track" x1="1070" y1="400" x2="1220" y2="400"/>
+            <line class="ef-track-glow green" x1="1070" y1="400" x2="1220" y2="400"/>
 
-            <!-- Energy pulse dots -->
-            <circle class="pulse pulse1" r="7" fill="#fbbf24"></circle>
-            <circle class="pulse pulse2" r="7" fill="#38bdf8"></circle>
-            <circle class="pulse pulse3" r="7" fill="#10b981"></circle>
-            <circle class="pulse pulseB1" r="7" fill="#38bdf8"></circle>
-            <circle class="pulse pulseB2" r="7" fill="#fbbf24"></circle>
-            <circle class="pulse pulseB3" r="7" fill="#10b981"></circle>
+            <!-- Vertical bridge: Inverter (main row) -> Battery (secondary row) -->
+            <line class="ef-track" x1="920" y1="210" x2="920" y2="360" stroke-dasharray="4 6"/>
+            <line class="ef-track-glow green" x1="920" y1="210" x2="920" y2="360"/>
 
-            <!-- Main row nodes -->
-            <rect class="node" x="10" y="28" width="108" height="88" rx="18"></rect>
-            <text class="icon" x="64" y="55">☀️</text>
-            <text class="nodeText" x="64" y="83">Sun</text>
-            <text class="nodeSub" x="64" y="99">irradiance</text>
+            <!-- Energy pulses, main row (gold/cyan) -->
+            <circle class="ef-pulse pa1" r="8" fill="#FBBF24" style="color:#FBBF24"/>
+            <circle class="ef-pulse pa2" r="8" fill="#FBBF24" style="color:#FBBF24"/>
+            <circle class="ef-pulse pa3" r="7" fill="#38BDF8" style="color:#38BDF8"/>
+            <circle class="ef-pulse pa4" r="7" fill="#38BDF8" style="color:#38BDF8"/>
+            <circle class="ef-pulse pa5" r="8" fill="#FBBF24" style="color:#FBBF24"/>
 
-            <rect class="node" x="205" y="28" width="108" height="88" rx="18"></rect>
-            <text class="icon" x="259" y="55">🔷</text>
-            <text class="nodeText" x="259" y="83">PV Array</text>
-            <text class="nodeSub" x="259" y="99">DC power</text>
+            <!-- Energy pulses, secondary row (green/teal) -->
+            <circle class="ef-pulse pb1" r="7" fill="#10B981" style="color:#10B981"/>
+            <circle class="ef-pulse pb2" r="7" fill="#10B981" style="color:#10B981"/>
+            <circle class="ef-pulse pb3" r="6" fill="#22D3EE" style="color:#22D3EE"/>
+            <circle class="ef-pulse pb4" r="6" fill="#22D3EE" style="color:#22D3EE"/>
+            <circle class="ef-pulse pb5" r="7" fill="#10B981" style="color:#10B981"/>
 
-            <rect class="node" x="365" y="28" width="108" height="88" rx="18"></rect>
-            <text class="icon" x="419" y="55">🔌</text>
-            <text class="nodeText" x="419" y="83">Inverter</text>
-            <text class="nodeSub" x="419" y="99">DC to AC</text>
+            <!-- Vertical bridge pulses -->
+            <circle class="ef-pulse pv1" r="6" fill="#A78BFA" style="color:#A78BFA"/>
+            <circle class="ef-pulse pv2" r="6" fill="#A78BFA" style="color:#A78BFA"/>
 
-            <rect class="node" x="525" y="28" width="108" height="88" rx="18"></rect>
-            <text class="icon" x="579" y="55">🗼</text>
-            <text class="nodeText" x="579" y="83">Grid</text>
-            <text class="nodeSub" x="579" y="99">export</text>
+            <!-- ====== MAIN ROW NODES ====== -->
+            <g class="ef-node" data-name="Sun" data-detail="Solar irradiance arriving at the array surface. Drives all generation.">
+                <rect class="ef-node-rect" x="20" y="80" width="150" height="140" rx="22"/>
+                <text class="ef-node-icon" x="95" y="115">☀️</text>
+                <text class="ef-node-title" x="95" y="155">Sun</text>
+                <text class="ef-node-sub" x="95" y="174">irradiance</text>
+                <text class="ef-node-value" x="95" y="200">{irr_wm2:.0f}</text>
+                <text class="ef-node-unit" x="95" y="214">W/m²</text>
+            </g>
 
-            <!-- Secondary row nodes -->
-            <rect class="node" x="10" y="130" width="108" height="88" rx="18"></rect>
-            <text class="icon" x="64" y="157">🌤️</text>
-            <text class="nodeText" x="64" y="185">Weather</text>
-            <text class="nodeSub" x="64" y="201">drivers</text>
+            <g class="ef-node" data-name="PV Array" data-detail="The photovoltaic panel array converts sunlight to DC electricity.">
+                <rect class="ef-node-rect" x="320" y="80" width="150" height="140" rx="22"/>
+                <text class="ef-node-icon" x="395" y="115">🔷</text>
+                <text class="ef-node-title" x="395" y="155">PV Array</text>
+                <text class="ef-node-sub" x="395" y="174">DC power</text>
+                <text class="ef-node-value" x="395" y="200">{voltage_v:.0f}</text>
+                <text class="ef-node-unit" x="395" y="214">V DC</text>
+            </g>
 
-            <rect class="node" x="205" y="130" width="108" height="88" rx="18"></rect>
-            <text class="icon" x="259" y="157">🤖</text>
-            <text class="nodeText" x="259" y="185">Model</text>
-            <text class="nodeSub" x="259" y="201">forecast</text>
+            <g class="ef-node" data-name="Inverter" data-detail="The inverter converts DC to grid-synchronous AC.">
+                <rect class="ef-node-rect" x="620" y="80" width="150" height="140" rx="22"/>
+                <text class="ef-node-icon" x="695" y="115">🔌</text>
+                <text class="ef-node-title" x="695" y="155">Inverter</text>
+                <text class="ef-node-sub" x="695" y="174">DC → AC</text>
+                <text class="ef-node-value" x="695" y="200">{inv_temp_c:.1f}</text>
+                <text class="ef-node-unit" x="695" y="214">°C</text>
+            </g>
 
-            <rect class="node" x="365" y="130" width="108" height="88" rx="18"></rect>
-            <text class="icon" x="419" y="157">🔋</text>
-            <text class="nodeText" x="419" y="185">Battery</text>
-            <text class="nodeSub" x="419" y="201">storage</text>
+            <g class="ef-node" data-name="Meter" data-detail="The smart meter measures AC current delivered to the grid coupling.">
+                <rect class="ef-node-rect" x="920" y="80" width="150" height="140" rx="22"/>
+                <text class="ef-node-icon" x="995" y="115">📊</text>
+                <text class="ef-node-title" x="995" y="155">Meter</text>
+                <text class="ef-node-sub" x="995" y="174">AC current</text>
+                <text class="ef-node-value" x="995" y="200">{current_a:.1f}</text>
+                <text class="ef-node-unit" x="995" y="214">A</text>
+            </g>
 
-            <rect class="node" x="525" y="130" width="108" height="88" rx="18"></rect>
-            <text class="icon" x="579" y="157">🏠</text>
-            <text class="nodeText" x="579" y="185">Load</text>
-            <text class="nodeSub" x="579" y="201">demand</text>
+            <g class="ef-node" data-name="Grid" data-detail="The electrical grid. Frequency must stay close to 50 Hz.">
+                <rect class="ef-node-rect" x="1220" y="80" width="150" height="140" rx="22"/>
+                <text class="ef-node-icon" x="1295" y="115">🗼</text>
+                <text class="ef-node-title" x="1295" y="155">Grid</text>
+                <text class="ef-node-sub" x="1295" y="174">{freq_hz:.3f} Hz</text>
+                <text class="ef-node-value" x="1295" y="200">{power_kw:.2f}</text>
+                <text class="ef-node-unit" x="1295" y="214">kW exported</text>
+            </g>
+
+            <!-- ====== SECONDARY ROW NODES ====== -->
+            <g class="ef-node" data-name="Weather" data-detail="Ambient weather drivers: temperature and humidity.">
+                <rect class="ef-node-rect" x="20" y="330" width="150" height="140" rx="22"/>
+                <text class="ef-node-icon" x="95" y="365">🌤️</text>
+                <text class="ef-node-title" x="95" y="405">Weather</text>
+                <text class="ef-node-sub" x="95" y="424">temp / humidity</text>
+                <text class="ef-node-value" x="95" y="450">{temp_c:.1f}°C</text>
+                <text class="ef-node-unit" x="95" y="464">RH {humidity_pct:.0f}%</text>
+            </g>
+
+            <g class="ef-node" data-name="Model" data-detail="Forecast model issuing the next-step active power prediction.">
+                <rect class="ef-node-rect" x="320" y="330" width="150" height="140" rx="22"/>
+                <text class="ef-node-icon" x="395" y="365">🤖</text>
+                <text class="ef-node-title" x="395" y="405">Model</text>
+                <text class="ef-node-sub" x="395" y="424">forecast</text>
+                <text class="ef-node-value" x="395" y="450">{eff_pct:.1f}%</text>
+                <text class="ef-node-unit" x="395" y="464">efficiency</text>
+            </g>
+
+            <g class="ef-node" data-name="Battery" data-detail="Battery storage. Shifts midday surplus to evening load.">
+                <rect class="ef-node-rect" x="620" y="330" width="150" height="140" rx="22"/>
+                <text class="ef-node-icon" x="695" y="365">🔋</text>
+                <text class="ef-node-title" x="695" y="405">Battery</text>
+                <text class="ef-node-sub" x="695" y="424">storage</text>
+                <text class="ef-node-value" x="695" y="450">{soc_pct:.1f}%</text>
+                <text class="ef-node-unit" x="695" y="464">state of charge</text>
+            </g>
+
+            <g class="ef-node" data-name="Load" data-detail="On-site electrical load served by combined generation and battery.">
+                <rect class="ef-node-rect" x="920" y="330" width="150" height="140" rx="22"/>
+                <text class="ef-node-icon" x="995" y="365">🏠</text>
+                <text class="ef-node-title" x="995" y="405">Load</text>
+                <text class="ef-node-sub" x="995" y="424">demand</text>
+                <text class="ef-node-value" x="995" y="450">{daily_kwh:.1f}</text>
+                <text class="ef-node-unit" x="995" y="464">kWh today</text>
+            </g>
+
+            <g class="ef-node" data-name="CO₂ Avoided" data-detail="Estimated CO₂ emissions avoided by today\'s solar production.">
+                <rect class="ef-node-rect" x="1220" y="330" width="150" height="140" rx="22"/>
+                <text class="ef-node-icon" x="1295" y="365">🌱</text>
+                <text class="ef-node-title" x="1295" y="405">CO₂ Saved</text>
+                <text class="ef-node-sub" x="1295" y="424">today</text>
+                <text class="ef-node-value" x="1295" y="450">{co2_kg:.1f}</text>
+                <text class="ef-node-unit" x="1295" y="464">kg</text>
+            </g>
         </svg>
 
-        <div class="status"><span class="dot"></span>Energy moving • telemetry online • forecast active</div>
+        <div class="ef-summary">
+            <div class="ef-sumcard"><div class="l">Live Power</div><div class="v">{power_kw:.2f} kW</div></div>
+            <div class="ef-sumcard"><div class="l">Daily Energy</div><div class="v">{daily_kwh:.1f} kWh</div></div>
+            <div class="ef-sumcard"><div class="l">Battery</div><div class="v">{soc_pct:.1f} %</div></div>
+            <div class="ef-sumcard"><div class="l">CO₂ Avoided</div><div class="v">{co2_kg:.1f} kg</div></div>
+        </div>
+
+        <div class="ef-tip" id="ef-tip"></div>
     </div>
+
+    <script>
+    (function() {{
+        var tip = document.getElementById("ef-tip");
+        var nodes = document.querySelectorAll(".ef-node");
+        nodes.forEach(function(n) {{
+            n.addEventListener("mousemove", function(e) {{
+                var name = n.getAttribute("data-name") || "Node";
+                var detail = n.getAttribute("data-detail") || "";
+                tip.innerHTML = "<b>" + name + "</b><br>" + detail;
+                tip.style.left = (e.clientX + 14) + "px";
+                tip.style.top  = (e.clientY + 14) + "px";
+                tip.classList.add("show");
+            }});
+            n.addEventListener("mouseleave", function() {{
+                tip.classList.remove("show");
+            }});
+            n.addEventListener("click", function() {{
+                var name = n.getAttribute("data-name") || "Node";
+                // Bounce animation on click.
+                var rect = n.querySelector(".ef-node-rect");
+                if (rect) {{
+                    rect.style.transition = "transform .25s cubic-bezier(.34,1.56,.64,1)";
+                    rect.style.transform = "scale(1.08)";
+                    setTimeout(function() {{ rect.style.transform = "scale(1)"; }}, 250);
+                }}
+            }});
+        }});
+    }})();
+    </script>
     </body>
     </html>
     """
-    components.html(html, height=395, scrolling=False)
+    components.html(html, height=720, scrolling=False)
 
 
-def visual_twin_panel():
+def visual_twin_panel(readings: dict | None = None):
+    """Interactive 3D-style digital twin.
+
+    Each component (panel array, inverter, battery, grid tower) has an
+    invisible hover-target overlay that shows a tooltip on hover with
+    that component\\'s live value. Battery height reflects live SOC.
+    Click any component to bounce-animate it.
+    """
+    r = readings or {}
+    power_kw   = float(r.get("power_kw", 0.0))
+    soc_pct    = float(r.get("battery_soc_pct", 75.0))
+    inv_temp_c = float(r.get("inverter_temp_c", 0.0))
+    freq_hz    = float(r.get("frequency_hz", 50.0))
+    irr_wm2    = float(r.get("irradiance", 0.0))
+
+    # Battery bar fill that follows live SOC.
+    bar_max = max(20.0, min(100.0, soc_pct))
+    b1 = max(15, int(bar_max * 0.40))
+    b2 = max(20, int(bar_max * 0.60))
+    b3 = max(25, int(bar_max * 0.80))
+    b4 = max(30, int(bar_max * 1.00))
+
     st.markdown(
-        """
-        <div class="visual-card">
-            <div class="section-title">Animated 3D-Style Digital Twin</div>
-            <div class="muted">A visual representation of the PV array, inverter, battery, weather and grid link.</div>
+        f"""
+        <div class="visual-card" style="position:relative;">
+            <div class="section-title">🛰️ Interactive 3D-Style Digital Twin</div>
+            <div class="muted">Live model of the PV array, inverter, battery, and grid link. Hover any component to see its live value.</div>
             <div class="sun-orbit"></div>
             <div class="platform"></div>
-            <div class="panel-grid">
+            <div class="panel-grid" data-tt="PV Array · {irr_wm2:.0f} W/m² · {power_kw:.2f} kW generating">
                 <div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div>
                 <div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div>
                 <div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div><div class="solar-panel"></div>
             </div>
-            <div class="battery"><div class="battery-bars"><i style="height:35%"></i><i style="height:55%"></i><i style="height:76%"></i><i style="height:92%"></i></div></div>
-            <div class="inverter"></div>
-            <div class="tower">🗼</div>
+            <div class="battery" data-tt="Battery · {soc_pct:.1f}% SOC">
+                <div class="battery-bars">
+                    <i style="height:{b1}%"></i><i style="height:{b2}%"></i><i style="height:{b3}%"></i><i style="height:{b4}%"></i>
+                </div>
+            </div>
+            <div class="inverter" data-tt="Inverter · {inv_temp_c:.1f}°C internal"></div>
+            <div class="tower" data-tt="Grid Link · {freq_hz:.3f} Hz · {power_kw:.2f} kW">🗼</div>
             <div class="power-line"></div>
+
+            <!-- Live KPI badges floating over the twin -->
+            <div style="position:absolute;top:14px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:5">
+                <div style="padding:6px 12px;border-radius:999px;background:rgba(251,191,36,.20);border:1px solid rgba(251,191,36,.45);color:#FBBF24;font-size:.78rem;font-weight:1000;letter-spacing:.04em">
+                    ⚡ {power_kw:.2f} kW
+                </div>
+                <div style="padding:6px 12px;border-radius:999px;background:rgba(16,185,129,.20);border:1px solid rgba(16,185,129,.45);color:#10B981;font-size:.78rem;font-weight:1000;letter-spacing:.04em">
+                    🔋 {soc_pct:.1f}%
+                </div>
+                <div style="padding:6px 12px;border-radius:999px;background:rgba(56,189,248,.20);border:1px solid rgba(56,189,248,.45);color:#38BDF8;font-size:.78rem;font-weight:1000;letter-spacing:.04em">
+                    ☀️ {irr_wm2:.0f} W/m²
+                </div>
+            </div>
+
+            <!-- Floating tooltip element (driven by JS below) -->
+            <div id="vt-tip" style="position:absolute;pointer-events:none;opacity:0;transition:opacity .15s ease;padding:7px 11px;border-radius:10px;background:rgba(8,22,47,.96);border:1px solid rgba(56,189,248,.5);color:#F8FBFF;font-size:11px;font-weight:800;z-index:30;box-shadow:0 8px 22px rgba(0,0,0,.4);"></div>
         </div>
+
+        <script>
+        (function() {{
+            var card = document.currentScript.previousElementSibling;
+            if (!card) return;
+            var tip = card.querySelector("#vt-tip");
+            if (!tip) return;
+            var targets = card.querySelectorAll("[data-tt]");
+            targets.forEach(function(el) {{
+                el.style.cursor = "pointer";
+                el.addEventListener("mousemove", function(e) {{
+                    var rect = card.getBoundingClientRect();
+                    tip.textContent = el.getAttribute("data-tt");
+                    tip.style.left = (e.clientX - rect.left + 12) + "px";
+                    tip.style.top  = (e.clientY - rect.top  + 12) + "px";
+                    tip.style.opacity = "1";
+                }});
+                el.addEventListener("mouseleave", function() {{ tip.style.opacity = "0"; }});
+                el.addEventListener("click", function() {{
+                    el.style.transition = "transform .3s cubic-bezier(.34,1.56,.64,1)";
+                    el.style.transform = (el.style.transform || "") + " scale(1.08)";
+                    setTimeout(function() {{
+                        el.style.transform = el.style.transform.replace(" scale(1.08)", "");
+                    }}, 320);
+                }});
+            }});
+        }})();
+        </script>
         """,
         unsafe_allow_html=True,
     )
@@ -3899,28 +4291,26 @@ def render_live_history_chart(history: pd.DataFrame) -> None:
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=history["t"], y=history["power_kw"], name="Active Power (kW)",
-            mode="lines", line=dict(color="#fbbf24", width=3),
+            mode="lines", line=dict(color="#FBBF24", width=3),
             fill="tozeroy", fillcolor="rgba(251,191,36,.15)",
         ))
         fig.add_trace(go.Scatter(
             x=history["t"], y=history["irradiance"] / 100.0, name="Irradiance (×100 W/m²)",
-            mode="lines", line=dict(color="#38bdf8", width=2, dash="dot"), yaxis="y",
+            mode="lines", line=dict(color="#38BDF8", width=2, dash="dot"), yaxis="y",
         ))
         fig.add_trace(go.Scatter(
             x=history["t"], y=history["temperature_c"], name="Module Temp (°C)",
-            mode="lines", line=dict(color="#f87171", width=2), yaxis="y2",
+            mode="lines", line=dict(color="#F87171", width=2), yaxis="y2",
         ))
         fig.update_layout(
-            height=320,
-            margin=dict(l=10, r=10, t=30, b=10),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#F8FBFF"),
-            legend=dict(orientation="h", y=1.12, x=0),
-            xaxis=dict(showgrid=False, color="#F8FBFF"),
-            yaxis=dict(title="Power / Irradiance", showgrid=True, gridcolor="rgba(255,255,255,.08)", color="#F8FBFF"),
-            yaxis2=dict(title="Temperature", overlaying="y", side="right", showgrid=False, color="#F8FBFF"),
+            height=360,
+            margin=dict(l=70, r=70, t=50, b=70),
+            legend=dict(orientation="h", y=1.13, x=0),
+            xaxis=dict(title="Tick time", showgrid=False),
+            yaxis=dict(title="Power (kW)  /  Irradiance ×100 W/m²", showgrid=True),
+            yaxis2=dict(title="Module Temperature (°C)", overlaying="y", side="right", showgrid=False),
         )
+        make_plot_transparent(fig, 360)
         st.plotly_chart(fig, use_container_width=True, key=next_chart_key("live_history"))
     else:
         st.line_chart(history.set_index("t")[["power_kw", "temperature_c"]])
@@ -5252,11 +5642,8 @@ if first_view == "Charts first":
         show_chart(prediction_fig(predictions_df, timestamp_col, chart_window), predictions_df if not predictions_df.empty else filtered_df, timestamp_col, ["y_target", "prediction"] if not predictions_df.empty else [target_col], chart_window)
         st.markdown("</div>", unsafe_allow_html=True)
 elif first_view == "3D visuals first":
-    a, b = st.columns(2)
-    with a:
-        visual_twin_panel()
-    with b:
-        energy_flow_panel()
+    energy_flow_panel(live_readings)
+    visual_twin_panel(live_readings)
 elif first_view == "Evidence first":
     e1, e2, e3, e4 = st.columns(4)
     e1.metric("Cleaned rows", f"{cleaning_report['rows_after_grouping_resampling']:,}")
@@ -5296,20 +5683,23 @@ if selected_page == "🏠 Home":
     render_live_alerts(live_readings)
     render_live_gauges_component(live_readings, live_history)
 
-    c1, c2, c3 = st.columns([1.1, 1.1, 1.25])
+    # Energy flow is now a full-width hero. It's big enough that it deserves
+    # its own row. Then the static visual context image and the 3D twin sit
+    # side-by-side below it.
+    energy_flow_panel(live_readings)
+
+    c1, c2 = st.columns([1, 1])
     with c1:
         st.markdown(
             f"""
-            <div class="image-card" style="min-height:260px;background-image:url('{IMG_SOLAR_1}')">
+            <div class="image-card" style="min-height:320px;background-image:url('{IMG_SOLAR_1}')">
                 <span>Solar PV Plant • Live visual context</span>
             </div>
             """,
             unsafe_allow_html=True,
         )
     with c2:
-        energy_flow_panel()
-    with c3:
-        visual_twin_panel()
+        visual_twin_panel(live_readings)
 
     st.markdown("### 📈 Live Rolling Telemetry (last few minutes)")
     render_live_history_chart(live_history)
@@ -5397,15 +5787,13 @@ if selected_page == "🔴 Live Telemetry":
                     ))
                     fig.update_layout(
                         title=dict(text=label, font=dict(color="#F8FBFF", size=14)),
-                        height=220,
-                        margin=dict(l=8, r=8, t=36, b=8),
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        font=dict(color="#F8FBFF", size=11),
+                        height=240,
+                        margin=dict(l=55, r=15, t=42, b=42),
                         showlegend=False,
-                        xaxis=dict(showgrid=False, color="#F8FBFF"),
-                        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,.07)", color="#F8FBFF"),
+                        xaxis=dict(title="Tick", showgrid=False),
+                        yaxis=dict(title=label, showgrid=True),
                     )
+                    make_plot_transparent(fig, 240)
                     st.plotly_chart(fig, use_container_width=True, key=next_chart_key(f"livesig_{col}"))
     else:
         st.info("Live charts will populate after a few refresh cycles. Make sure live updates are ON and wait a moment.")
@@ -5524,11 +5912,8 @@ if selected_page == "🧩 Images + 3D":
         with gcols[i % 3]:
             st.markdown(f'<div class="image-card" style="background-image:url({url})"><span>{label}</span></div>', unsafe_allow_html=True)
 
-    s1, s2 = st.columns(2)
-    with s1:
-        energy_flow_panel()
-    with s2:
-        visual_twin_panel()
+    energy_flow_panel(live_readings)
+    visual_twin_panel(live_readings)
 
     st.markdown("### Formal Technical Diagram")
     st.graphviz_chart(
