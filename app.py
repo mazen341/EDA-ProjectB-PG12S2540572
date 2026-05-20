@@ -3262,51 +3262,534 @@ def build_diagram_source(diagram_name: str, direction: str = "LR", detail_level:
     """
 
 
+# -----------------------------------------------------------------------------
+# Interactive SVG diagram renderer — replaces the static Graphviz output with
+# animated, hover-able, click-able diagrams. Each diagram is described as a
+# Python dict of nodes (with position + label) and edges (with animated
+# pulses). The renderer emits one self-contained components.html block.
+# -----------------------------------------------------------------------------
+
+# Color palette by node category.
+_DIAG_COLORS = {
+    "source":   {"fill": "#1E40AF", "stroke": "#60A5FA", "text": "#F8FBFF", "kicker": "#60A5FA"},
+    "process":  {"fill": "#0F2F54", "stroke": "#38BDF8", "text": "#F8FBFF", "kicker": "#38BDF8"},
+    "data":     {"fill": "#0F3325", "stroke": "#10B981", "text": "#F8FBFF", "kicker": "#10B981"},
+    "model":    {"fill": "#4C1D95", "stroke": "#A78BFA", "text": "#F8FBFF", "kicker": "#A78BFA"},
+    "output":   {"fill": "#7C2D12", "stroke": "#FB923C", "text": "#F8FBFF", "kicker": "#FB923C"},
+    "decision": {"fill": "#831843", "stroke": "#F472B6", "text": "#F8FBFF", "kicker": "#F472B6"},
+    "alert":    {"fill": "#7F1D1D", "stroke": "#F87171", "text": "#F8FBFF", "kicker": "#F87171"},
+    "energy":   {"fill": "#713F12", "stroke": "#FBBF24", "text": "#F8FBFF", "kicker": "#FBBF24"},
+}
+
+
+def _diag_specs():
+    """All 6 diagrams as structured node + edge data."""
+
+    # Layout grid: x in 0..1400, y in 0..560.
+    # Node default size: 170 × 84.
+
+    pv_system = {
+        "title": "PV System Architecture",
+        "subtitle": "Physical hardware path from sunlight to grid, with telemetry feeding the dashboard.",
+        "nodes": [
+            {"id": "SUN",   "x":  60, "y":  60, "icon": "☀️",  "title": "Sun",            "sub": "Irradiance source",      "cat": "energy",   "tip": "Solar irradiance drives the PV array. Typical peak ≈ 1000 W/m²."},
+            {"id": "PV",    "x":  60, "y": 230, "icon": "🔷",  "title": "PV Array",       "sub": "DC generation",          "cat": "energy",   "tip": "Photovoltaic modules convert sunlight to DC electricity."},
+            {"id": "COMB",  "x": 280, "y": 230, "icon": "🔌",  "title": "Combiner",       "sub": "DC protection",          "cat": "process",  "tip": "Combiner box aggregates string output with fusing and isolation."},
+            {"id": "INV",   "x": 500, "y": 230, "icon": "⚡",  "title": "Inverter",       "sub": "DC → AC",                "cat": "process",  "tip": "Converts DC to grid-synchronous AC and reports telemetry."},
+            {"id": "BESS",  "x": 500, "y": 400, "icon": "🔋",  "title": "Battery ESS",    "sub": "Storage",                "cat": "energy",   "tip": "Battery energy storage shifts surplus generation to evening loads."},
+            {"id": "LOAD",  "x": 720, "y": 400, "icon": "🏠",  "title": "Local Load",     "sub": "On-site demand",         "cat": "output",   "tip": "Plant + facility loads served before exporting to grid."},
+            {"id": "TR",    "x": 720, "y": 230, "icon": "🌀",  "title": "Transformer",    "sub": "Voltage step-up",        "cat": "process",  "tip": "Steps inverter AC up to grid voltage."},
+            {"id": "GRID",  "x": 940, "y": 230, "icon": "🗼",  "title": "Grid Export",    "sub": "Utility connection",     "cat": "output",   "tip": "Energy exported to the utility grid through the point of common coupling."},
+            {"id": "WX",    "x": 280, "y":  60, "icon": "🌦️",  "title": "Weather Station","sub": "Live conditions",        "cat": "data",     "tip": "On-site weather sensors feed irradiance, temperature, humidity."},
+            {"id": "MON",   "x": 940, "y": 400, "icon": "📡",  "title": "Monitoring",     "sub": "Telemetry gateway",      "cat": "data",     "tip": "Polls inverter, meter, and battery; pushes data to the model and dashboard."},
+            {"id": "MODEL", "x": 1160,"y":  60, "icon": "🤖",  "title": "Forecast Model", "sub": "Next-step prediction",   "cat": "model",    "tip": "ML model consuming weather + lag features to forecast active power."},
+            {"id": "DASH",  "x": 1160,"y": 230, "icon": "🖥️",  "title": "Dashboard",      "sub": "User view",              "cat": "output",   "tip": "This dashboard — surfaces live KPIs, charts, alerts, and explanations."},
+        ],
+        "edges": [
+            ("SUN",  "PV",    "gold", "irradiance"),
+            ("PV",   "COMB",  "gold", "DC"),
+            ("COMB", "INV",   "gold", "DC"),
+            ("INV",  "TR",    "cyan", "AC"),
+            ("TR",   "GRID",  "cyan", "AC export"),
+            ("INV",  "LOAD",  "cyan", "AC"),
+            ("INV",  "BESS",  "green","charge"),
+            ("BESS", "INV",   "green","discharge"),
+            ("WX",   "MODEL", "purple","weather"),
+            ("INV",  "MON",   "purple","status"),
+            ("MON",  "DASH",  "purple","telemetry"),
+            ("MODEL","DASH",  "purple","forecast"),
+        ],
+    }
+
+    data_clean = {
+        "title": "Data Cleaning Pipeline",
+        "subtitle": "Each stage removes one class of data problem so the model trains on clean signals.",
+        "nodes": [
+            {"id": "RAW",      "x":  40, "y": 220, "icon": "📥", "title": "Raw Dataset",     "sub": "CSV / JSON / Excel",       "cat": "data",    "tip": "Inputs from upload, demo data, or local samples."},
+            {"id": "SCHEMA",   "x": 230, "y": 220, "icon": "🔎", "title": "Column Detect",   "sub": "Timestamp + target",       "cat": "process", "tip": "Auto-detect timestamp and target columns; promote to canonical names."},
+            {"id": "TYPES",    "x": 420, "y": 220, "icon": "🔢", "title": "Type Convert",    "sub": "Datetime + numeric",       "cat": "process", "tip": "Parse timestamps and coerce numerics so downstream math is safe."},
+            {"id": "MISSING",  "x": 610, "y": 220, "icon": "🧱", "title": "Missing Values",  "sub": "Drop / interpolate",       "cat": "process", "tip": "Drop entirely-missing rows; interpolate short gaps; reindex on a regular grid."},
+            {"id": "DUP",      "x": 610, "y":  60, "icon": "🧬", "title": "Duplicates",      "sub": "Group-by aggregation",     "cat": "process", "tip": "Collapse duplicate timestamps via mean aggregation."},
+            {"id": "RESAMPLE", "x": 800, "y": 220, "icon": "⏱️", "title": "Resample",        "sub": "15min / 30min / 1h",       "cat": "process", "tip": "Pick a uniform sampling rate so lag features have consistent meaning."},
+            {"id": "OUTLIER",  "x": 990, "y": 220, "icon": "⚠️", "title": "Outliers",        "sub": "IQR clipping",             "cat": "process", "tip": "Identify and clip extreme readings via IQR bounds."},
+            {"id": "CLEAN",   "x": 1180, "y": 220, "icon": "✅", "title": "Clean Series",   "sub": "Ready for features",       "cat": "output",  "tip": "Output: dense, deduped, resampled, outlier-treated series."},
+        ],
+        "edges": [
+            ("RAW", "SCHEMA",   "cyan", ""),
+            ("SCHEMA", "TYPES", "cyan", ""),
+            ("TYPES", "MISSING","cyan", ""),
+            ("MISSING", "DUP",  "cyan", ""),
+            ("DUP", "RESAMPLE", "cyan", ""),
+            ("MISSING","RESAMPLE","cyan",""),
+            ("RESAMPLE","OUTLIER","cyan",""),
+            ("OUTLIER", "CLEAN","green", "ready"),
+        ],
+    }
+
+    feature_map = {
+        "title": "Feature Engineering Map",
+        "subtitle": "How the clean series becomes the model-ready feature matrix.",
+        "nodes": [
+            {"id": "TS",    "x":  60, "y": 230, "icon": "📈", "title": "Clean Series",  "sub": "active power",        "cat": "data",    "tip": "Input target series after the cleaning pipeline."},
+            {"id": "LAG",   "x": 280, "y":  60, "icon": "⏪", "title": "Lag Features",  "sub": "lag_1, lag_24",       "cat": "process", "tip": "Short-term (lag_1) and daily (lag_24) memory of the target."},
+            {"id": "ROLL",  "x": 280, "y": 230, "icon": "📊", "title": "Rolling",       "sub": "rolling means / std", "cat": "process", "tip": "Smoothed statistics over recent windows."},
+            {"id": "CAL",   "x": 280, "y": 400, "icon": "🗓️", "title": "Calendar",      "sub": "hour, weekend",       "cat": "process", "tip": "Time-of-day, day-of-week, and seasonal flags."},
+            {"id": "CYC",   "x": 500, "y":  60, "icon": "🌐", "title": "Cyclic",        "sub": "sin/cos(hour, month)","cat": "process", "tip": "Continuous cyclic encodings for hour and month."},
+            {"id": "TEMP",  "x": 500, "y": 230, "icon": "🌡️", "title": "Temperature",   "sub": "ambient + module",    "cat": "data",    "tip": "Temperature drivers from the weather feed."},
+            {"id": "IRR",   "x": 500, "y": 400, "icon": "☀️", "title": "Irradiance",    "sub": "W/m²",                "cat": "data",    "tip": "Solar irradiance — the strongest single predictor."},
+            {"id": "HUM",   "x": 720, "y":  60, "icon": "💧", "title": "Humidity",      "sub": "%",                   "cat": "data",    "tip": "Humidity affects soiling and module behavior."},
+            {"id": "WXFEAT","x": 720, "y": 230, "icon": "🌦️", "title": "Weather Features", "sub": "irr × temp",       "cat": "process", "tip": "Composite weather features and interactions."},
+            {"id": "FEAT",  "x": 940, "y": 230, "icon": "🧮", "title": "Feature Matrix","sub": "X",                   "cat": "model",   "tip": "Joined feature matrix passed to the models."},
+            {"id": "TARGET","x": 940, "y": 400, "icon": "🎯", "title": "Target Vector", "sub": "y",                   "cat": "model",   "tip": "Aligned target column for supervised learning."},
+            {"id": "MODEL", "x": 1160,"y": 320, "icon": "🤖", "title": "Models",        "sub": "training set",        "cat": "output",  "tip": "(X, y) is what the model comparison consumes."},
+        ],
+        "edges": [
+            ("TS","LAG","gold",""),    ("TS","ROLL","gold",""),    ("TS","CAL","gold",""),
+            ("CAL","CYC","cyan",""),
+            ("LAG","FEAT","cyan",""),  ("ROLL","FEAT","cyan",""),  ("CYC","FEAT","cyan",""),
+            ("TEMP","WXFEAT","purple",""),  ("IRR","WXFEAT","purple",""),  ("HUM","WXFEAT","purple",""),
+            ("WXFEAT","FEAT","purple",""),
+            ("TS","TARGET","green","y"),
+            ("FEAT","MODEL","gold","X"),  ("TARGET","MODEL","green","y"),
+        ],
+    }
+
+    model_workflow = {
+        "title": "Model Comparison Workflow",
+        "subtitle": "How candidates are trained, ranked, and validated.",
+        "nodes": [
+            {"id": "FEAT",   "x":  40, "y": 220, "icon": "🧮", "title": "Feature Matrix","sub": "X",                  "cat": "model",   "tip": "Output of the feature-engineering map."},
+            {"id": "SPLIT",  "x": 230, "y": 220, "icon": "✂️", "title": "Chronological Split","sub": "80% / 20%",     "cat": "process", "tip": "Time-ordered split avoids look-ahead leakage."},
+            {"id": "BASE",   "x": 420, "y":  60, "icon": "📏", "title": "Baseline",      "sub": "naive last-step",     "cat": "process", "tip": "Naive baseline — the lower bound that real models must beat."},
+            {"id": "LIN",    "x": 420, "y": 220, "icon": "📐", "title": "Linear Models", "sub": "Ridge / Lasso",       "cat": "process", "tip": "Regularized linear regressions."},
+            {"id": "TREE",   "x": 420, "y": 380, "icon": "🌳", "title": "Tree Ensembles","sub": "RF / GBM / HGB",      "cat": "process", "tip": "Random Forest, Gradient Boosting, Histogram GBM, etc."},
+            {"id": "METRICS","x": 640, "y": 220, "icon": "📊", "title": "Metrics",       "sub": "MAE RMSE MAPE R²",    "cat": "process", "tip": "Compute the standard regression metrics on the holdout."},
+            {"id": "RANK",   "x": 850, "y":  60, "icon": "🏆", "title": "Leaderboard",   "sub": "rank by metric",      "cat": "output",  "tip": "Sort candidates by the user-chosen metric."},
+            {"id": "RES",    "x": 850, "y": 220, "icon": "📉", "title": "Residuals",     "sub": "errors vs time",      "cat": "process", "tip": "Diagnose where models miss — sunrise, midday, sunset?"},
+            {"id": "UNC",    "x": 850, "y": 380, "icon": "📦", "title": "Uncertainty",   "sub": "intervals",           "cat": "process", "tip": "Bootstrap or quantile intervals around predictions."},
+            {"id": "IMP",    "x": 1060,"y": 220, "icon": "🔬", "title": "Feature Importance","sub": "permutation",     "cat": "model",   "tip": "Which features drive the best model's predictions."},
+            {"id": "BEST",   "x": 1240,"y": 220, "icon": "✨", "title": "Best Model",    "sub": "promoted",            "cat": "output",  "tip": "Top candidate based on the chosen ranking metric."},
+        ],
+        "edges": [
+            ("FEAT","SPLIT","gold",""),
+            ("SPLIT","BASE","cyan",""), ("SPLIT","LIN","cyan",""), ("SPLIT","TREE","cyan",""),
+            ("BASE","METRICS","cyan",""), ("LIN","METRICS","cyan",""), ("TREE","METRICS","cyan",""),
+            ("METRICS","RANK","gold",""),
+            ("METRICS","RES","purple",""), ("METRICS","UNC","purple",""),
+            ("RANK","IMP","green",""), ("IMP","BEST","green","top"),
+        ],
+    }
+
+    app_arch = {
+        "title": "Dashboard App Architecture",
+        "subtitle": "Layered design of the Streamlit dashboard.",
+        "nodes": [
+            {"id": "USER", "x":  60, "y": 240, "icon": "👤", "title": "User Controls",    "sub": "sidebar + quick access","cat": "source",   "tip": "All interactivity originates from the user — sidebar toggles, sliders, navigation."},
+            {"id": "DATA", "x": 280, "y": 240, "icon": "🗄️", "title": "Data Layer",       "sub": "upload / demo / CSV",   "cat": "data",     "tip": "File loader, demo generator, and dataset-path resolver."},
+            {"id": "PIPE", "x": 500, "y": 240, "icon": "🧹", "title": "Pipeline Layer",   "sub": "clean + features",      "cat": "process",  "tip": "All the cleaning + feature-engineering steps."},
+            {"id": "MODEL","x": 720, "y": 240, "icon": "🤖", "title": "Model Layer",      "sub": "user-triggered train",  "cat": "model",    "tip": "Training runs only when the user clicks Run."},
+            {"id": "VIS",  "x": 940, "y":  80, "icon": "📊", "title": "Visualization",    "sub": "charts + diagrams",     "cat": "output",   "tip": "Plotly charts, animated SVG, gauges, diagrams."},
+            {"id": "EXPORT","x": 940, "y": 240, "icon": "📤", "title": "Export Layer",    "sub": "CSV + HTML + JSON",     "cat": "output",   "tip": "submission.json, predictions.csv, metrics.csv."},
+            {"id": "GRAD", "x": 940, "y": 400, "icon": "🎓", "title": "AI Grader",        "sub": "fallback safe",         "cat": "decision", "tip": "OpenRouter call with a local fallback that mirrors the rubric."},
+            {"id": "OUT",  "x": 1180,"y": 240, "icon": "🖥️", "title": "Rendered App",     "sub": "live browser",          "cat": "output",   "tip": "What the user sees in their browser."},
+        ],
+        "edges": [
+            ("USER","DATA","cyan",""), ("DATA","PIPE","cyan",""),
+            ("PIPE","MODEL","cyan",""), ("MODEL","VIS","gold",""),
+            ("MODEL","EXPORT","purple",""), ("PIPE","EXPORT","purple",""),
+            ("EXPORT","GRAD","green","JSON"),
+            ("VIS","OUT","gold",""), ("EXPORT","OUT","purple",""),
+        ],
+    }
+
+    risk = {
+        "title": "Risk & Decision Flow",
+        "subtitle": "How a forecast becomes an operational decision.",
+        "nodes": [
+            {"id": "F",     "x":  60, "y": 220, "icon": "🎯", "title": "Forecast",     "sub": "next-step",          "cat": "model",    "tip": "Model output: predicted active power."},
+            {"id": "PI",    "x": 280, "y":  60, "icon": "📦", "title": "Prediction Interval","sub": "90% band",     "cat": "model",    "tip": "Range of likely true values."},
+            {"id": "RES",   "x": 280, "y": 220, "icon": "📉", "title": "Residual",     "sub": "actual − forecast",  "cat": "process",  "tip": "Live error signal."},
+            {"id": "ANOM",  "x": 280, "y": 380, "icon": "🚨", "title": "Anomaly",      "sub": "sensitivity σ",      "cat": "alert",    "tip": "Anomaly if residual > σ-threshold."},
+            {"id": "TREND", "x": 500, "y": 220, "icon": "📈", "title": "Trend Check",  "sub": "rolling mean",       "cat": "process",  "tip": "Are recent residuals drifting?"},
+            {"id": "DEC",   "x": 720, "y": 220, "icon": "🛡️", "title": "Decision Node","sub": "rule engine",        "cat": "decision", "tip": "Compare residual + intervals + trend against thresholds."},
+            {"id": "OK",    "x": 940, "y":  60, "icon": "✅", "title": "Operate Normal","sub": "no action",         "cat": "output",   "tip": "Within tolerance — keep operating."},
+            {"id": "CURT",  "x": 940, "y": 220, "icon": "🧯", "title": "Curtail",       "sub": "limit output",      "cat": "output",   "tip": "Limit output to protect equipment or honor grid request."},
+            {"id": "DISP",  "x": 940, "y": 380, "icon": "🔧", "title": "Dispatch Tech","sub": "ticket",             "cat": "alert",    "tip": "Send a maintenance ticket to the on-site team."},
+            {"id": "LOG",   "x": 1160,"y": 220, "icon": "📝", "title": "Log + Audit",  "sub": "explainable",         "cat": "output",   "tip": "Persist every decision with its supporting signals."},
+        ],
+        "edges": [
+            ("F","PI","gold",""), ("F","RES","cyan",""), ("F","ANOM","cyan",""),
+            ("RES","TREND","cyan",""), ("PI","TREND","gold",""), ("ANOM","DEC","gold","alert"),
+            ("TREND","DEC","cyan",""),
+            ("DEC","OK","green","nominal"),
+            ("DEC","CURT","gold","constrained"),
+            ("DEC","DISP","red","fault"),
+            ("OK","LOG","green",""), ("CURT","LOG","gold",""), ("DISP","LOG","red",""),
+        ],
+    }
+
+    return {
+        "PV System Architecture":      pv_system,
+        "Data Cleaning Pipeline":      data_clean,
+        "Feature Engineering Map":     feature_map,
+        "Model Comparison Workflow":   model_workflow,
+        "Dashboard App Architecture":  app_arch,
+        "Risk & Decision Flow":        risk,
+    }
+
+
+def _diag_edge_color(name: str) -> str:
+    return {
+        "gold":   "#FBBF24",
+        "cyan":   "#38BDF8",
+        "green":  "#10B981",
+        "purple": "#A78BFA",
+        "red":    "#F87171",
+    }.get(name, "#38BDF8")
+
+
+def _diag_render_svg(spec: dict, height: int = 620) -> str:
+    """Build the full HTML+SVG+JS for one interactive diagram."""
+    node_w, node_h = 170, 84
+    pad_x, pad_y = 60, 40  # padding around the diagram inside the SVG
+
+    # Compute viewBox bounds.
+    max_x = max(n["x"] for n in spec["nodes"]) + node_w + pad_x
+    max_y = max(n["y"] for n in spec["nodes"]) + node_h + pad_y
+    view_w = max(max_x, 1300)
+    view_h = max(max_y, 560)
+
+    # Build nodes.
+    nodes_svg = []
+    for n in spec["nodes"]:
+        c = _DIAG_COLORS.get(n["cat"], _DIAG_COLORS["process"])
+        nid = n["id"]
+        nx, ny = n["x"], n["y"]
+        cx, cy = nx + node_w / 2, ny + node_h / 2
+        tip = (n.get("tip") or "").replace("\"", "&quot;")
+        nodes_svg.append(f'''
+            <g class="dx-node" data-name="{n["title"]}" data-tip="{tip}">
+              <rect class="dx-node-rect" x="{nx}" y="{ny}" width="{node_w}" height="{node_h}" rx="14"
+                    fill="{c["fill"]}" stroke="{c["stroke"]}" stroke-width="2"/>
+              <text class="dx-node-kicker" x="{nx + 12}" y="{ny + 17}" fill="{c["kicker"]}">{n["cat"].upper()}</text>
+              <text class="dx-node-icon" x="{nx + node_w - 18}" y="{ny + 22}">{n["icon"]}</text>
+              <text class="dx-node-title" x="{cx}" y="{cy + 4}" fill="{c["text"]}">{n["title"]}</text>
+              <text class="dx-node-sub"   x="{cx}" y="{cy + 22}" fill="#CBD5E1">{n["sub"]}</text>
+            </g>''')
+
+    # Build edges — find centers of nodes by id.
+    pos = {n["id"]: (n["x"] + node_w / 2, n["y"] + node_h / 2) for n in spec["nodes"]}
+    edges_svg = []
+    pulses_svg = []
+    for i, (src, dst, color_name, label) in enumerate(spec["edges"]):
+        if src not in pos or dst not in pos:
+            continue
+        x1, y1 = pos[src]
+        x2, y2 = pos[dst]
+        color = _diag_edge_color(color_name)
+        # Use a smooth curved path with a slight midpoint offset for visual flow.
+        mx = (x1 + x2) / 2
+        my = (y1 + y2) / 2 + (-18 if y1 == y2 else 0)
+        path_id = f"dx-edge-{i}"
+        path_d = f"M {x1:.0f} {y1:.0f} Q {mx:.0f} {my:.0f} {x2:.0f} {y2:.0f}"
+        edges_svg.append(
+            f'<path id="{path_id}" class="dx-edge" d="{path_d}" stroke="{color}"/>'
+        )
+        edges_svg.append(
+            f'<path class="dx-edge-glow" d="{path_d}" stroke="{color}" style="opacity:.7"/>'
+        )
+        if label:
+            lx, ly = mx, my - 8
+            edges_svg.append(
+                f'<rect x="{lx-32:.0f}" y="{ly-12:.0f}" width="64" height="18" rx="9" '
+                f'fill="rgba(8,22,47,.92)" stroke="{color}" stroke-width="1"/>'
+            )
+            edges_svg.append(
+                f'<text class="dx-edge-label" x="{lx:.0f}" y="{ly:.0f}" fill="{color}">{label}</text>'
+            )
+        # 2 pulses per edge, traveling along the curve.
+        for k in range(2):
+            delay = k * 1.1
+            pulses_svg.append(
+                f'<circle r="6" fill="{color}" class="dx-pulse" '
+                f'style="offset-path: path(\'{path_d}\'); animation-delay: {delay:.2f}s; color: {color};"/>'
+            )
+
+    nodes_inner  = "\n".join(nodes_svg)
+    edges_inner  = "\n".join(edges_svg)
+    pulses_inner = "\n".join(pulses_svg)
+
+    html = f"""
+    <!DOCTYPE html><html><head><meta charset="utf-8"/>
+    <style>
+        * {{ box-sizing: border-box; }}
+        html, body {{ margin:0; padding:0; }}
+        body {{
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #F8FBFF;
+            background: transparent;
+        }}
+        .dx-wrap {{
+            position: relative;
+            width: 100%;
+            border: 1px solid rgba(56,189,248,.32);
+            border-radius: 24px;
+            padding: 18px 22px;
+            background:
+                radial-gradient(circle at 8% 8%, rgba(56,189,248,.18), transparent 28%),
+                radial-gradient(circle at 92% 92%, rgba(16,185,129,.14), transparent 34%),
+                linear-gradient(155deg, rgba(5,18,38,.95), rgba(2,6,23,.92));
+            box-shadow: 0 22px 60px rgba(0,0,0,.34);
+            overflow: hidden;
+        }}
+        .dx-title {{
+            font-weight: 1000;
+            color: #FBBF24;
+            font-size: 20px;
+            letter-spacing: .3px;
+            margin-bottom: 2px;
+        }}
+        .dx-sub {{
+            color: #DBEAFE;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }}
+        .dx-svg {{
+            width: 100%;
+            height: {height}px;
+            display: block;
+            overflow: visible;
+        }}
+        /* === Edges === */
+        .dx-edge {{
+            fill: none;
+            stroke-width: 3;
+            stroke-linecap: round;
+            opacity: .25;
+        }}
+        .dx-edge-glow {{
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-dasharray: 10 10;
+            animation: dx-dash 1.8s linear infinite;
+        }}
+        @keyframes dx-dash {{ to {{ stroke-dashoffset: -20; }} }}
+        .dx-edge-label {{
+            font-size: 10px;
+            font-weight: 1000;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            pointer-events: none;
+        }}
+        .dx-pulse {{
+            filter: drop-shadow(0 0 8px currentColor);
+            animation: dx-flow 2.2s linear infinite;
+        }}
+        @keyframes dx-flow {{
+            0%   {{ offset-distance: -3%;  opacity: 0; }}
+            10%  {{ opacity: 1; }}
+            90%  {{ opacity: 1; }}
+            100% {{ offset-distance: 103%; opacity: 0; }}
+        }}
+
+        /* === Nodes === */
+        .dx-node {{
+            cursor: pointer;
+            transition: transform .22s ease;
+        }}
+        .dx-node-rect {{
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,.32));
+            transition: filter .22s ease, stroke-width .22s ease;
+        }}
+        .dx-node:hover .dx-node-rect {{
+            stroke-width: 3.5;
+            filter: drop-shadow(0 14px 28px rgba(56,189,248,.5));
+        }}
+        .dx-node:hover {{
+            transform: translateY(-2px);
+        }}
+        .dx-node-kicker {{
+            font-size: 9px;
+            font-weight: 1000;
+            letter-spacing: .12em;
+        }}
+        .dx-node-icon {{
+            font-size: 22px;
+            text-anchor: end;
+            filter: drop-shadow(0 1px 3px rgba(0,0,0,.5));
+        }}
+        .dx-node-title {{
+            font-size: 15px;
+            font-weight: 1000;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            paint-order: stroke;
+            stroke: rgba(0,0,0,.4);
+            stroke-width: 3;
+        }}
+        .dx-node-sub {{
+            font-size: 11px;
+            font-weight: 700;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            letter-spacing: .03em;
+        }}
+
+        /* Tooltip */
+        .dx-tip {{
+            position: absolute;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .15s ease;
+            padding: 9px 13px;
+            border-radius: 12px;
+            background: rgba(8,22,47,.96);
+            border: 1px solid rgba(56,189,248,.55);
+            color: #F8FBFF;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.4;
+            z-index: 30;
+            max-width: 280px;
+            box-shadow: 0 12px 28px rgba(0,0,0,.46);
+        }}
+        .dx-tip.show {{ opacity: 1; }}
+        .dx-tip b {{ color: #FBBF24; display: block; margin-bottom: 3px; font-size: 13px; }}
+
+        /* Legend */
+        .dx-legend {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }}
+        .dx-legend-pill {{
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 1000;
+            letter-spacing: .04em;
+            border: 1px solid currentColor;
+            background: rgba(255,255,255,.04);
+        }}
+    </style>
+    </head><body>
+    <div class="dx-wrap">
+        <div class="dx-title">{spec["title"]}</div>
+        <div class="dx-sub">{spec["subtitle"]} · Hover any node for details · Pulses show live data movement.</div>
+
+        <svg class="dx-svg" viewBox="0 0 {view_w} {view_h}" preserveAspectRatio="xMidYMid meet">
+            {edges_inner}
+            {pulses_inner}
+            {nodes_inner}
+        </svg>
+
+        <div class="dx-legend">
+            <span class="dx-legend-pill" style="color:#60A5FA">SOURCE</span>
+            <span class="dx-legend-pill" style="color:#38BDF8">PROCESS</span>
+            <span class="dx-legend-pill" style="color:#10B981">DATA</span>
+            <span class="dx-legend-pill" style="color:#A78BFA">MODEL</span>
+            <span class="dx-legend-pill" style="color:#FB923C">OUTPUT</span>
+            <span class="dx-legend-pill" style="color:#F472B6">DECISION</span>
+            <span class="dx-legend-pill" style="color:#F87171">ALERT</span>
+            <span class="dx-legend-pill" style="color:#FBBF24">ENERGY</span>
+        </div>
+
+        <div class="dx-tip" id="dx-tip"></div>
+    </div>
+
+    <script>
+    (function() {{
+        var tip = document.getElementById("dx-tip");
+        var nodes = document.querySelectorAll(".dx-node");
+        nodes.forEach(function(n) {{
+            n.addEventListener("mousemove", function(e) {{
+                var name = n.getAttribute("data-name") || "Node";
+                var txt  = n.getAttribute("data-tip")  || "";
+                tip.innerHTML = "<b>" + name + "</b>" + txt;
+                tip.style.left = (e.clientX + 16) + "px";
+                tip.style.top  = (e.clientY + 16) + "px";
+                tip.classList.add("show");
+            }});
+            n.addEventListener("mouseleave", function() {{
+                tip.classList.remove("show");
+            }});
+            n.addEventListener("click", function() {{
+                var rect = n.querySelector(".dx-node-rect");
+                if (rect) {{
+                    rect.style.transition = "transform .3s cubic-bezier(.34,1.56,.64,1)";
+                    rect.style.transformOrigin = "center";
+                    rect.style.transformBox = "fill-box";
+                    rect.style.transform = "scale(1.06)";
+                    setTimeout(function() {{ rect.style.transform = ""; }}, 320);
+                }}
+            }});
+        }});
+    }})();
+    </script>
+    </body></html>
+    """
+    return html
+
+
 def render_interactive_diagram_lab(location: str = "main"):
-    """Interactive diagram and flowchart lab with downloads."""
+    """Interactive diagram and flowchart lab — beautiful animated SVG diagrams.
+
+    Each diagram is fully interactive: every node has a hover tooltip with
+    a domain explanation, edges have animated pulses showing data movement,
+    and you can click any node to bounce-highlight it. The original DOT
+    download is preserved for users who want to edit the diagrams in
+    Graphviz-compatible tools.
+    """
     st.markdown("### 🛠️ Interactive Technical Diagram Lab")
-    c1, c2, c3 = st.columns([1.2, .8, .8])
+    specs = _diag_specs()
+    diagram_names = list(specs.keys())
+
+    c1, c2 = st.columns([2.5, 1])
     with c1:
         diagram_name = st.selectbox(
             "Diagram type",
-            [
-                "PV System Architecture",
-                "Data Cleaning Pipeline",
-                "Feature Engineering Map",
-                "Model Comparison Workflow",
-                "Dashboard App Architecture",
-                "Risk & Decision Flow",
-            ],
+            diagram_names,
             key=f"diagram_type_{location}",
         )
     with c2:
-        direction = st.selectbox("Layout direction", ["LR", "TB"], key=f"diagram_direction_{location}")
-    with c3:
-        detail_level = st.selectbox("Detail level", ["Compact", "Standard", "Detailed"], index=1, key=f"diagram_detail_{location}")
-
-    dot = build_diagram_source(diagram_name, direction, detail_level)
-    st.graphviz_chart(dot)
-
-    d1, d2 = st.columns(2)
-    with d1:
-        st.download_button(
-            "⬇️ Download diagram DOT",
-            data=dot,
-            file_name=f"{diagram_name.replace(' ', '_').replace('&', 'and').lower()}.dot",
-            mime="text/plain",
-            key=next_chart_key("dot"),
-            use_container_width=True,
-        )
-    with d2:
-        st.download_button(
-            "⬇️ Download diagram notes",
-            data=f"Diagram: {diagram_name}\nLayout: {direction}\nDetail level: {detail_level}\n\nUse this diagram to explain the technical architecture and workflow of the PV forecasting dashboard.",
-            file_name=f"{diagram_name.replace(' ', '_').replace('&', 'and').lower()}_notes.txt",
-            mime="text/plain",
-            key=next_chart_key("notes"),
-            use_container_width=True,
+        diagram_height = st.select_slider(
+            "Diagram size",
+            options=["Compact", "Standard", "Large"],
+            value="Standard",
+            key=f"diagram_size_{location}",
         )
 
+    height_px = {"Compact": 480, "Standard": 620, "Large": 760}[diagram_height]
+    spec = specs[diagram_name]
+    html = _diag_render_svg(spec, height=height_px)
+    components.html(html, height=height_px + 200, scrolling=False)
+
+    # Notes panel + DOT downloads (kept for backward compat with the old lab).
     notes = {
         "PV System Architecture": "Shows how physical PV components, storage, weather, monitoring, model, and dashboard connect.",
         "Data Cleaning Pipeline": "Explains the end-to-end data quality process before modeling.",
@@ -3317,21 +3800,52 @@ def render_interactive_diagram_lab(location: str = "main"):
     }
     st.info(notes.get(diagram_name, "Interactive technical diagram."))
 
+    # DOT download for compatibility with external tools.
+    dot = build_diagram_source(diagram_name, "LR", "Standard")
+    d1, d2 = st.columns(2)
+    with d1:
+        st.download_button(
+            "⬇️ Download diagram DOT (Graphviz)",
+            data=dot,
+            file_name=f"{diagram_name.replace(' ', '_').replace('&', 'and').lower()}.dot",
+            mime="text/plain",
+            key=next_chart_key("dot"),
+            use_container_width=True,
+        )
+    with d2:
+        st.download_button(
+            "⬇️ Download diagram notes",
+            data=f"Diagram: {diagram_name}\n\n{notes.get(diagram_name, '')}\n\nNode count: {len(spec['nodes'])}\nEdge count: {len(spec['edges'])}",
+            file_name=f"{diagram_name.replace(' ', '_').replace('&', 'and').lower()}_notes.txt",
+            mime="text/plain",
+            key=next_chart_key("notes"),
+            use_container_width=True,
+        )
+
 
 def render_technical_feature_cards():
-    st.markdown("### Added Technical Features")
+    """Uniform image-backed feature cards for the Technical Diagrams page."""
+    st.markdown("### ✨ Added Technical Features")
     cards = [
-        ("Interactive diagrams", "Switch diagram type, direction, and detail level."),
-        ("Downloadable DOT files", "Export diagram source for documentation or reports."),
-        ("Architecture view", "Explain app, model, data, and PV system layers."),
-        ("Decision flow", "Connect forecasts to operational actions."),
-        ("Model workflow", "Show how models are compared and ranked."),
-        ("Pipeline transparency", "Make cleaning, features, validation, and uncertainty easy to defend."),
+        ("Interactive diagrams",     "Switch diagram type and size live. Hover any node for context.",   "🛠️", IMG_DIAGRAMS,  "DIAGRAMS"),
+        ("Animated data flow",       "Pulses travel along every edge so the dataflow feels alive.",       "⚡", IMG_PIPELINE,  "ALIVE"),
+        ("Downloadable DOT files",   "Export source for external Graphviz tools and reports.",            "📥", IMG_EXPORT,    "EXPORT"),
+        ("Architecture view",        "Explain app, model, data, and PV system layers in one picture.",    "🏗️", IMG_3D,        "ARCH"),
+        ("Decision flow",            "Connect forecasts and anomalies to operational actions.",            "🛡️", IMG_ADVANCED,  "DECISIONS"),
+        ("Pipeline transparency",    "Make cleaning, features, validation, uncertainty easy to defend.",  "🧪", IMG_MODEL,     "RIGOR"),
     ]
-    cols = st.columns(3)
-    for i, (title, desc) in enumerate(cards):
-        with cols[i % 3]:
-            st.markdown(f'<div class="workflow-card"><div class="check">✓</div><b>{title}</b><div class="muted" style="margin-top:.35rem">{desc}</div></div>', unsafe_allow_html=True)
+    html = ['<div class="metric-tile-grid">']
+    for title, desc, icon, img, kicker in cards:
+        html.append(
+            f'<div class="metric-tile" style="background-image:url(\'{img}\')">'
+            f'<div class="mt-kicker">{kicker}</div>'
+            f'<div class="mt-icon">{icon}</div>'
+            f'<div class="mt-label">{title}</div>'
+            f'<div class="mt-value" style="font-size:.78rem;font-weight:800;line-height:1.25;color:#DBEAFE;text-shadow:0 1px 6px rgba(0,0,0,.85)">{desc}</div>'
+            f'</div>'
+        )
+    html.append('</div>')
+    st.markdown("".join(html), unsafe_allow_html=True)
 
 
 def render_section_navigation():
@@ -6554,28 +7068,12 @@ if selected_page == "🧩 Images + 3D":
     visual_twin_panel(live_readings)
 
     st.markdown("### Formal Technical Diagram")
-    st.graphviz_chart(
-        """
-        digraph G {
-            graph [bgcolor="transparent", rankdir=LR]
-            node [shape=box, style="rounded,filled", color="#22d3ee", fillcolor="#101d33", fontcolor="white", penwidth=1.4]
-            edge [color="#fbbf24", fontcolor="white"]
-            PV [label="PV Array\\nDC Power"]
-            INV [label="Inverter\\nDC to AC"]
-            TR [label="Transformer\\nVoltage Step-Up"]
-            GRID [label="Grid Export"]
-            BESS [label="Battery ESS\\nStorage"]
-            LOAD [label="Local Load"]
-            WX [label="Weather Station\\nForecast Features"]
-            PV -> INV [label="DC"]
-            INV -> TR [label="AC"]
-            TR -> GRID [label="MV"]
-            INV -> LOAD [label="AC"]
-            INV -> BESS [label="Charge"]
-            BESS -> INV [label="Discharge"]
-            WX -> INV [label="Model Inputs"]
-        }
-        """
+    # Use the same interactive renderer for consistency. The "PV System
+    # Architecture" diagram is the canonical formal view.
+    components.html(
+        _diag_render_svg(_diag_specs()["PV System Architecture"], height=540),
+        height=740,
+        scrolling=False,
     )
 
     st.markdown("### More Interactive Diagrams")
@@ -6601,23 +7099,11 @@ if selected_page == "🧹 Data Pipeline":
     st.markdown("### Dataset Audit")
     st.dataframe(audit_dataframe(raw_df), use_container_width=True)
     st.markdown("### Process Flowchart")
-    st.graphviz_chart(
-        """
-        digraph G {
-            graph [bgcolor="transparent", rankdir=LR]
-            node [shape=box, style="rounded,filled", color="#22d3ee", fillcolor="#101d33", fontcolor="white", penwidth=1.4]
-            edge [color="#fbbf24", fontcolor="white"]
-            A [label="Raw Data"]
-            B [label="Timestamp Parsing"]
-            C [label="Cleaning"]
-            D [label="Resampling"]
-            E [label="Outlier Handling"]
-            F [label="Feature Engineering"]
-            G [label="Train / Validation Split"]
-            H [label="Forecast Models"]
-            A -> B -> C -> D -> E -> F -> G -> H
-        }
-        """
+    # Interactive animated version of the cleaning pipeline.
+    components.html(
+        _diag_render_svg(_diag_specs()["Data Cleaning Pipeline"], height=480),
+        height=680,
+        scrolling=False,
     )
     st.markdown("### Cleaning Report")
     st.json(cleaning_report)
