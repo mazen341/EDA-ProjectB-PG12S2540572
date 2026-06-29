@@ -54,11 +54,28 @@ Submit these items to your instructor:
   - metrics table after you add modeling
   - at least one dashboard plot
 
-## Important student work still required
+## Project status — workshop complete
 
-This starter intentionally stops before model training and scoring. You must add:
+The starter has been extended into a complete forecasting workshop. The
+following are implemented in `app.py` and verified to run end-to-end:
 
-- time-based train/test split
-- at least one forecasting model
-- predictions and metrics table assigned to `results_df`
-- extra dashboard visuals and written insights
+- **Time-based train/test split** — strict chronological 80/20 split (no
+  shuffling) in `run_models`, avoiding look-ahead leakage.
+- **Multiple forecasting models** — a naive seasonal baseline plus
+  scikit-learn linear (RidgeCV/LassoCV/ElasticNetCV), tree-ensemble
+  (RandomForest/ExtraTrees/GradientBoosting/HistGradientBoosting), and
+  distance (KNN/SVR) models, selectable by comparison group.
+- **Predictions and metrics** — held-out MAE, RMSE, MAPE and R² in
+  `comparison_df`, with per-row predictions and 90% prediction intervals in
+  `predictions_df` (exported as `metrics.csv` and `predictions.csv`).
+- **Dashboard visuals and written insights** — line/bar/radar/scatter/
+  histogram/heatmap charts, an animated digital-twin and energy-flow view,
+  a what-if simulator, an all-in-one comparison lab, and structured
+  insights/conclusions/limitations.
+
+### Generated submission deliverables
+
+All four export artifacts are produced from the **📤 Export** tab:
+`submission.json`, `project_card.md`, `predictions.csv`, and `metrics.csv`.
+For the fullest evidence, run a comparison group from the sidebar (any option
+except "Do not train yet") before exporting.
