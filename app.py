@@ -2378,7 +2378,7 @@ def render_plotly_chart(fig, name: str = "chart", data: pd.DataFrame | None = No
 
     fig = make_plot_transparent(fig)
     chart_key = next_chart_key("plotly")
-    st.plotly_chart(fig, use_container_width=True, key=chart_key)
+    st.plotly_chart(fig, width="stretch", key=chart_key)
 
     d1, d2 = st.columns([1, 1])
     with d1:
@@ -2388,7 +2388,7 @@ def render_plotly_chart(fig, name: str = "chart", data: pd.DataFrame | None = No
             file_name=f"{name.replace(' ', '_').lower()}_chart.html",
             mime="text/html",
             key=next_chart_key("html"),
-            use_container_width=True,
+            width="stretch",
         )
     if data is not None and isinstance(data, pd.DataFrame) and not data.empty:
         with d2:
@@ -2398,7 +2398,7 @@ def render_plotly_chart(fig, name: str = "chart", data: pd.DataFrame | None = No
                 file_name=f"{name.replace(' ', '_').lower()}_data.csv",
                 mime="text/csv",
                 key=next_chart_key("csv"),
-                use_container_width=True,
+                width="stretch",
             )
 
 
@@ -2411,7 +2411,7 @@ def render_table_download(df: pd.DataFrame, name: str):
             file_name=f"{name.replace(' ', '_').lower()}.csv",
             mime="text/csv",
             key=next_chart_key("csv"),
-            use_container_width=True,
+            width="stretch",
         )
 
 
@@ -2893,7 +2893,7 @@ def render_actual_predicted_scatter(predictions_df: pd.DataFrame):
         )
         render_plotly_chart(fig, "chart")
     else:
-        st.dataframe(predictions_df[["y_target", "prediction", "absolute_error"]].tail(500), use_container_width=True)
+        st.dataframe(predictions_df[["y_target", "prediction", "absolute_error"]].tail(500), width="stretch")
 
 
 def render_error_distribution(predictions_df: pd.DataFrame):
@@ -2917,7 +2917,7 @@ def render_error_distribution(predictions_df: pd.DataFrame):
         )
         render_plotly_chart(fig, "chart")
     else:
-        st.dataframe(predictions_df[["residual", "absolute_error"]].describe(), use_container_width=True)
+        st.dataframe(predictions_df[["residual", "absolute_error"]].describe(), width="stretch")
 
 
 def render_error_by_time(predictions_df: pd.DataFrame, timestamp_col: str):
@@ -2975,10 +2975,10 @@ def render_feature_correlation_lab(model_df: pd.DataFrame, target_col: str, feat
             fig.update_layout(template="plotly_dark", height=520, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)")
             render_plotly_chart(fig, "chart")
         else:
-            st.dataframe(corr, use_container_width=True)
+            st.dataframe(corr, width="stretch")
     with c2:
         st.markdown("#### Top target-related features")
-        st.dataframe(top_corr, use_container_width=True)
+        st.dataframe(top_corr, width="stretch")
 
 
 def render_all_in_one_recommendations(comparison_df: pd.DataFrame, predictions_df: pd.DataFrame):
@@ -3810,7 +3810,7 @@ def render_interactive_diagram_lab(location: str = "main"):
             file_name=f"{diagram_name.replace(' ', '_').replace('&', 'and').lower()}.dot",
             mime="text/plain",
             key=next_chart_key("dot"),
-            use_container_width=True,
+            width="stretch",
         )
     with d2:
         st.download_button(
@@ -3819,7 +3819,7 @@ def render_interactive_diagram_lab(location: str = "main"):
             file_name=f"{diagram_name.replace(' ', '_').replace('&', 'and').lower()}_notes.txt",
             mime="text/plain",
             key=next_chart_key("notes"),
-            use_container_width=True,
+            width="stretch",
         )
 
 
@@ -3938,7 +3938,7 @@ def render_section_navigation():
                 if st.button(
                     btn_label,
                     key=f"quick_nav_{row_i}_{col_i}_{page}",
-                    use_container_width=True,
+                    width="stretch",
                     type=("primary" if active else "secondary"),
                 ):
                     st.session_state["selected_page"] = page
@@ -5408,7 +5408,7 @@ def render_live_history_chart(history: pd.DataFrame) -> None:
             unsafe_allow_html=True,
         )
     with btn_col:
-        if st.button("🔄 Refresh now", key=next_chart_key("live_refresh_btn"), use_container_width=True):
+        if st.button("🔄 Refresh now", key=next_chart_key("live_refresh_btn"), width="stretch"):
             try:
                 st.rerun()
             except Exception:
@@ -5444,7 +5444,7 @@ def render_live_history_chart(history: pd.DataFrame) -> None:
             yaxis2=dict(title="Module Temperature (°C)", overlaying="y", side="right", showgrid=False),
         )
         make_plot_transparent(fig, 360)
-        st.plotly_chart(fig, use_container_width=True, key=next_chart_key("live_history"))
+        st.plotly_chart(fig, width="stretch", key=next_chart_key("live_history"))
     else:
         st.line_chart(history.set_index("t")[["power_kw", "temperature_c"]])
 
@@ -6427,12 +6427,12 @@ with st.sidebar:
         run_comparison_clicked = st.button(
             "⌛ Run selected comparison",
             type="primary",
-            use_container_width=True,
+            width="stretch",
             key="run_comparison_btn",
         )
         clear_comparison_clicked = st.button(
             "Clear saved model results",
-            use_container_width=True,
+            width="stretch",
             key="clear_comparison_btn",
         )
         st.caption(
@@ -6946,7 +6946,7 @@ if selected_page == "🔴 Live Telemetry":
                         yaxis=dict(title=label, showgrid=True),
                     )
                     make_plot_transparent(fig, 240)
-                    st.plotly_chart(fig, use_container_width=True, key=next_chart_key(f"livesig_{col}"))
+                    st.plotly_chart(fig, width="stretch", key=next_chart_key(f"livesig_{col}"))
     else:
         st.info("Live charts will populate after a few refresh cycles. Make sure live updates are ON and wait a moment.")
 
@@ -6982,7 +6982,7 @@ if selected_page == "🔴 Live Telemetry":
     }, {
         "Signal": "CO₂ Avoided (today)", "Value": f"{live_readings['co2_avoided_kg']:,.2f}","Unit": "kg",
     }])
-    st.dataframe(snapshot, use_container_width=True, hide_index=True)
+    st.dataframe(snapshot, width="stretch", hide_index=True)
 
     csv_buf = live_history.to_csv(index=False)
     st.download_button(
@@ -7097,7 +7097,7 @@ if selected_page == "🧹 Data Pipeline":
             st.markdown(f'<div class="workflow-card"><div class="check">✓</div><b>{title}</b><br>{value}<div class="muted">{desc}</div></div>', unsafe_allow_html=True)
 
     st.markdown("### Dataset Audit")
-    st.dataframe(audit_dataframe(raw_df), use_container_width=True)
+    st.dataframe(audit_dataframe(raw_df), width="stretch")
     st.markdown("### Process Flowchart")
     # Interactive animated version of the cleaning pipeline.
     components.html(
@@ -7110,7 +7110,7 @@ if selected_page == "🧹 Data Pipeline":
     st.markdown("### Feature Preview")
     if not model_df.empty:
         preview_cols = [timestamp_col, target_col, "y_target"] + feature_cols[:14]
-        st.dataframe(model_df[preview_cols].head(40), use_container_width=True)
+        st.dataframe(model_df[preview_cols].head(40), width="stretch")
     else:
         st.warning("No feature rows available.")
 
@@ -7122,11 +7122,11 @@ if selected_page == "🤖 Models":
         st.warning(modeling_note)
     else:
         st.markdown("### Full Metrics Table")
-        st.dataframe(comparison_df, use_container_width=True)
+        st.dataframe(comparison_df, width="stretch")
         a, b = st.columns([1, 1])
         with a:
             st.markdown("### Feature Importance")
-            st.dataframe(importance_df, use_container_width=True)
+            st.dataframe(importance_df, width="stretch")
         with b:
             if PLOTLY_AVAILABLE and not importance_df.empty:
                 fig = go.Figure(go.Bar(x=importance_df["importance_mean"], y=importance_df["feature"], orientation="h"))
@@ -7177,14 +7177,14 @@ if selected_page == "🧬 Advanced":
         st.metric("Detected anomalies", f"{len(anomaly_df):,}")
         st.metric("Lower bound", f"{low:,.2f}")
         st.metric("Upper bound", f"{high:,.2f}")
-        st.dataframe(anomaly_df[[timestamp_col, target_col]].tail(20), use_container_width=True)
+        st.dataframe(anomaly_df[[timestamp_col, target_col]].tail(20), width="stretch")
 
     if show_correlation:
         st.markdown("### Correlation Diagnostics")
         numeric = filtered_df.select_dtypes(include=[np.number]).copy()
         if len(numeric.columns) >= 2:
             corr = numeric.corr(numeric_only=True).round(3)
-            st.dataframe(corr, use_container_width=True)
+            st.dataframe(corr, width="stretch")
             if PLOTLY_AVAILABLE:
                 fig = go.Figure(data=go.Heatmap(z=corr.values, x=corr.columns, y=corr.index, colorscale="Viridis"))
                 fig.update_layout(template="plotly_dark", height=520, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)")
@@ -7198,7 +7198,7 @@ if selected_page == "🧬 Advanced":
         residual_view = predictions_df[[timestamp_col, "residual", "absolute_error", "interval_covered"]].tail(chart_window)
         st.line_chart(residual_view.set_index(timestamp_col)[["residual", "absolute_error"]])
         render_table_download(residual_view, "residual_stream")
-        st.dataframe(residual_view.tail(30), use_container_width=True)
+        st.dataframe(residual_view.tail(30), width="stretch")
     else:
         st.info("Residual stream appears after prediction rows are available.")
 
@@ -7277,7 +7277,7 @@ if selected_page == "🔬 Comparison Lab":
 
     if lab_mode in ["Full comparison dashboard", "Metric leaderboard"]:
         st.markdown("### Model Leaderboard")
-        st.dataframe(comparison_df, use_container_width=True)
+        st.dataframe(comparison_df, width="stretch")
         m1, m2, m3 = st.columns(3)
         with m1:
             render_metric_bar_chart(comparison_df, "MAE", "MAE comparison — lower is better")
@@ -7302,7 +7302,7 @@ if selected_page == "🔬 Comparison Lab":
             render_error_distribution(predictions_df)
         with r2:
             if not predictions_df.empty:
-                st.dataframe(predictions_df[["residual", "absolute_error", "interval_covered"]].describe(), use_container_width=True)
+                st.dataframe(predictions_df[["residual", "absolute_error", "interval_covered"]].describe(), width="stretch")
             else:
                 st.info("Residual summary requires predictions.")
         render_error_by_time(predictions_df, timestamp_col)
@@ -7503,7 +7503,84 @@ if selected_page == "📤 Export":
         },
     }
     submission_json = json.dumps(submission, indent=2, default=safe_json_default)
+
+    # ------------------------------------------------------------------
+    # project_card.md — a human-readable one-page summary of the project.
+    # This is one of the required submission deliverables, built from the
+    # same evidence as submission.json so the two never drift apart.
+    # ------------------------------------------------------------------
+    def _md_list(items: list) -> str:
+        return "\n".join(f"- {item}" for item in items) if items else "- (none recorded)"
+
+    def _md_table(df: pd.DataFrame) -> str:
+        # Render a DataFrame as a GitHub-flavored markdown table without
+        # depending on the optional `tabulate` package (not in requirements).
+        cols = [str(c) for c in df.columns]
+        header = "| " + " | ".join(cols) + " |"
+        sep = "| " + " | ".join("---" for _ in cols) + " |"
+        body = []
+        for _, r in df.iterrows():
+            cells = []
+            for v in r.tolist():
+                cells.append(f"{v:.4f}" if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v))
+            body.append("| " + " | ".join(cells) + " |")
+        return "\n".join([header, sep, *body])
+
+    if not comparison_df.empty:
+        _best = comparison_df.iloc[0]
+        best_model_line = (
+            f"**{baseline_vs_best.get('best_model', _best['model'])}** — "
+            f"MAE {baseline_vs_best.get('best_MAE', float('nan')):.3f}, "
+            f"RMSE {baseline_vs_best.get('best_RMSE', float('nan')):.3f}, "
+            f"MAPE {baseline_vs_best.get('best_MAPE_pct') if baseline_vs_best.get('best_MAPE_pct') is not None else float('nan'):.2f}%, "
+            f"R² {baseline_vs_best.get('best_R2') if baseline_vs_best.get('best_R2') is not None else float('nan'):.3f}"
+        )
+        baseline_line = baseline_vs_best.get("baseline_model", "naive baseline")
+        metrics_table_md = _md_table(comparison_df.round(4))
+    else:
+        best_model_line = "_Run the model comparison from the sidebar to populate this section._"
+        baseline_line = "_not run yet_"
+        metrics_table_md = "_No metrics table yet — run a comparison group from the sidebar._"
+
+    coverage = uncertainty_summary.get("interval_coverage_pct")
+    coverage_line = f"{coverage}% empirical coverage" if coverage is not None else "not computed"
+
+    project_card_md = f"""# {project_title}
+
+**Student:** {student_name}
+**Student ID:** {student_id}
+**Dataset:** {source_label} ({int(len(raw_df))} rows)
+**Target:** `{target_col}`  •  **Timestamp:** `{timestamp_col}`  •  **Resampling:** `{resample_rule}`
+
+## Pipeline summary
+- Chronological 80/20 train/validation split (no shuffling — avoids look-ahead leakage).
+- {int(len(feature_cols))} engineered features (lag, rolling, calendar/cyclical, and {len(weather_features)} weather drivers).
+- Metrics reported on the held-out window: MAE, RMSE, MAPE, R².
+- 90% prediction intervals from validation residual quantiles ({coverage_line}).
+
+## Models
+- **Comparison group:** {comparison_group}  •  **Ranked by:** {comparison_metric}
+- **Baseline:** {baseline_line}
+- **Best model:** {best_model_line}
+
+### Metrics table
+{metrics_table_md}
+
+## Key insights
+{_md_list(dashboard_insights)}
+
+## Conclusions
+{_md_list(project_conclusions)}
+
+## Limitations
+{_md_list(submission["presentation_and_rigor"]["limitations"])}
+
+---
+_Generated by the Project B dashboard. Companion files: `submission.json`, `predictions.csv`, `metrics.csv`._
+"""
+
     st.download_button("Download submission.json", submission_json, "submission.json", "application/json", key="dl_submission_json")
+    st.download_button("Download project_card.md", project_card_md, "project_card.md", "text/markdown", key="dl_project_card_md")
     st.download_button("Download predictions.csv", predictions_df.to_csv(index=False), "predictions.csv", "text/csv", key="dl_predictions_csv")
     st.download_button("Download metrics.csv", comparison_df.to_csv(index=False), "metrics.csv", "text/csv", key="dl_metrics_csv")
 

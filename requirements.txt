@@ -1,5 +1,8 @@
 # Core app framework
-streamlit
+# Pinned for reproducible Streamlit Community Cloud deploys. This version still
+# supports streamlit.components.v1.html, which the animated diagrams/digital-twin
+# panels rely on; leaving it unpinned risks a future release removing that API.
+streamlit==1.58.0
 
 # Data handling
 pandas
